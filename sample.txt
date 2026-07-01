@@ -1,0 +1,1 @@
+SupportAI is an advanced customer support platform that integrates Retrieval-Augmented Generation (RAG). It uses Qdrant for vector search and Groq for LLM inference.

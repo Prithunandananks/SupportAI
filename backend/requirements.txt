@@ -1,5 +1,5 @@
 fastapi
-uvicorn[standard]
+uvicorn[standard]==0.30.1
 pydantic-settings
 asyncpg
 redis
@@ -9,6 +9,7 @@ alembic
 psycopg[binary]
 python-jose[cryptography]
 passlib[bcrypt]
+bcrypt==3.2.2
 python-multipart
 
 # AI & Retrieval
@@ -16,3 +17,6 @@ groq
 sentence-transformers
 rank-bm25
 numpy
+email-validator
+pypdf
+langchain-text-splitters

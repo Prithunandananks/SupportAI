@@ -2,12 +2,13 @@ import logging
 import sys
 import json
 
+
 class JSONFormatter(logging.Formatter):
     def format(self, record):
         log_record = {
             "timestamp": self.formatTime(record, self.datefmt),
             "level": record.levelname,
-            "message": record.getMessage()
+            "message": record.getMessage(),
         }
         if hasattr(record, "request_path"):
             log_record["http_method"] = getattr(record, "http_method", "")
@@ -15,6 +16,7 @@ class JSONFormatter(logging.Formatter):
             log_record["response_status"] = getattr(record, "response_status", "")
             log_record["response_time_ms"] = getattr(record, "response_time_ms", "")
         return json.dumps(log_record)
+
 
 def setup_logger():
     logger = logging.getLogger("supportai")
@@ -24,5 +26,6 @@ def setup_logger():
         handler.setFormatter(JSONFormatter())
         logger.addHandler(handler)
     return logger
+
 
 logger = setup_logger()
