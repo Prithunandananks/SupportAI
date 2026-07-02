@@ -10,3 +10,9 @@ psycopg[binary]
 python-jose[cryptography]
 passlib[bcrypt]
 python-multipart
+
+# AI & Retrieval
+groq
+sentence-transformers
+rank-bm25
+numpy

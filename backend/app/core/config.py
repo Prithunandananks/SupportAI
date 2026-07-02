@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     QDRANT_URL: str
     GROQ_API_KEY: str
     JWT_SECRET: str
+    COLLECTION_NAME: str
 
     model_config = SettingsConfigDict(
         env_file=".env",
