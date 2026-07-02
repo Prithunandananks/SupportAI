@@ -1,641 +1,1492 @@
-# Project Architecture Document
+# SupportAI – AI-Powered Customer Support Platform
 
-**Project Name:** SupportAI – AI-Powered Customer Support Platform  
-**Document Version:** 1.0.0  
-**Date:** June 24, 2026  
-**Status:** Software Architecture Review (Draft for Stakeholder Sign-Off)  
-**Target Audience:** Technical Mentors, Software Engineering Leads, Technical Stakeholders  
+### Software Architecture & Design Document
+
+**Version:** 1.0  
+**Date:** June 2026  
+**Team Size:** 3 Developers  
+**Timeline:** 3 Weeks
+
+---
+
+## Table of Contents
+
+1. [Executive Summary](#1-executive-summary)
+2. [Problem Statement](#2-problem-statement)
+3. [Project Objectives](#3-project-objectives)
+4. [Functional Requirements](#4-functional-requirements)
+5. [Non-Functional Requirements](#5-non-functional-requirements)
+6. [Technology Stack](#6-technology-stack)
+7. [System Architecture](#7-system-architecture)
+8. [Frontend Architecture](#8-frontend-architecture)
+9. [Backend Architecture](#9-backend-architecture)
+10. [Database Design](#10-database-design)
+11. [Search Architecture](#11-search-architecture)
+12. [RAG Workflow](#12-rag-workflow)
+13. [API Design](#13-api-design)
+14. [Design Patterns](#14-design-patterns)
+15. [Security Architecture](#15-security-architecture)
+16. [Deployment Architecture](#16-deployment-architecture)
+17. [CI/CD Architecture](#17-cicd-architecture)
+18. [Testing Strategy](#18-testing-strategy)
+19. [Reliability & Resilience](#19-reliability--resilience)
+20. [Enterprise Security Architecture](#20-enterprise-security-architecture)
+21. [Risks & Mitigation](#21-risks--mitigation)
+22. [Implementation Plan & Team Responsibilities](#22-implementation-plan--team-responsibilities)
+23. [Development Roadmap](#23-development-roadmap)
+24. [Future Enhancements](#24-future-enhancements)
 
 ---
 
 ## 1. Executive Summary
 
-SupportAI is an enterprise-ready, AI-powered customer support platform designed to optimize customer service efficiency by automating the resolution of routine product and policy queries. Utilizing Retrieval-Augmented Generation (RAG), the system safely and accurately answers customer inquiries using only verified corporate documentation (including FAQs, policies, user guides, product manuals, and knowledge base articles). 
+SupportAI is an AI-powered customer support platform built for an internship competition. It combines a Retrieval-Augmented Generation (RAG) pipeline with a clean web interface to let businesses provide fast, accurate, source-backed answers to customer queries — without requiring a large human support team.
 
-Crucially, the platform guarantees output reliability through a safety-net mechanism: inquiries that yield low confidence scores are bypassed or flagged, then escalated to a human administrator review queue. Administrators are equipped with dashboards to manage documents, review flagged items, inspect analytics, and identify knowledge gaps.
+Customers interact with a conversational chat interface. On the back end, their questions are answered using a hybrid search system (BM25 + vector search) over an admin-managed knowledge base, with responses generated through a configurable LLM provider **(reference implementation: Groq running Llama 3.1 8B Instruct)**. Admins get a dashboard for managing documents, reviewing flagged questions, and spotting knowledge gaps.
 
-To ensure rapid market delivery and low operational complexity for a small engineering team, the platform is designed around a modern, lightweight, and decoupled technology stack: React/TypeScript for a responsive interface, FastAPI for asynchronous API orchestration, PostgreSQL for transactional state, Qdrant for dense vector search, and Llama 3.1 8B Instruct (accessed via Groq) for low-latency, cost-effective inference. 
-
----
-
-## 2. System Overview
-
-SupportAI provides two distinct user interfaces: a customer-facing conversational UI and an administrative management dashboard. 
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                               SupportAI                                │
-├───────────────────────────────────┬────────────────────────────────────┤
-│           Customer Side           │             Admin Side             │
-├───────────────────────────────────┼────────────────────────────────────┤
-│ • Full-screen Chat Interface      │ • Dashboard Overview & KPI Metrics │
-│ • Conversational History Tracking │ • Knowledge Base Ingestion Engine  │
-│ • Source Attribution & Citations  │ • Flagged Question Review Queue    │
-│ • Instant User Feedback Toggles   │ • Semantic Knowledge Gap Analytics │
-└───────────────────────────────────┴────────────────────────────────────┘
-```
-
-### 2.1 Customer Side Features
-* **Conversational Interface:** A responsive, full-screen chat interface that tracks conversation context and features automatic thread naming.
-* **Suggested Starter Questions:** Common questions displayed on the landing state to prompt immediate user engagement.
-* **Source-Grounded Responses:** AI responses include precise document citations, confidence indicators, and feedback controls (Thumbs Up/Down).
-
-### 2.2 Admin Side Features
-* **Dashboard Overview:** Displays critical key performance indicators (KPIs) such as total conversations, ticket deflection rates, flagged questions, and average user satisfaction.
-* **Knowledge Base Ingestion:** Secure interface for uploading, categorizing, and deleting document files (PDF and TXT format).
-* **Flagged Question Review Queue:** A dashboard listing escalated questions (low-confidence queries or negative-feedback responses) to help administrators audit the system.
-* **Knowledge Gap Analytics:** Semantic clustering of unanswered queries to identify missing topics in the current knowledge base.
+The project is scoped for a 3-week sprint by a 3-person team, with deployments on Railway (backend) and Vercel (frontend).
 
 ---
 
-## 3. High-Level Architecture
+## 2. Problem Statement
 
-The SupportAI system utilizes a decoupled, service-oriented architecture. The system is split into three main tiers: the Presentation Layer (Frontend), the Application Layer (API Backend), and the Data Layer (Relational & Vector Storage). 
+Small to medium-sized businesses struggle to scale customer support. Common issues include:
+
+- **High support volume** — repetitive questions consume agent time.
+- **Slow response times** — customers wait hours for answers available in existing documentation.
+- **Inconsistent quality** — answers vary depending on which agent responds.
+- **No insight into gaps** — teams don't know which questions go unanswered or poorly answered.
+
+Existing solutions are either too expensive (enterprise chatbots), too rigid (FAQ pages), or require large AI teams to build. SupportAI aims to bridge this gap with an accessible, intelligent, document-grounded support system.
+
+---
+
+## 3. Project Objectives
+
+| #   | Objective                                                                                |
+| --- | ---------------------------------------------------------------------------------------- |
+| 1   | Build a working RAG pipeline using hybrid search (BM25 + vector) over uploaded documents |
+| 2   | Deliver a clean customer-facing chat UI with source attribution and confidence scores    |
+| 3   | Provide an admin dashboard for knowledge base management and analytics                   |
+| 4   | Implement a feedback loop so users can rate responses                                    |
+| 5   | Flag unanswered or low-confidence questions for admin review                             |
+| 6   | Complete a deployable, demo-ready product within 3 weeks                                 |
+
+---
+
+## 4. Functional Requirements
+
+### Customer Side
+
+- **Chat Interface** — Real-time conversational UI for submitting support queries
+- **User Authentication** — Customers can register and log in to access personalized support sessions.
+
+- **Conversation History** — Authenticated customers can view, resume, and manage their previous conversations across devices and sessions.
+- **Source Attribution** — Each response links back to the document chunk it was drawn from
+- **Confidence Scores** — A visual indicator of how confident the system is in the answer
+- **Feedback System** — Thumbs up/down to rate responses
+
+### Admin Side
+
+- **Dashboard** — Overview of query volume, average confidence, feedback scores
+- **Knowledge Base Management** — Upload, view, and delete documents
+- **Flagged Questions** — Review questions that scored low confidence or received negative feedback
+- **Analytics** — Charts showing query trends, top topics, satisfaction rates
+- **Knowledge Gap Detection** — Surface clusters of unanswered or low-scoring questions
+
+---
+
+## 5. Non-Functional Requirements
+
+| Category            | Requirement                                                                     |
+| ------------------- | ------------------------------------------------------------------------------- |
+| **Performance**     | Chat responses returned within 5 seconds under normal load                      |
+| **Scalability**     | Architecture should support future horizontal scaling without redesign          |
+| **Reliability**     | API uptime target of 99% during the competition demo window                     |
+| **Security**        | JWT-based auth, password hashing, input sanitization, CORS protection           |
+| **Usability**       | Mobile-responsive UI; accessible to non-technical users                         |
+| **Maintainability** | Modular codebase with clear separation of concerns                              |
+| **Portability**     | Fully containerized via Docker for consistent local and production environments |
+
+---
+
+## 6. Technology Stack
+
+### Frontend
+
+| Layer       | Technology         | Purpose                             |
+| ----------- | ------------------ | ----------------------------------- |
+| Framework   | React + TypeScript | Component-based UI with type safety |
+| Build Tool  | Vite               | Fast development server and bundler |
+| Styling     | Tailwind CSS       | Utility-first responsive design     |
+| Components  | shadcn/ui          | Accessible, pre-built UI components |
+| HTTP Client | Axios              | API communication with the backend  |
+
+### Backend
+
+| Layer      | Technology             | Purpose                               |
+| ---------- | ---------------------- | ------------------------------------- |
+| Framework  | FastAPI                | High-performance async REST API       |
+| ORM        | SQLAlchemy             | Database models and query abstraction |
+| Migrations | Alembic                | Schema versioning and migrations      |
+| Auth       | JWT (via PyJWT)        | Stateless authentication              |
+| Embeddings | BAAI/bge-small-en-v1.5 | Text-to-vector encoding               |
+
+### Data & AI
+
+| Component     | Technology                   | Purpose                                   |
+| ------------- | ---------------------------- | ----------------------------------------- |
+| Relational DB | PostgreSQL                   | Users, documents, conversations, messages |
+| Vector DB     | Qdrant                       | Storing and querying embedding vectors    |
+| LLM           | Llama 3.1 8B Instruct (Groq) | AI Response generation                    |
+| BM25          | rank_bm25 (Python)           | Keyword-based sparse retrieval            |
+| Hybrid Search | BM25 + Vector (RRF fusion)   | Combined retrieval for better accuracy    |
+
+### Deployment
+
+| Tool                                 | Purpose                                      |
+| ------------------------------------ | -------------------------------------------- |
+| Docker                               | Containerization for consistent environments |
+| Managed Container Platform (Railway) | Backend hosting                              |
+| Vercel                               | Frontend hosting (CDN-backed)                |
+| Qdrant Cloud                         | Managed vector database                      |
+
+---
+
+## 7. System Architecture
+
+SupportAI follows a **client-server architecture** with a clear separation between the React frontend, FastAPI backend, relational database, and AI/search components.
+
+### 7.1 Context View
+
+The Context View provides the highest-level perspective of the SupportAI platform. It illustrates how external users and third-party services interact with the system while intentionally hiding internal implementation details.
 
 ```mermaid
-graph TB
-    subgraph Presentation_Layer["Presentation Layer (Client Browser)"]
-        SPA["React SPA (Vite + TS)"]
-    end
+flowchart LR
 
-    subgraph Service_Boundary["Application Layer (API Backend Service)"]
-        API_GW["FastAPI Controller Gateway"]
-        Auth_Svc["JWT Auth Service"]
-        KB_Engine["Knowledge Base Ingestion Service"]
-        RAG_Orch["RAG Orchestration Service"]
-        Search_Engine["Hybrid Search Reranker"]
-        Local_Embed["BGE-small Embeddings Engine"]
-    end
+Customer["👤 Customer"]
+Admin["👨‍💼 Administrator"]
 
-    subgraph Storage_Layer["Data & External Services Layer"]
-        Postgres[("PostgreSQL DB (Transactional State)")]
-        Qdrant[("Qdrant Cluster (Vector Indexes)")]
-        Groq["Groq Cloud API (Llama 3.1 8B)"]
-    end
+SupportAI["SupportAI Platform"]
 
-    %% Client Interactions
-    SPA -->|HTTPS / JWT| API_GW
+Groq["🤖 Groq API"]
+Qdrant["🔎 Qdrant Cloud"]
 
-    %% Internal Backend Routing
-    API_GW --> Auth_Svc
-    API_GW --> KB_Engine
-    API_GW --> RAG_Orch
-    RAG_Orch --> Search_Engine
-    KB_Engine --> Local_Embed
-    Search_Engine --> Local_Embed
+Customer -->|"Ask Questions"| SupportAI
+Admin -->|"Manage Knowledge Base"| SupportAI
 
-    %% Data Connections
-    Auth_Svc -->|SQLAlchemy| Postgres
-    KB_Engine -->|SQLAlchemy| Postgres
-    KB_Engine -->|gRPC| Qdrant
-    RAG_Orch -->|SQLAlchemy| Postgres
-    Search_Engine -->|gRPC| Qdrant
-    RAG_Orch -->|HTTPS| Groq
+SupportAI -->|"Generate Responses"| Groq
+SupportAI -->|"Semantic Search"| Qdrant
 ```
 
-### 3.1 Component Architecture Overview
-* **Presentation Layer:** A static React Single-Page Application (SPA) compiled with Vite. It communicates with the backend exclusively via JSON-based REST APIs.
-* **Application Layer:** Built with FastAPI, executing asynchronously to process multi-user chat sessions, run BM25 search queries, calculate embeddings locally, and handle file streams.
-* **Data & AI Layer:**
-  - **PostgreSQL:** Stores transactional state (users, metadata, message logs, and feedback).
-  - **Qdrant:** Houses the vector index containing text chunk embeddings.
-  - **Groq API:** Handles inference requests for the open-weights Llama 3.1 8B model.
+**Responsibilities**
 
----
+| Actor/System  | Responsibility                                                         |
+| ------------- | ---------------------------------------------------------------------- |
+| Customer      | Interacts with the AI assistant to receive support.                    |
+| Administrator | Manages documents, analytics, and flagged questions.                   |
+| SupportAI     | Coordinates authentication, retrieval, AI generation, and persistence. |
+| Groq API      | Generates grounded responses using the retrieved context.              |
+| Qdrant Cloud  | Stores and retrieves semantic document embeddings.                     |
 
-## 4. Frontend Architecture
+### 7.2 Container View
 
-The frontend is built as a single-page application (SPA) optimized for low bundle size, fast rendering, and type safety.
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                          React Single Page App                         │
-├────────────────────────────────────────────────────────────────────────┤
-│                           Application Router                           │
-│                          (React Router Dom v6)                         │
-├───────────────────────────────────┬────────────────────────────────────┤
-│            Components             │            State Store             │
-│   (UI, Chat, Ingestion, Metrics)  │  (Auth Token, Conversations, UI)   │
-├───────────────────────────────────┼────────────────────────────────────┤
-│          Tailwind CSS             │         Axios API Client           │
-│     (Utility Classes & Tokens)    │    (Interceptors, JWT Refresh)     │
-└───────────────────────────────────┴────────────────────────────────────┘
-```
-
-### 4.1 Technology Stack & Utilities
-* **React 18 & TypeScript:** Enables component-driven development with strict compile-time type-safety.
-* **Vite:** Serving as the compiler and asset pipeline, providing fast Hot Module Replacement (HMR) and optimized production bundles.
-* **Tailwind CSS & shadcn/ui:** Leverages utility-first CSS and accessible, unstyled primitives (Radix UI) styled with Tailwind to build consistent, responsive interfaces.
-
-### 4.2 Application State & Routing
-* **Client-Side Routing:** Managed via `React Router DOM` using private routes to restrict access to administrator portals.
-* **State Management:** Conversational context and system state are managed using React Context and standard state hooks, avoiding the overhead of Redux.
-* **API Client:** Axios handles HTTP requests, configured with global interceptors to attach bearer JWT tokens and automatically handle token refreshes upon encountering `401 Unauthorized` responses.
-
----
-
-## 5. Backend Architecture
-
-The backend application is designed to support high levels of concurrency, clean separation of concerns, and reliable schema migrations.
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        FastAPI Application Core                        │
-├────────────────────────────────────────────────────────────────────────┤
-│                           ASGI Web Server                              │
-│                           (Uvicorn Engine)                             │
-├───────────────────────────────────┬────────────────────────────────────┤
-│         Routers / Endpoints       │         Pydantic Schemas           │
-│      (Auth, Admin, Chat, QA)      │     (Request / Response Models)    │
-├───────────────────────────────────┼────────────────────────────────────┤
-│         Business Services         │        SQLAlchemy Core ORM         │
-│     (RAG, Search, Ingestion)      │    (Repositories & Unit of Work)   │
-└───────────────────────────────────┴────────────────────────────────────┘
-```
-
-### 5.1 Technology Stack & Integration
-* **FastAPI:** Utilizes the Asynchronous Server Gateway Interface (ASGI) standard via Uvicorn to support high-throughput concurrent I/O operations.
-* **SQLAlchemy (Async Engine):** Houses the Object-Relational Mapper (ORM), utilizing asynchronous engine adapters (`asyncpg`) to avoid blocking request loops during database queries.
-* **Alembic:** Manages incremental database schema updates, ensuring version control of database structures in production.
-* **Pydantic v2:** Validates data structures at the API boundary, enforcing strict schemas for request bodies and response payloads.
-
-### 5.2 Middleware Architecture
-* **CORS Middleware:** Limits API access to verified frontend domains.
-* **Rate Limiting Middleware:** Implements a token-bucket rate-limiting algorithm to protect public endpoints (e.g., chat and authentication) from denial-of-service attempts.
-* **Authentication Interceptor:** Parses incoming JWT tokens, validates signatures, checks expiration timestamps, and injects user identities into endpoint dependency flows.
-
----
-
-## 6. Database Architecture
-
-The relational database stores core application state, audit trails, and transactional records. 
-
-### 6.1 Database Schema Design
-
-#### 6.1.1 Table: `users`
-Represents system administrators, support agents, and registered customers.
-* `id` (`UUID`, Primary Key, default `gen_random_uuid()`)
-* `email` (`VARCHAR(255)`, Unique, Not Null, Indexed)
-* `hashed_password` (`VARCHAR(255)`, Not Null)
-* `first_name` (`VARCHAR(100)`, Nullable)
-* `last_name` (`VARCHAR(100)`, Nullable)
-* `role` (`VARCHAR(50)`, Not Null, CHECK constraint: `role IN ('Admin', 'Support_Agent', 'Customer')`)
-* `created_at` (`TIMESTAMP WITH TIME ZONE`, default `CURRENT_TIMESTAMP`, Not Null)
-* `updated_at` (`TIMESTAMP WITH TIME ZONE`, default `CURRENT_TIMESTAMP`, Not Null)
-
-#### 6.1.2 Table: `documents`
-Stores metadata of knowledge base files uploaded by administrators.
-* `id` (`UUID`, Primary Key, default `gen_random_uuid()`)
-* `filename` (`VARCHAR(255)`, Not Null)
-* `file_path` (`VARCHAR(512)`, Not Null)
-* `file_size_bytes` (`BIGINT`, Not Null)
-* `mime_type` (`VARCHAR(100)`, Not Null)
-* `category` (`VARCHAR(100)`, default 'General', Not Null, Indexed)
-* `uploaded_by_id` (`UUID`, Foreign Key -> `users(id)`, ON DELETE SET NULL, Nullable)
-* `created_at` (`TIMESTAMP WITH TIME ZONE`, default `CURRENT_TIMESTAMP`, Not Null)
-* `updated_at` (`TIMESTAMP WITH TIME ZONE`, default `CURRENT_TIMESTAMP`, Not Null)
-
-#### 6.1.3 Table: `document_chunks`
-Stores parsed, granular text segments extracted from documents.
-* `id` (`UUID`, Primary Key, default `gen_random_uuid()`)
-* `document_id` (`UUID`, Foreign Key -> `documents(id)`, ON DELETE CASCADE, Not Null)
-* `chunk_index` (`INTEGER`, Not Null)
-* `content` (`TEXT`, Not Null)
-* `vector_id` (`UUID`, Not Null, Unique) - Represents the unique reference point inside Qdrant.
-* `created_at` (`TIMESTAMP WITH TIME ZONE`, default `CURRENT_TIMESTAMP`, Not Null)
-
-#### 6.1.4 Table: `conversations`
-Maintains conversational context sessions for both guests and authenticated users.
-* `id` (`UUID`, Primary Key, default `gen_random_uuid()`)
-* `user_id` (`UUID`, Foreign Key -> `users(id)`, ON DELETE CASCADE, Nullable)
-* `title` (`VARCHAR(255)`, default 'New Chat', Not Null)
-* `created_at` (`TIMESTAMP WITH TIME ZONE`, default `CURRENT_TIMESTAMP`, Not Null)
-* `updated_at` (`TIMESTAMP WITH TIME ZONE`, default `CURRENT_TIMESTAMP`, Not Null)
-
-#### 6.1.5 Table: `messages`
-Stores individual chat messages.
-* `id` (`UUID`, Primary Key, default `gen_random_uuid()`)
-* `conversation_id` (`UUID`, Foreign Key -> `conversations(id)`, ON DELETE CASCADE, Not Null)
-* `sender_role` (`VARCHAR(50)`, Not Null, CHECK constraint: `sender_role IN ('User', 'Assistant')`)
-* `content` (`TEXT`, Not Null)
-* `confidence_score` (`NUMERIC(4, 3)`, Nullable) - Populated for assistant responses.
-* `sources_used` (`JSONB`, Nullable) - Lists document chunks referenced to generate the answer.
-* `created_at` (`TIMESTAMP WITH TIME ZONE`, default `CURRENT_TIMESTAMP`, Not Null)
-
-#### 6.1.6 Table: `feedback`
-Captures user satisfaction scores for specific assistant messages.
-* `id` (`UUID`, Primary Key, default `gen_random_uuid()`)
-* `message_id` (`UUID`, Foreign Key -> `messages(id)`, ON DELETE CASCADE, Unique, Not Null)
-* `is_positive` (`BOOLEAN`, Not Null) - `True` for thumbs up, `False` for thumbs down.
-* `comment` (`TEXT`, Nullable)
-* `created_at` (`TIMESTAMP WITH TIME ZONE`, default `CURRENT_TIMESTAMP`, Not Null)
-
-#### 6.1.7 Table: `flagged_questions`
-Coordinates review tasks for administrators when responses are problematic.
-* `id` (`UUID`, Primary Key, default `gen_random_uuid()`)
-* `message_id` (`UUID`, Foreign Key -> `messages(id)`, ON DELETE SET NULL, Nullable)
-* `question_text` (`TEXT`, Not Null)
-* `reason_flagged` (`VARCHAR(100)`, Not Null, CHECK constraint: `reason_flagged IN ('LOW_CONFIDENCE', 'USER_DISLIKE', 'UNANSWERED')`)
-* `status` (`VARCHAR(50)`, default 'Pending', Not Null, CHECK constraint: `status IN ('Pending', 'Reviewed', 'Resolved')`)
-* `assigned_to_id` (`UUID`, Foreign Key -> `users(id)`, ON DELETE SET NULL, Nullable)
-* `resolution_note` (`TEXT`, Nullable)
-* `created_at` (`TIMESTAMP WITH TIME ZONE`, default `CURRENT_TIMESTAMP`, Not Null)
-* `updated_at` (`TIMESTAMP WITH TIME ZONE`, default `CURRENT_TIMESTAMP`, Not Null)
-
----
-
-### 6.2 Database Entity-Relationship (ER) Diagram
+The Container View illustrates the major deployable units of the system and how they communicate. Each container represents an independently deployable application or infrastructure service.
 
 ```mermaid
-erDiagram
-    users {
-        uuid id PK
-        varchar email UK
-        varchar hashed_password
-        varchar first_name
-        varchar last_name
-        varchar role
-        timestamp created_at
-        timestamp updated_at
-    }
+flowchart LR
 
-    documents {
-        uuid id PK
-        varchar filename
-        varchar file_path
-        bigint file_size_bytes
-        varchar mime_type
-        varchar category
-        uuid uploaded_by_id FK
-        timestamp created_at
-        timestamp updated_at
-    }
+Customer["👤 Customer"]
+Admin["👨‍💼 Administrator"]
 
-    document_chunks {
-        uuid id PK
-        uuid document_id FK
-        integer chunk_index
-        text content
-        uuid vector_id UK
-        timestamp created_at
-    }
+subgraph Frontend["Frontend (Vercel)"]
+    React["React + TypeScript + Tailwind"]
+end
 
-    conversations {
-        uuid id PK
-        uuid user_id FK
-        varchar title
-        timestamp created_at
-        timestamp updated_at
-    }
+subgraph Backend["Backend (Railway)"]
+    API["FastAPI Application"]
+end
 
-    messages {
-        uuid id PK
-        uuid conversation_id FK
-        varchar sender_role
-        text content
-        numeric confidence_score
-        jsonb sources_used
-        timestamp created_at
-    }
+Redis["🟥 Redis Cache"]
+Postgres[("🐘 PostgreSQL")]
+Qdrant[("🔎 Qdrant Cloud")]
+Groq["🤖 Groq API"]
 
-    feedback {
-        uuid id PK
-        uuid message_id FK "Unique"
-        boolean is_positive
-        text comment
-        timestamp created_at
-    }
+Customer --> React
+Admin --> React
 
-    flagged_questions {
-        uuid id PK
-        uuid message_id FK
-        text question_text
-        varchar reason_flagged
-        varchar status
-        uuid assigned_to_id FK
-        text resolution_note
-        timestamp created_at
-        timestamp updated_at
-    }
+React --> API
 
-    users ||--o{ documents : "uploads"
-    users ||--o{ conversations : "initiates"
-    users ||--o{ flagged_questions : "resolves"
-    documents ||--o{ document_chunks : "contains"
-    conversations ||--o{ messages : "contains"
-    messages ||--o| feedback : "receives"
-    messages ||--o| flagged_questions : "escalates"
+API --> Redis
+API --> Postgres
+API --> Qdrant
+API --> Groq
+```
+
+### 7.3 Component View
+
+The Component View shows the internal organization of the FastAPI backend. Each component has a single responsibility and communicates through well-defined interfaces.
+
+```mermaid
+flowchart TB
+
+subgraph FastAPI["FastAPI Backend"]
+
+Auth["🔐 Authentication Router"]
+
+Chat["💬 Chat Router"]
+
+Upload["📤 Upload Router"]
+
+Admin["⚙️ Admin Router"]
+
+UserService["User Service"]
+
+RAG["🧠 RAG Service"]
+
+Analytics["📊 Analytics Service"]
+
+Background["⚡ Background Worker"]
+
+end
+
+Redis["🟥 Redis"]
+
+Postgres[("🐘 PostgreSQL")]
+
+Qdrant[("🔎 Qdrant")]
+
+Groq["🤖 Groq API"]
+
+Auth --> UserService
+
+Chat --> RAG
+
+Upload --> Background
+
+Admin --> Analytics
+
+UserService --> Postgres
+
+Analytics --> Postgres
+
+RAG --> Redis
+RAG --> Postgres
+RAG --> Qdrant
+RAG --> Groq
+
+Background --> Postgres
+Background --> Qdrant
+```
+
+### 7.4 Runtime View
+
+The Runtime View illustrates the end-to-end execution flow of a customer request through the SupportAI platform, showing how the frontend, backend services, cache, retrieval pipeline, and external AI services collaborate to generate a response.
+
+```mermaid
+flowchart LR
+
+User["👤 Customer"]
+
+Frontend["⚛️ React Frontend"]
+
+API["🚀 FastAPI"]
+
+Redis["🟥 Redis Cache"]
+
+Decision{"Cache Hit?"}
+
+RAG["🧠 RAG Service"]
+
+BM25["📖 BM25 Search"]
+
+Qdrant["🔎 Qdrant"]
+
+Groq["🤖 Groq API"]
+
+Postgres[("🐘 PostgreSQL")]
+
+Response["💬 AI Response"]
+
+User --> Frontend
+
+Frontend --> API
+
+API --> Redis
+
+Redis --> Decision
+
+Decision -- Yes --> Response
+
+Decision -- No --> RAG
+
+RAG --> BM25
+RAG --> Qdrant
+
+BM25 --> Groq
+Qdrant --> Groq
+
+Groq --> API
+
+API --> Postgres
+API --> Redis
+
+API --> Response
+
+Response --> User
 ```
 
 ---
 
-## 7. Vector Database Architecture
+## 8. Frontend Architecture
 
-Qdrant serves as the system's vector database, managing high-dimensional semantic search indexes.
+The frontend is a single-page application (SPA) organized by feature, with shared components and a central API layer.
 
-### 7.1 Collection Design
-The system registers a unified collection named `support_knowledge` configured for dense vector representations.
-* **Vector Dimension:** `384` (matching the outputs of the `bge-small-en-v1.5` model).
-* **Distance Metric:** Cosine similarity, chosen to measure semantic similarity independently of text length.
+### Frontend Component Architecture
 
-### 7.2 Index Configuration
-To guarantee sub-second search speeds under continuous ingestion workloads, the collection employs a Hierarchical Navigable Small World (HNSW) index with the following parameters:
-* `m`: `16` (the maximum number of connection links per node in the graph, balancing search recall and index size).
-* `ef_construct`: `100` (number of neighbors evaluated during index creation; higher values improve search recall at the expense of indexing time).
-* `ef_search`: `64` (number of neighbors checked during search queries; balances retrieval speed and accuracy).
+The frontend follows a feature-oriented architecture with reusable UI components, centralized state management, and a shared API client.
 
-### 7.3 Payload Schema
-To support fast retrieval and multi-tenant categorization, vectors are stored with metadata payloads containing the following fields:
-* `chunk_id` (`string`): Maps to the primary key of the relational database chunk.
-* `document_id` (`string`): Reference to the parent document record.
-* `category` (`string`): Category label (e.g., 'Billing', 'Setup') used to apply exact metadata filtering during search.
-* `content` (`string`): The raw text segment used to populate the prompt context.
+```mermaid
+flowchart LR
+
+User["👤 User"]
+
+subgraph Browser["React SPA"]
+
+Pages["Pages"]
+
+Components["Feature Components"]
+
+Hooks["Custom Hooks"]
+
+Store["Auth Store"]
+
+API["API Client"]
+
+end
+
+Backend["FastAPI Backend"]
+
+User --> Pages
+
+Pages --> Components
+
+Components --> Hooks
+
+Hooks --> Store
+
+Hooks --> API
+
+API --> Backend
+```
+
+### Folder Structure
 
 ```
-┌────────────────────────────────────────────────────────┐
-│             Qdrant Vector Database Point               │
-├────────────────────────────────────────────────────────┤
-│ Point ID: UUID                                         │
-│ Vector: [0.024, -0.118, ..., 0.089] (384 Dimensions)   │
-├────────────────────────────────────────────────────────┤
-│                       Payload                          │
-│ • chunk_id: "8c7d8b5a..."                              │
-│ • document_id: "d9e8f7a6..."                           │
-│ • category: "Troubleshooting"                          │
-│ • content: "To reset the router, hold the button..."   │
-└────────────────────────────────────────────────────────┘
+src/
+├── components/
+│   ├── ui/              # shadcn/ui base components (Button, Card, etc.)
+│   ├── chat/            # ChatWindow, MessageBubble, SuggestedQuestions
+│   ├── admin/           # DocumentTable, FlaggedList, AnalyticsChart
+│   └── shared/          # Navbar, Sidebar, ConfidenceBadge
+├── pages/
+│   ├── CustomerChat.tsx
+│   ├── ConversationHistory.tsx
+│   ├── AdminDashboard.tsx
+│   ├── KnowledgeBase.tsx
+│   └── Login.tsx
+├── hooks/
+│   ├── useChat.ts
+│   ├── useConversations.ts
+│   └── useAdmin.ts
+├── api/
+│   └── client.ts        # Axios instance with JWT interceptor
+├── store/
+│   └── authStore.ts     # Auth state (Zustand or Context)
+└── types/
+    └── index.ts         # Shared TypeScript interfaces
 ```
+
+### Key Design Decisions
+
+- **Component co-location** — Each feature has its own folder with components, hooks, and local types grouped together.
+- **API abstraction** — All HTTP calls go through `api/client.ts`, which automatically attaches JWT tokens.
+- **Confidence badges** — Rendered as a color-coded component (green / yellow / red) based on score thresholds.
+- **Source cards** — Each AI message includes collapsible source attribution cards linking to document metadata.
 
 ---
 
-## 8. AI Architecture
+## 9. Backend Architecture
 
-The system uses a grounded generation model that relies on an external inference engine and a local embedding service.
+The FastAPI backend follows a **layered architecture** pattern: routers handle HTTP, services hold business logic, and repositories manage data access.
+
+### Backend Component Architecture
+
+The backend follows a layered architecture separating HTTP routing, business logic, persistence, and external integrations.
+
+```mermaid
+flowchart TB
+
+subgraph API["API Layer"]
+
+Auth["Auth Router"]
+
+Chat["Chat Router"]
+
+Upload["Upload Router"]
+
+Admin["Admin Router"]
+
+end
+
+subgraph Services["Application Services"]
+
+UserService["User Service"]
+
+RAG["RAG Service"]
+
+Analytics["Analytics Service"]
+
+end
+
+subgraph Infrastructure["Infrastructure"]
+
+Redis["Redis"]
+
+Postgres["PostgreSQL"]
+
+Qdrant["Qdrant"]
+
+Groq["Groq API"]
+
+Background["Background Worker"]
+
+end
+
+Auth --> UserService
+
+Chat --> RAG
+
+Upload --> Background
+
+Admin --> Analytics
+
+UserService --> Postgres
+
+Analytics --> Postgres
+
+RAG --> Redis
+RAG --> Postgres
+RAG --> Qdrant
+RAG --> Groq
+
+Background --> Postgres
+Background --> Qdrant
+```
+
+### Folder Structure
 
 ```
-┌────────────────────────────────────────────────────────┐
-│                     AI Architecture                    │
-├───────────────────────────┬────────────────────────────┤
-│   Local Embedding Model   │      Inference Engine      │
-│   (BAAI/bge-small-en-v1.5)│  (Llama 3.1 8B Instruct)   │
-├───────────────────────────┼────────────────────────────┤
-│ • Local CPU/GPU Execution │ • Hosted on Groq LPU       │
-│ • 384-Dim Dense Vectors   │ • Grounded Prompts         │
-│ • Vector Generation       │ • Token Streaming API      │
-└───────────────────────────┴────────────────────────────┘
+app/
+├── api/
+│   └── v1/
+│       ├── auth.py
+│       ├── chat.py
+│       ├── documents.py
+│       ├── admin.py
+│       └── feedback.py
+├── services/
+│   ├── rag_service.py       # Orchestrates retrieval + generation
+│   ├── search_service.py    # BM25 + vector hybrid search
+│   ├── embed_service.py     # Embedding generation
+│   ├── llm_service.py       # Groq API interaction
+│   └── analytics_service.py
+├── models/
+│   └── db_models.py         # SQLAlchemy ORM models
+├── schemas/
+│   └── pydantic_schemas.py  # Request/response validation
+├── db/
+│   ├── session.py           # DB engine and session factory
+│   └── vector_store.py      # Qdrant client wrapper
+├── core/
+│   ├── config.py            # Environment settings
+│   ├── security.py          # JWT helpers, password hashing
+│   └── dependencies.py      # FastAPI dependency injection
+└── main.py
 ```
 
-### 8.1 Large Language Model: Llama 3.1 8B Instruct
-Llama 3.1 8B Instruct is a state-of-the-art open-weights model optimized for multilingual dialogue and task orchestration. It features a native 128k context window, allowing the system to pass extensive context segments without exceeding limits.
-
-### 8.2 Execution Platform: Groq Cloud
-Rather than self-hosting the model on expensive, underutilized GPU clusters, SupportAI routes queries to Groq's managed inference engine. Groq's custom LPU (Language Processing Unit) architecture serves tokens at speeds exceeding 200 tokens per second for Llama 3.1 8B, ensuring low latency.
-
-### 8.3 Local Embedding Service: BAAI/bge-small-en-v1.5
-The BGE (Beijing Academy of Artificial Intelligence) model runs locally within the FastAPI application process. It processes raw strings and outputs 384-dimensional dense vectors, eliminating external API calls during chunking and search operations.
-
-### 8.4 Prompt Engineering & Grounding Rules
-To prevent the model from generating hallucinated responses, the system enforces strict prompt grounding rules. The LLM is instructed to answer questions using only the provided context. If the context does not contain the answer, the model is configured to return a standard fallback response.
-
----
-
-## 9. Search Architecture
-
-To ensure high retrieval precision, SupportAI implements a Hybrid Search engine that combines keyword matching and semantic search.
-
-```
-                  ┌─────────────────┐
-                  │   User Query    │
-                  └────────┬────────┘
-                           │
-             ┌─────────────┴─────────────┐
-             ▼                           ▼
-    ┌─────────────────┐         ┌─────────────────┐
-    │   BM25 Search   │         │  Vector Search  │
-    │  (Exact Match)  │         │ (Semantic Match)│
-    └────────┬────────┘         └────────┬────────┘
-             │                           │
-             └─────────────┬─────────────┘
-                           ▼
-              ┌─────────────────────────┐
-              │ Reciprocal Rank Fusion  │
-              │     (RRF Reranking)     │
-              └────────────┬────────────┘
-                           ▼
-              ┌─────────────────────────┐
-              │   Merged Top-K Chunks   │
-              └─────────────────────────┘
-```
-
-### 9.1 BM25 Keyword Retrieval
-BM25 (Best Matching 25) matches exact terms like product SKUs, serial numbers, and error codes.
-The BM25 score for a document chunk $D$ relative to a query $Q$ with terms $q_i$ is calculated as:
-
-$$\text{score}(D, Q) = \sum_{i=1}^{n} \text{IDF}(q_i) \cdot \frac{f(q_i, D) \cdot (k_1 + 1)}{f(q_i, D) + k_1 \cdot \left(1 - b + b \cdot \frac{|D|}{\text{avgdl}}\right)}$$
-
-Where:
-* $f(q_i, D)$ represents term frequency in chunk $D$.
-* $|D|$ and $\text{avgdl}$ are the chunk length and average chunk length in words.
-* $k_1 = 1.2$ and $b = 0.75$ are standard tuning parameters.
-* The inverse document frequency $\text{IDF}(q_i)$ is computed as:
-
-$$\text{IDF}(q_i) = \ln \left( \frac{N - n(q_i) + 0.5}{n(q_i) + 0.5} + 1 \right)$$
-
----
-
-### 9.2 Dense Vector Search
-Vector search captures the semantic meaning of queries even when users use synonyms instead of exact document terminology.
-* The query string $Q$ is converted to vector $\mathbf{v}_Q$ using BGE-small.
-* Qdrant calculates the cosine similarity against candidate document vectors $\mathbf{v}_D$:
-
-$$\text{sim}(\mathbf{v}_Q, \mathbf{v}_D) = \frac{\mathbf{v}_Q \cdot \mathbf{v}_D}{\|\mathbf{v}_Q\| \|\mathbf{v}_D\|}$$
-
----
-
-### 9.3 Reciprocal Rank Fusion (RRF)
-To combine search results from BM25 and Vector Search without score normalization issues, the system uses Reciprocal Rank Fusion (RRF). RRF ranks items based on their position in both search results:
-
-$$\text{RRF\_Score}(d \in D) = \sum_{m \in M} \frac{1}{k + r_m(d)}$$
-
-Where:
-* $M = \{\text{BM25}, \text{Vector}\}$ is the set of retrieval methods.
-* $r_m(d)$ is the rank of chunk $d$ in the output of method $m$. If a chunk is not returned by a method, $r_m(d) \to \infty$.
-* $k$ is a constant smoothing parameter (configured to $60$).
-
----
-
-## 10. RAG Workflow
-
-The system coordinates RAG operations across two primary workflows: **Document Ingestion** and **Query Processing**.
-
-### 10.1 System Sequence Diagram
+### Request Flow (Chat Query)
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    actor Admin as Administrator
-    actor User as Customer
-    participant FE as React Frontend
-    participant BE as FastAPI Backend
-    database DB as PostgreSQL DB
-    database VDB as Qdrant Vector DB
-    participant Groq as Groq (Llama 3.1)
 
-    %% INGESTION FLOW
-    Note over Admin, VDB: 1. Ingestion Pipeline (Admin Upload)
-    Admin->>FE: Select file (PDF/TXT) & Category
-    FE->>BE: POST /api/v1/admin/documents (Multipart File)
-    activate BE
-    BE->>BE: Validate file extension & magic bytes
-    BE->>BE: Parse text & split using RecursiveCharacterSplitter
-    BE->>BE: Generate 384-dim embeddings locally (BGE-small)
-    BE->>DB: Store Document & Document_Chunks metadata
-    BE->>VDB: Upsert Embeddings + Chunk Payload (gRPC)
-    BE-->>FE: Return Upload Success (201 Created)
-    deactivate BE
-    FE-->>Admin: Show updated knowledge base table
+actor Customer
 
-    %% QUERY FLOW
-    Note over User, Groq: 2. Retrieval & Generation Pipeline (Chat session)
-    User->>FE: Submit query in Chat UI
-    FE->>BE: POST /api/v1/chat/message (Conversation UUID + Query)
-    activate BE
-    BE->>DB: Log user query in Messages Table
-    
-    par Sparse Retrieval
-        BE->>DB: Run BM25 search query on text chunks
-        DB-->>BE: Return top-K keyword-matched chunks
-    and Dense Retrieval
-        BE->>BE: Embed query vector locally using BGE-small
-        BE->>VDB: Query similarity (Cosine Distance)
-        VDB-->>BE: Return top-K semantically-similar chunks
-    end
+participant React
 
-    BE->>BE: Merge results using Reciprocal Rank Fusion (RRF)
-    BE->>BE: Calculate Confidence Score (CS)
-    
-    alt Confidence Score < 0.50
-        BE->>DB: Log query to flagged_questions (Reason: Unanswered)
-        BE->>DB: Store fallback assistant message
-        BE-->>FE: Return fallback response & low confidence status
-    else Confidence Score >= 0.50
-        BE->>BE: Build Prompt using merged contexts
-        BE->>Groq: Request LLM Completion (Context + Prompt)
-        activate Groq
-        Groq-->>BE: Return response text
-        deactivate Groq
-        alt Confidence Score < 0.65
-            BE->>DB: Log query to flagged_questions (Reason: Low Confidence)
-        end
-        BE->>DB: Store assistant message with sources & score
-        BE-->>FE: Return generated response, sources, and score
-    end
-    deactivate BE
-    FE-->>User: Render text response, source tags, and feedback options
+participant API
+
+participant Redis
+
+participant RAG
+
+participant Qdrant
+
+participant Groq
+
+participant PostgreSQL
+
+Customer->>React: Send Message
+
+React->>API: POST /chat/message
+
+API->>Redis: Check Cache
+
+alt Cache Hit
+
+Redis-->>API: Cached Response
+
+API-->>React: Response
+
+else Cache Miss
+
+API->>RAG: Process Query
+
+RAG->>Qdrant: Hybrid Search
+
+Qdrant-->>RAG: Top Chunks
+
+RAG->>Groq: Generate Response
+
+Groq-->>RAG: AI Response
+
+RAG->>PostgreSQL: Save Conversation
+
+RAG->>Redis: Cache Response
+
+API-->>React: Response
+
+end
 ```
 
 ---
 
-## 11. Deployment Architecture
+## 10. Database Design
 
-SupportAI uses a containerized deployment topology designed to scale easily.
+All relational data is stored in PostgreSQL, managed via SQLAlchemy ORM and Alembic migrations.
 
-### 11.1 Deployment Diagram
+### `users`
+
+| Column            | Type         | Notes               |
+| ----------------- | ------------ | ------------------- |
+| `id`              | UUID (PK)    | Auto-generated      |
+| `email`           | VARCHAR(255) | Unique, required    |
+| `hashed_password` | TEXT         | bcrypt hash         |
+| `role`            | ENUM         | `customer`, `admin` |
+| `created_at`      | TIMESTAMP    | Default: now()      |
+| `is_active`       | BOOLEAN      | Default: true       |
+
+- The users table stores both customer and administrator accounts. Role-based access control (RBAC) is enforced at the API layer.
+
+### `documents`
+
+| Column        | Type              | Notes                     |
+| ------------- | ----------------- | ------------------------- |
+| `id`          | UUID (PK)         |                           |
+| `title`       | VARCHAR(255)      | Display name              |
+| `filename`    | TEXT              | Original upload filename  |
+| `Category`    | VARCHAR(100)      | billing,technical,general |
+| `file_type`   | VARCHAR(50)       | `pdf`, `txt`, `md`, etc.  |
+| `uploaded_by` | UUID (FK → users) | Admin who uploaded        |
+| `created_at`  | TIMESTAMP         |                           |
+| `is_active`   | BOOLEAN           | Soft delete flag          |
+
+- Each document is assigned a category during upload. Categories help organize the knowledge base and support future filtering, analytics, and search enhancements.
+
+### `document_chunks`
+
+| Column            | Type                  | Notes                         |
+| ----------------- | --------------------- | ----------------------------- |
+| `id`              | UUID (PK)             |                               |
+| `document_id`     | UUID (FK → documents) | Parent document               |
+| `chunk_index`     | INTEGER               | Position in document          |
+| `content`         | TEXT                  | Raw chunk text                |
+| `token_count`     | INTEGER               | Approx tokens in chunk        |
+| `page_number`     | INTEGER               |
+| `qdrant_point_id` | UUID                  | Reference to vector in Qdrant |
+| `created_at`      | TIMESTAMP             |                               |
+
+- The page_number field enables accurate source attribution by linking retrieved chunks back to their original document page.
+
+### `conversations`
+
+| Column       | Type              | Notes                                   |
+| ------------ | ----------------- | --------------------------------------- |
+| `id`         | UUID (PK)         |                                         |
+| `user_id`    | UUID (FK → users) | Customer who started it                 |
+| `title`      | VARCHAR(255)      | Auto-generated or first message snippet |
+| `created_at` | TIMESTAMP         |                                         |
+| `updated_at` | TIMESTAMP         | Updated on each new message             |
+
+### `messages`
+
+| Column             | Type                      | Notes                   |
+| ------------------ | ------------------------- | ----------------------- |
+| `id`               | UUID (PK)                 |                         |
+| `conversation_id`  | UUID (FK → conversations) |                         |
+| `role`             | ENUM                      | `user`, `assistant`     |
+| `content`          | TEXT                      | Message body            |
+| `source_chunks`    | JSONB                     | Array of chunk IDs used |
+| `confidence_score` | FLOAT                     | 0.0 – 1.0               |
+| `created_at`       | TIMESTAMP                 |                         |
+
+### `feedback`
+
+| Column       | Type                 | Notes                     |
+| ------------ | -------------------- | ------------------------- |
+| `id`         | UUID (PK)            |                           |
+| `message_id` | UUID (FK → messages) | Message being rated       |
+| `user_id`    | UUID (FK → users)    | Who gave feedback         |
+| `rating`     | ENUM                 | `positive`, `negative`    |
+| `comment`    | TEXT                 | Optional written feedback |
+| `created_at` | TIMESTAMP            |                           |
+
+### `flagged_questions`
+
+| Column        | Type                 | Notes                                           |
+| ------------- | -------------------- | ----------------------------------------------- |
+| `id`          | UUID (PK)            |                                                 |
+| `message_id`  | UUID (FK → messages) | The flagged message                             |
+| `reason`      | ENUM                 | `low_confidence`, `negative_feedback`, `manual` |
+| `status`      | ENUM                 | `open`, `reviewed`, `resolved`                  |
+| `admin_note`  | TEXT                 | Optional admin comment                          |
+| `created_at`  | TIMESTAMP            |                                                 |
+| `reviewed_at` | TIMESTAMP            | Nullable                                        |
+
+---
+
+## 11. Search Architecture
+
+SupportAI uses **Hybrid Search** — combining keyword-based BM25 retrieval with dense vector search — to improve answer quality over either approach alone.
+
+### BM25 (Sparse Retrieval)
+
+BM25 (Best Match 25) is a traditional IR algorithm that scores documents based on term frequency and inverse document frequency.
+
+- **Strengths:** Excellent for exact keyword matches, product names, IDs, and short queries
+- **Implementation:** `rank_bm25` Python library; BM25 index built in-memory at startup from all active chunks
+- **Refresh:** Re-indexed whenever documents are added or removed
+
+### Vector Search (Dense Retrieval)
+
+Each document chunk is encoded into a high-dimensional embedding using `BAAI/bge-small-en-v1.5` and stored in Qdrant.
+
+- **Strengths:** Captures semantic similarity; handles paraphrases and concept-level queries
+- **Embedding dim:** 384 dimensions
+- **Distance metric:** Cosine similarity
+- **Qdrant:** Used for approximate nearest-neighbor (ANN) search at query time
+
+### Hybrid Fusion (RRF)
+
+Both retrievers return ranked result lists. These are merged using **Reciprocal Rank Fusion (RRF)**:
+
+```
+RRF_score(chunk) = Σ [ 1 / (k + rank_i) ]
+```
+
+Where `k = 60` (constant) and `rank_i` is each retriever's rank for that chunk. Higher fused score = higher priority in context window.
 
 ```mermaid
-graph TB
-    subgraph Client_Network["Client Network Edge"]
-        Browser["User Browser"]
-    end
+flowchart LR
 
-    subgraph Edge_Hosting["Vercel Cloud Edge CDN"]
-        FE_Static["Static Web Files Host"]
-        Route_Rules["Edge Rewrite Rules"]
-    end
+Q["❓ User Query"]
 
-    subgraph Application_PaaS["Railway Container PaaS Cluster"]
-        direction TB
-        BE_Container["FastAPI App Container (Docker)"]
-        Local_InMem_Index["In-Memory BM25 Index"]
-        Postgres_Addon["Managed PostgreSQL Instance"]
-    end
+BM25["📖 BM25 Retrieval<br/>(Keyword Search)"]
 
-    subgraph Storage_SaaS["Managed Cloud Providers (SaaS)"]
-        Qdrant_SaaS["Qdrant Cloud Managed Cluster"]
-        Groq_API["Groq LPU Inference Service"]
-    end
+Vector["🔎 Vector Retrieval<br/>(Semantic Search)"]
 
-    %% Network Connections
-    Browser -->|HTTPS (TLS 1.3)| FE_Static
-    Browser -->|REST API over TLS 1.3| BE_Container
-    FE_Static --> Route_Rules
-    
-    BE_Container -->|Memory Access| Local_InMem_Index
-    BE_Container -->|Internal TCP (Port 5432)| Postgres_Addon
-    BE_Container -->|External gRPC (Port 6334) / TLS| Qdrant_SaaS
-    BE_Container -->|HTTPS REST / API Key| Groq_API
+RRF["🔀 Reciprocal Rank Fusion"]
+
+TopK["🏆 Top-K Ranked Chunks"]
+
+LLM["🤖 Groq Llama 3.1"]
+
+Q --> BM25
+Q --> Vector
+
+BM25 --> RRF
+Vector --> RRF
+
+RRF --> TopK
+
+TopK --> LLM
 ```
 
-### 11.2 Hosting Node Specifications
+### Why Hybrid?
 
-| Tier | Platform | Hosting Strategy | Resource Allocation | Scaling Rules |
-| :--- | :--- | :--- | :--- | :--- |
-| **Frontend UI** | Vercel | Jamstack static CDN deployment. | Edge network nodes (global distribution). | Automatic global scaling. |
-| **API Backend** | Railway | Dockerized FastAPI application instance. | 512MB RAM, 1 vCPU (shared). | Scales up to 3 instances based on memory utilization thresholds. |
-| **Relational DB** | Railway | Managed PostgreSQL service. | 1GB Dedicated RAM, 10GB SSD storage. | Vertical scaling; automated daily backup captures. |
-| **Vector DB** | Qdrant Cloud | Managed Qdrant SaaS database instance. | 1GB RAM, 0.5 vCPU cluster. | Scales dynamically using Qdrant cloud scaling rules. |
-| **AI Inference** | Groq Cloud | Managed API endpoint integration. | Pay-per-token API allocation model. | Scaled automatically by Groq's hardware infrastructure. |
+| Query Type             | BM25 | Vector | Hybrid |
+| ---------------------- | ---- | ------ | ------ |
+| "reset password"       | ✅   | ✅     | ✅     |
+| "I can't log in"       | ❌   | ✅     | ✅     |
+| "SKU-3847 specs"       | ✅   | ❌     | ✅     |
+| "tell me about refund" | ❌   | ✅     | ✅     |
+
+Hybrid search consistently outperforms either method alone, especially for a mixed real-world query set.
+
+### Knowledge Gap Detection
+
+SupportAI identifies knowledge gaps by analyzing questions that are repeatedly flagged due to low confidence scores or negative feedback.
+
+The system tracks the frequency of flagged questions and groups similar questions together based on semantic similarity. When a topic repeatedly appears without sufficient supporting documentation, it is surfaced to administrators as a potential knowledge gap.
+Administrators can use these insights to upload new documentation or add FAQ entries, improving future answer quality.
 
 ---
 
-## 12. Technology Selection Justification
+## 12. RAG Workflow
 
-The core technologies were chosen to balance system performance, cost efficiency, and ease of maintenance.
+RAG (Retrieval-Augmented Generation) grounds LLM responses in real documents, reducing hallucinations and providing traceable answers.
 
-### 12.1 FastAPI
-* **Why Selected:** Native asynchronous support, fast execution speeds, and automatic OpenAPI schema generation.
-* **Why Alternatives Rejected:** Django is overly complex for microservices, and its synchronous ORM creates connection bottlenecks during asynchronous RAG tasks. Flask lacks built-in async handling and input validation.
+### Ingestion Pipeline
 
-### 12.2 PostgreSQL
-* **Why Selected:** Strong ACID compliance, support for structured relational tables, and JSONB document support.
-* **Why Alternatives Rejected:** NoSQL databases like MongoDB lack cascading constraints and transaction safety. SQLite is limited to single-user workloads and is unsuitable for concurrent production writes.
+```mermaid
+flowchart TB
 
-### 12.3 Qdrant
-* **Why Selected:** Fast vector indexing, low memory footprints, and strong payload filtering.
-* **Why Alternatives Rejected:** Pinecone is closed-source and lock-in heavy. Milvus is too complex to deploy and maintain, and pgvector introduces resource contention issues on shared database servers.
+Upload["📄 Admin Uploads Document"]
 
-### 12.4 Llama 3.1 8B Instruct
-* **Why Selected:** State-of-the-art open-weights performance, 128k context window, and high cost-efficiency.
-* **Why Alternatives Rejected:** GPT-4o and Claude 3.5 Sonnet are too expensive for standard RAG tasks. Running a self-hosted LLM requires expensive dedicated GPU instances that are impractical for small teams.
+Validate["✅ Validate File"]
 
-### 12.5 BGE Embeddings (`bge-small-en-v1.5`)
-* **Why Selected:** High rankings on the MTEB leaderboard, 384-dimensional vector outputs, and low memory requirements.
-* **Why Alternatives Rejected:** OpenAI's embedding API adds external latency, while larger models like `bge-large` increase vector dimensions to 1024, raising index storage requirements without significant recall improvements.
+Parse["📑 Parse & Clean Text"]
 
-### 12.6 Hybrid Search
-* **Why Selected:** Combines semantic understanding with exact keyword matching (for part numbers, codes, and names).
-* **Why Alternatives Rejected:** Pure vector search frequently misses exact alphanumeric matches, while pure keyword search fails when users use synonyms instead of exact terms.
+Chunk["✂️ Chunk Text<br/>(512 Tokens, 64 Overlap)"]
+
+Embed["🧠 Generate Embeddings<br/>(bge-small)"]
+
+Postgres["🐘 Store Chunks<br/>PostgreSQL"]
+
+Qdrant["🔎 Store Vectors<br/>Qdrant"]
+
+Upload --> Validate
+Validate --> Parse
+Parse --> Chunk
+
+Chunk --> Embed
+
+Chunk --> Postgres
+
+Embed --> Qdrant
+```
+
+### Query Pipeline
+
+```mermaid
+sequenceDiagram
+
+actor Customer
+
+participant API
+
+participant Embedder
+
+participant BM25
+
+participant Qdrant
+
+participant RRF
+
+participant Groq
+
+Customer->>API: Ask Question
+
+API->>Embedder: Generate Embedding
+
+API->>BM25: Keyword Search
+
+API->>Qdrant: Semantic Search
+
+BM25-->>RRF: Ranked Results
+
+Qdrant-->>RRF: Ranked Results
+
+RRF-->>API: Top 5 Chunks
+
+API->>Groq: Build Prompt & Generate
+
+Groq-->>API: Response
+
+API-->>Customer: Answer + Sources
+```
+
+### Confidence Scoring
+
+Confidence is a weighted heuristic based on:
+
+- **Top-chunk similarity score** (0–1, from Qdrant cosine distance)
+- **Number of supporting chunks** (more corroborating chunks → higher confidence)
+- **Keyword overlap** between answer and top chunks
+
+```python
+confidence = (0.6 * top_similarity) + (0.3 * chunk_corroboration) + (0.1 * keyword_overlap)
+```
+
+### Human-in-the-Loop Learning
+
+SupportAI incorporates a human-in-the-loop feedback mechanism to continuously improve answer quality.
+
+When a customer question receives a low confidence score or repeated negative feedback, it is added to the flagged questions queue. Administrators can review the question and provide a verified answer.
+
+The verified answer is stored as a knowledge base entry and processed through the standard ingestion pipeline:
+
+Admin Answer
+↓
+Knowledge Base Entry
+↓
+Chunking
+↓
+Embedding Generation
+↓
+Qdrant Indexing
+
+This enables the system to answer similar questions automatically in future interactions, reducing repeated escalations and continuously expanding the knowledge base.
 
 ---
 
-## 13. Future Roadmap
+## 13. API Design
 
-The system is designed to support future operational upgrades without requiring major architectural rewrites.
+All endpoints are prefixed with `/api/v1/`. Auth-protected routes require `Authorization: Bearer <token>`.
 
+### Authentication
+
+| Method | Endpoint         | Description             | Auth     |
+| ------ | ---------------- | ----------------------- | -------- |
+| POST   | `/auth/register` | Create new user account | Public   |
+| POST   | `/auth/login`    | Login, returns JWT      | Public   |
+| GET    | `/auth/me`       | Get current user info   | Required |
+
+- Authentication endpoints support both customer and admin accounts. Role-based authorization determines access permissions within the platform.
+
+### Chat
+
+| Method | Endpoint                   | Description                   | Auth     |
+| ------ | -------------------------- | ----------------------------- | -------- |
+| POST   | `/chat/message`            | Send message, get AI response | Customer |
+| GET    | `/chat/conversations`      | List user's conversations     | Customer |
+| GET    | `/chat/conversations/{id}` | Get full conversation history | Customer |
+| POST   | `/chat/feedback`           | Submit rating on a message    | Customer |
+
+### Documents (Admin)
+
+| Method | Endpoint                 | Description                | Auth  |
+| ------ | ------------------------ | -------------------------- | ----- |
+| GET    | `/documents`             | List all documents         | Admin |
+| POST   | `/documents/upload`      | Upload a new document      | Admin |
+| DELETE | `/documents/{id}`        | Soft-delete a document     | Admin |
+| GET    | `/documents/{id}/chunks` | List chunks for a document | Admin |
+
+### Admin
+
+| Method | Endpoint              | Description                    | Auth  |
+| ------ | --------------------- | ------------------------------ | ----- |
+| GET    | `/admin/dashboard`    | Overview stats                 | Admin |
+| GET    | `/admin/flagged`      | List flagged questions         | Admin |
+| PATCH  | `/admin/flagged/{id}` | Update flag status             | Admin |
+| GET    | `/admin/analytics`    | Query trends and feedback data | Admin |
+| GET    | `/admin/gaps`         | Knowledge gap detection        | Admin |
+
+### Example Response — Chat Message
+
+```json
+{
+  "message_id": "uuid-abc123",
+  "answer": "To reset your password, go to the login page and click 'Forgot Password'...",
+  "confidence_score": 0.87,
+  "sources": [
+    {
+      "chunk_id": "uuid-chunk1",
+      "document_title": "User Guide v2.pdf",
+      "excerpt": "...click Forgot Password on the login screen...",
+      "page": 4
+    }
+  ],
+  "flagged": false
+}
 ```
-┌────────────────────────────────────────────────────────┐
-│                     Future Roadmap                     │
-├────────────────────────────────────────────────────────┤
-│ • Multi-Language Support (Multilingual Embeddings)     │
-│ • Voice Support (TTS & STT Integrations)               │
-│ • Live Human Handoff (WebSocket Support Routing)       │
-│ • AI-Drafted Agent Responses (Copilot Suggestions)     │
-│ • Advanced Analytics (Deflection ROI & Usage Trends)    │
-└────────────────────────────────────────────────────────┘
+
+---
+
+## 14. Design Patterns
+
+| Pattern                   | Where Used                         | Why                                                        |
+| ------------------------- | ---------------------------------- | ---------------------------------------------------------- |
+| **Service Layer**         | `rag_service`, `analytics_service` | Encapsulates business logic, keeps routers thin            |
+| **Dependency Injection**  | FastAPI `Depends()`                | Clean injection of DB sessions, auth, config               |
+| **Strategy Pattern**      | Search service                     | BM25 and vector search swappable behind a common interface |
+| **DTO / Schema**          | Pydantic request/response models   | Strict validation and serialization at API boundary        |
+| **Singleton**             | Embedding model, Qdrant client     | Load once, reuse across requests for efficiency            |
+| **Feature-Sliced Design** | React frontend structure           | Co-locate components, hooks, and types per feature         |
+
+---
+
+## 15. Application Security
+
+### Authentication & Authorization
+
+- **JWT tokens** issued on login, short-lived (1 hour expiry)
+- Role-based access: `customer` and `admin` roles enforced via FastAPI dependencies
+- Passwords hashed with **bcrypt** (never stored in plaintext)
+- JWT access tokens are issued during login and used for authenticated requests. Users are required to log in again after token expiration.
+- Customers have access only to their own conversations, feedback, and account information. Administrators have elevated permissions to manage documents, analytics, and flagged questions.
+
+### API Security
+
+- **CORS** configured to allow only the Vercel frontend origin in production
+- **Input validation** via Pydantic schemas on all endpoints (type coercion + length limits)
+- **Rate limiting** on `/chat/message` endpoint (e.g., 20 requests/minute per user) using FastAPI middleware
+- **File upload validation** — MIME type check, max file size enforced before processing
+
+### Data Security
+
+- All secrets (DB URL, Groq API key, JWT secret) stored as **environment variables** — never in code
+- HTTPS enforced in production (Railway + Vercel handle TLS termination)
+- Admin routes protected by both JWT and role check — double-gated
+
+### Threat Model Summary
+
+| Threat                | Mitigation                                     |
+| --------------------- | ---------------------------------------------- |
+| Unauthorized access   | JWT + role enforcement                         |
+| Prompt injection      | Sanitize user input before embedding in prompt |
+| Data exfiltration     | CORS policy, no raw DB queries exposed         |
+| Credential theft      | bcrypt hashing, env vars, HTTPS only           |
+| Malicious file upload | MIME validation, server-side size limits       |
+
+---
+
+## 16. Deployment Architecture
+
+```mermaid
+flowchart TB
+
+subgraph Users
+
+Customer["👤 Customer"]
+
+Admin["👨‍💼 Administrator"]
+
+end
+
+subgraph Vercel
+
+React["⚛️ React SPA"]
+
+end
+
+subgraph Railway
+
+FastAPI["🚀 FastAPI"]
+
+Redis["🟥 Redis"]
+
+Worker["⚡ Background Worker"]
+
+Postgres[("🐘 PostgreSQL")]
+
+end
+
+subgraph Cloud
+
+Qdrant[("🔎 Qdrant Cloud")]
+
+Groq["🤖 Groq API"]
+
+end
+
+subgraph Observability
+
+OTel["OpenTelemetry"]
+
+Prom["Prometheus"]
+
+Grafana["Grafana"]
+
+end
+
+Customer --> React
+Admin --> React
+
+React --> FastAPI
+
+FastAPI --> Redis
+FastAPI --> Worker
+FastAPI --> Postgres
+FastAPI --> Qdrant
+FastAPI --> Groq
+
+FastAPI --> OTel
+
+OTel --> Prom
+
+Prom --> Grafana
 ```
 
-* **Multi-Language Support:** Transitioning to multilingual embedding models (e.g., `Cohere Multilingual`) to allow customers to query documentation and receive responses in their native languages.
-* **Voice Support:** Integrating speech-to-text (STT) and text-to-speech (TTS) engines to support voice-based customer interactions.
-* **Live Human Handoff:** Implementing WebSocket gateways to route conversations to live support agents when confidence scores remain low.
-* **AI-Drafted Responses:** Providing agents with draft response suggestions based on historical tickets and internal documentation.
-* **Advanced Analytics:** Building dashboards to track ticket deflection rates, cost savings, and common search trends.
+### Docker Setup
+
+```yaml
+# docker-compose.yml (local dev)
+services:
+  api:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file: .env
+    depends_on:
+      - postgres
+      - qdrant
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: supportai
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret
+
+  qdrant:
+    image: qdrant/qdrant
+    ports:
+      - "6333:6333"
+```
+
+### Deployment Steps
+
+1. Push backend to GitHub → Railway auto-deploys Docker container
+2. Run Alembic migrations on first deploy: `alembic upgrade head`
+3. Push frontend to GitHub → Vercel auto-deploys on main branch merge
+4. Set environment variables in Railway and Vercel dashboards
+
+---
+
+# 17. CI/CD Architecture
+
+SupportAI follows a Continuous Integration and Continuous Deployment (CI/CD) pipeline to ensure every code change is automatically validated, tested, and safely deployed. The pipeline minimizes manual intervention while maintaining software quality and deployment reliability.
+
+## CI/CD Pipeline
+
+```mermaid
+flowchart LR
+
+Developer["👨‍💻 Developer"]
+
+GitHub["GitHub Repository"]
+
+PR["Pull Request"]
+
+Review["Code Review"]
+
+Actions["GitHub Actions"]
+
+Lint["Static Analysis<br/>Linting"]
+
+Tests["Unit & Integration Tests"]
+
+Build["Docker Image Build"]
+
+Registry["Container Registry"]
+
+Deploy["Deploy to Railway"]
+
+Health["Health & Readiness Checks"]
+
+Production["Production Environment"]
+
+Developer --> GitHub
+
+GitHub --> PR
+
+PR --> Review
+
+Review --> Actions
+
+Actions --> Lint
+
+Lint --> Tests
+
+Tests --> Build
+
+Build --> Registry
+
+Registry --> Deploy
+
+Deploy --> Health
+
+Health --> Production
+```
+
+## Deployment Workflow
+
+| Stage             | Purpose                                                        |
+| ----------------- | -------------------------------------------------------------- |
+| Source Control    | Version-controlled development using GitHub                    |
+| Pull Request      | Peer review before merging changes                             |
+| Static Analysis   | Detect formatting, linting, and code quality issues            |
+| Automated Testing | Execute unit and integration tests                             |
+| Docker Build      | Produce a reproducible application image                       |
+| Deployment        | Deploy backend to Railway and frontend to Vercel               |
+| Health Validation | Verify `/health` and `/ready` endpoints before serving traffic |
+
+## Rollback Strategy
+
+In the event of a failed deployment:
+
+- The previous stable container image remains available for rollback.
+- Failed health or readiness checks automatically prevent the new version from receiving production traffic.
+- Database schema changes are applied through versioned migrations to ensure controlled rollbacks.
+- Configuration is managed through environment variables, allowing deployment without code modifications.
+
+## Deployment Principles
+
+- Every deployment must be reproducible.
+- Infrastructure configuration is externalized through environment variables.
+- Production deployments require successful automated validation.
+- All deployments are observable through centralized logging and monitoring.
+
+# 18. Testing Strategy
+
+SupportAI adopts a multi-layered testing strategy to ensure application correctness, reliability, and maintainability. Different testing levels validate individual components, service interactions, APIs, and complete user workflows.
+
+## Testing Pyramid
+
+```mermaid
+flowchart TB
+
+E2E["🎭 End-to-End Tests"]
+
+Integration["🔗 Integration Tests"]
+
+Unit["🧩 Unit Tests"]
+
+Unit --> Integration
+Integration --> E2E
+```
+
+## Testing Coverage
+
+| Test Type           | Scope                             | Examples                                                  |
+| ------------------- | --------------------------------- | --------------------------------------------------------- |
+| Unit Testing        | Individual functions and services | Authentication service, RAG service, embedding generation |
+| Integration Testing | Component interaction             | PostgreSQL, Redis, Qdrant, Groq integration               |
+| API Testing         | REST endpoint validation          | Authentication, chat, document upload APIs                |
+| End-to-End Testing  | Complete user workflows           | Login → Chat → Response → Feedback                        |
+| Performance Testing | Response time and throughput      | Chat latency, search performance, concurrent requests     |
+| Security Testing    | Authentication and authorization  | JWT validation, RBAC enforcement, input validation        |
+
+## Quality Gates
+
+Every production deployment must satisfy the following quality requirements:
+
+- All unit tests pass successfully.
+- Integration tests validate external service connectivity.
+- API contract validation completes successfully.
+- Static analysis reports no critical issues.
+- Docker image builds successfully.
+- Health and readiness endpoints respond correctly after deployment.
+
+## Test Environment
+
+| Environment       | Purpose                                              |
+| ----------------- | ---------------------------------------------------- |
+| Local Development | Developer testing and debugging                      |
+| CI Pipeline       | Automated validation on every pull request           |
+| Staging           | Pre-production integration testing                   |
+| Production        | Health monitoring and smoke testing after deployment |
+
+## Testing Principles
+
+- Automated tests are executed on every pull request.
+- Business logic is validated primarily through unit tests.
+- Critical workflows are verified using end-to-end testing.
+- External dependencies are mocked where appropriate during unit testing.
+- Production deployments require successful completion of automated quality gates.
+
+# 19. Reliability & Resilience
+
+SupportAI is designed to tolerate common infrastructure and third-party failures while maintaining service availability wherever possible. The architecture emphasizes graceful degradation, automated recovery, and operational observability rather than assuming every dependency is always available.
+
+---
+
+## Failure Recovery Matrix
+
+| Component         | Possible Failure      | Detection               | Recovery Strategy                                           |
+| ----------------- | --------------------- | ----------------------- | ----------------------------------------------------------- |
+| Redis Cache       | Cache unavailable     | Connection timeout      | Bypass cache and continue using PostgreSQL and Qdrant       |
+| PostgreSQL        | Database unavailable  | Health/Readiness checks | Stop serving requests until connectivity is restored        |
+| Qdrant            | Vector search timeout | Request timeout         | Retry once, then return a friendly error if retrieval fails |
+| Groq API          | Rate limit or timeout | HTTP status codes       | Exponential backoff retry followed by graceful failure      |
+| Background Worker | Processing failure    | Job status monitoring   | Retry failed ingestion jobs with exponential backoff        |
+| Frontend          | Backend unavailable   | API request failure     | Display user-friendly error message and retry option        |
+
+---
+
+## Resilience Patterns
+
+| Pattern                        | Purpose                                                     |
+| ------------------------------ | ----------------------------------------------------------- |
+| Retry with Exponential Backoff | Recover from temporary network or API failures              |
+| Circuit Breaker                | Prevent repeated calls to failing external services         |
+| Timeout Protection             | Prevent requests from blocking indefinitely                 |
+| Graceful Degradation           | Continue operating with reduced functionality when possible |
+| Health Checks                  | Detect unhealthy application instances                      |
+| Readiness Checks               | Ensure services receive traffic only when ready             |
+
+---
+
+## Circuit Breaker Strategy
+
+```mermaid
+flowchart LR
+
+Request["Incoming Request"]
+
+Groq["Groq API"]
+
+Success["Response"]
+
+Failure["Failure"]
+
+Breaker{"Failure Threshold<br/>Exceeded?"}
+
+Fallback["Return Friendly Error"]
+
+Request --> Groq
+
+Groq --> Success
+
+Groq --> Failure
+
+Failure --> Breaker
+
+Breaker -- No --> Groq
+
+Breaker -- Yes --> Fallback
+```
+
+---
+
+## Timeout Configuration
+
+| Component  | Timeout    |
+| ---------- | ---------- |
+| Redis      | 500 ms     |
+| PostgreSQL | 2 seconds  |
+| Qdrant     | 3 seconds  |
+| Groq API   | 15 seconds |
+
+---
+
+## Reliability Principles
+
+- External services are accessed through retry and timeout policies.
+- Cached data is treated as an optimization rather than a requirement.
+- Failure of one component should not cascade through the system.
+- Critical failures are detected through health and readiness monitoring.
+- User-facing errors should always provide meaningful feedback instead of exposing internal implementation details.
+
+# 20. Enterprise Security Architecture
+
+SupportAI applies a defense-in-depth security strategy by combining authentication, authorization, secure communication, input validation, and threat mitigation mechanisms. Security controls are integrated throughout the application lifecycle rather than treated as isolated features.
+
+---
+
+## Security Layers
+
+```mermaid
+flowchart TB
+
+User["👤 User"]
+
+HTTPS["🔒 HTTPS / TLS"]
+
+JWT["🔑 JWT Authentication"]
+
+RBAC["🛡️ Role-Based Access Control"]
+
+Validation["✅ Input Validation"]
+
+Business["⚙️ Business Logic"]
+
+Database["🐘 PostgreSQL"]
+
+User --> HTTPS
+HTTPS --> JWT
+JWT --> RBAC
+RBAC --> Validation
+Validation --> Business
+Business --> Database
+```
+
+---
+
+## STRIDE Threat Model
+
+| Threat                     | Example                                  | Mitigation                                                     |
+| -------------------------- | ---------------------------------------- | -------------------------------------------------------------- |
+| **Spoofing**               | Unauthorized user impersonation          | JWT authentication, strong password hashing (bcrypt)           |
+| **Tampering**              | Modified requests or uploaded files      | Input validation, request validation, file validation          |
+| **Repudiation**            | User denies performing an action         | Audit logging with timestamps and user identifiers             |
+| **Information Disclosure** | Unauthorized access to sensitive data    | RBAC, HTTPS, secure configuration, least-privilege access      |
+| **Denial of Service**      | Excessive API requests                   | API rate limiting, request timeouts, Redis caching             |
+| **Elevation of Privilege** | Customer attempts administrative actions | Role-based authorization and server-side permission validation |
+
+---
+
+## Trust Boundaries
+
+```mermaid
+flowchart LR
+
+subgraph Internet
+Customer["👤 Customer"]
+Admin["👨‍💼 Administrator"]
+end
+
+subgraph Trusted_Application
+Frontend["React Frontend"]
+Backend["FastAPI Backend"]
+Redis["Redis Cache"]
+Postgres["PostgreSQL"]
+end
+
+subgraph External_Services
+Groq["Groq API"]
+Qdrant["Qdrant Cloud"]
+end
+
+Customer --> Frontend
+Admin --> Frontend
+
+Frontend --> Backend
+
+Backend --> Redis
+Backend --> Postgres
+Backend --> Groq
+Backend --> Qdrant
+```
+
+---
+
+## Secrets Management
+
+Sensitive configuration is stored using environment variables and is never committed to source control.
+
+Examples include:
+
+- JWT Secret
+- Database Connection String
+- Groq API Key
+- Qdrant API Key
+- Redis Connection URL
+
+---
+
+## Security Principles
+
+- Authentication is required before accessing protected resources.
+- Authorization is enforced using Role-Based Access Control (RBAC).
+- All communication uses HTTPS/TLS.
+- User input is validated on both client and server.
+- Sensitive secrets are externally managed through environment variables.
+- Security events are recorded through audit logging.
+
+## 21. Risks & Mitigation
+
+| Risk                              | Likelihood | Impact | Mitigation                                                                         |
+| --------------------------------- | ---------- | ------ | ---------------------------------------------------------------------------------- |
+| Groq API rate limits or downtime  | Medium     | High   | Implement retry logic + fallback error messages; cache common answers              |
+| LLM hallucination                 | Medium     | High   | Ground responses strictly in retrieved chunks; show sources; confidence thresholds |
+| Slow hybrid search at query time  | Low        | Medium | Limit BM25 corpus size; cap Qdrant top-k at 20 before re-ranking                   |
+| Scope creep within 3 weeks        | High       | High   | Lock requirements after Week 1; prioritize core RAG pipeline first                 |
+| Poor document chunking quality    | Medium     | Medium | Use overlap chunking (64 tokens); test on real docs early                          |
+| JWT secret exposure               | Low        | High   | Use env vars only; rotate key if compromised                                       |
+| Vercel / Railway free tier limits | Medium     | Low    | Monitor usage; optimize Docker image size; use lazy loading                        |
+
+---
+
+## 22. Implementation Plan & Team Responsibilities
+
+| Developer | Primary Role        | Responsibilities                                                                                     |
+| --------- | ------------------- | ---------------------------------------------------------------------------------------------------- |
+| **Dev 1** | Backend & AI Layer  | FastAPI setup, RAG pipeline, hybrid search, Groq integration, Qdrant, document ingestion             |
+| **Dev 2** | Frontend Lead       | React app, chat UI, admin dashboard, component library, API integration                              |
+| **Dev 3** | Full Stack & DevOps | Database schema, Alembic migrations, auth system, Docker setup, Railway/Vercel deployment, analytics |
+
+All three developers participate in code review, testing, and demo preparation.
+
+---
+
+## 23. Development Roadmap
+
+### Week 1 — Foundation
+
+**Goal:** Core infrastructure and RAG pipeline working end-to-end
+
+| Tasks                                                                            |
+| -------------------------------------------------------------------------------- |
+| Project setup: repos, Docker, FastAPI skeleton, React + Vite scaffold            |
+| Database schema + Alembic migrations; JWT auth (register, login)                 |
+| Document ingestion pipeline: upload → chunk → embed → Qdrant                     |
+| Hybrid search (BM25 + vector + RRF), basic RAG query flow, test with sample docs |
+
+**Deliverable:** A working CLI/Postman-tested RAG pipeline that takes a question and returns an answer with sources.
+
+---
+
+### Week 2 — Features & UI
+
+**Goal:** Full customer and admin UI connected to the backend
+
+| Tasks                                                                   |
+| ----------------------------------------------------------------------- |
+| Customer chat interface (message input, response display, source cards) |
+| Conversation history, suggested questions, confidence badge             |
+| Feedback system (thumbs up/down), auto-flagging low-confidence answers  |
+| Admin dashboard: document manager, flagged questions view               |
+| Analytics page (query trends, feedback stats, knowledge gap list)       |
+
+**Deliverable:** A fully connected app — customers can chat, admins can manage content.
+
+---
+
+### Week 3 — Polish & Deployment
+
+**Goal:** Production deployment, testing, and demo-ready presentation
+
+| Tasks                                                               |
+| ------------------------------------------------------------------- |
+| Deploy backend to Railway, frontend to Vercel; connect Qdrant Cloud |
+| End-to-end testing with realistic documents and queries             |
+| UI polish: responsive design, loading states, error handling        |
+| Security review: CORS, env vars, input validation                   |
+| Demo preparation: seed data, sample knowledge base, test scenarios  |
+| Buffer day: bug fixes, final README, presentation slides            |
+
+**Deliverable:** A live, publicly accessible demo with a seeded knowledge base ready for judges.
+
+---
+
+## 24. Future Enhancements
+
+These features are intentionally out of scope for the 3-week sprint but represent natural next steps:
+
+| Enhancement                  | Description                                                               |
+| ---------------------------- | ------------------------------------------------------------------------- |
+| **Multi-language support**   | Embed and respond in languages beyond English using multilingual models   |
+| **Live chat handoff**        | Escalate unresolved queries to a human agent in real time                 |
+| **Voice input**              | Allow customers to speak their questions (speech-to-text integration)     |
+| **Email digests for admins** | Weekly summary of flagged questions and knowledge gaps                    |
+| **Automated KB suggestions** | Suggest new documentation based on repeated unanswered questions          |
+| **SSO / OAuth**              | Allow login via Google or other identity providers                        |
+| **Streaming responses**      | Stream LLM output token-by-token for a faster perceived response time     |
+| **Fine-tuned model**         | Fine-tune a smaller model on domain-specific Q&A pairs from feedback data |
+| **Analytics export**         | Export conversation data and analytics as CSV for business reporting      |
+
+---
+
+_Document prepared by the SupportAI Team_
