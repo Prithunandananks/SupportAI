@@ -3,8 +3,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
-
     DATABASE_URL: str
+
+    @property
+    def is_development(self):
+        return self.ENVIRONMENT == "development"
     REDIS_URL: str
     QDRANT_URL: str
     GROQ_API_KEY: str

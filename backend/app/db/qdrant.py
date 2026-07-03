@@ -6,7 +6,10 @@ from app.core.logger import logger
 
 class QdrantDatabase:
     def __init__(self):
-        self.client = AsyncQdrantClient(url=settings.QDRANT_URL)
+        if settings.is_development:
+            self.client = None
+        else:
+            self.client = AsyncQdrantClient(url=settings.QDRANT_URL)
         self.collection_name = settings.QDRANT_COLLECTION_NAME
 
     async def initialize_collection(self, dimension: int):

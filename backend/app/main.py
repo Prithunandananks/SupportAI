@@ -13,8 +13,9 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize Qdrant collection using the dynamic dimension from the Embedding Provider
-    await qdrant_db.initialize_collection(dimension=_embedding_provider.dimension)
+    if not settings.is_development:
+        # Initialize Qdrant collection using the dynamic dimension from the Embedding Provider
+        await qdrant_db.initialize_collection(dimension=_embedding_provider.dimension)
     yield
 
 
@@ -56,6 +57,9 @@ async def health_check():
 
 @app.get("/ready")
 async def readiness_check():
+    if settings.is_development:
+        return {"status": "ready"}
+
     # Check PostgreSQL
     try:
         conn = await asyncpg.connect(settings.DATABASE_URL)
