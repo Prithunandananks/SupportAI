@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import AsyncGenerator
 
 
 class BaseLLM(ABC):
@@ -14,6 +15,17 @@ class BaseLLM(ABC):
     ) -> str:
         """
         Generate a response from the language model.
+        """
+        pass
+
+    @abstractmethod
+    async def generate_stream(
+        self,
+        prompt: str,
+        temperature: float = 0.2,
+    ) -> AsyncGenerator[str, None]:
+        """
+        Generate a streaming response from the language model.
         """
         pass
 

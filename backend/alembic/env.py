@@ -20,6 +20,7 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 from app.db.base import Base
 import app.models.user  # noqa
+import app.models.chat  # noqa
 target_metadata = Base.metadata
 
 def run_migrations_offline() -> None:

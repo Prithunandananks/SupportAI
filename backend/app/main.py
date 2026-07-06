@@ -13,9 +13,13 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if not settings.is_development:
-        # Initialize Qdrant collection using the dynamic dimension from the Embedding Provider
-        await qdrant_db.initialize_collection(dimension=_embedding_provider.dimension)
+    # Initialize Qdrant collection using the dynamic dimension from the Embedding Provider
+    await qdrant_db.initialize_collection(dimension=_embedding_provider.dimension)
+    
+    # Initialize BM25 index from persistent storage
+    from app.services.retrieval.bm25_service import bm25_service
+    await bm25_service.initialize_from_db()
+    
     yield
 
 
@@ -79,10 +83,8 @@ async def readiness_check():
 
     # Check Qdrant
     try:
-        # qdrant_client supports async if installed with aiohttp, which qdrant-client does
-        client = AsyncQdrantClient(url=settings.QDRANT_URL)
         # Using a simple check to verify connection
-        await client.get_collections()
+        await qdrant_db.client.get_collections()
     except Exception as e:
         logger.error(f"Qdrant connection failed: {e}")
         return {"status": "unhealthy", "dependency": "Qdrant"}

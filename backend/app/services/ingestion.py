@@ -77,6 +77,10 @@ class IngestionService:
 
         # 4. Upsert to Repository
         await self.repo.upsert_chunks(vectors, chunks)
+        
+        # 5. Synchronize BM25 Index
+        from app.services.retrieval.bm25_service import bm25_service
+        bm25_service.add_chunks(chunks)
 
         return UploadResponse(
             document_id=document_id,

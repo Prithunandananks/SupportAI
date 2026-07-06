@@ -21,12 +21,21 @@ Keep responses clear and concise.
         cls,
         question: str,
         contexts: list[str],
+        history: list["ChatMessage"] = None,
     ) -> str:
         """
         Build the final prompt sent to the LLM.
         """
 
         context_text = "\n\n".join(contexts)
+        
+        history_text = ""
+        if history:
+            history_text = "Conversation History\n-----------------------\n"
+            for msg in history:
+                role = "User" if msg.role == "user" else "Assistant"
+                history_text += f"{role}: {msg.content}\n"
+            history_text += "\n-----------------------\n\n"
 
         return f"""
 {cls.SYSTEM_PROMPT}
@@ -37,7 +46,7 @@ Context
 
 -----------------------
 
-Question:
+{history_text}Question:
 {question}
 
 Answer:
