@@ -1,15 +1,21 @@
 import time
 import asyncpg
 import redis.asyncio as redis
+from datetime import datetime, timezone
+import traceback
 from fastapi import FastAPI, Request
-from qdrant_client import AsyncQdrantClient
+from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.core.logger import logger
 from app.api.router import api_router
 from app.db.qdrant import qdrant_db
 from app.api.deps import _embedding_provider
 from contextlib import asynccontextmanager
+from fastapi.middleware.cors import CORSMiddleware
 
+from app.core.rate_limit import setup_rate_limiting
+import uuid
+import json
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -25,26 +31,62 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="SupportAI", lifespan=lifespan)
 
+# Setup Rate Limiting
+setup_rate_limiting(app)
+
+# CORS Configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(api_router, prefix="/api/v1")
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(json.dumps({
+        "error": type(exc).__name__,
+        "message": str(exc),
+        "traceback": traceback.format_exc(),
+        "request_id": getattr(request.state, "request_id", None)
+    }))
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An unexpected error occurred. Please try again later."}
+    )
 
 @app.middleware("http")
-async def log_requests(request: Request, call_next):
+async def structured_logging_middleware(request: Request, call_next):
     start_time = time.time()
+    request_id = str(uuid.uuid4())
+    
+    # Add request ID to state for downstream use if needed
+    request.state.request_id = request_id
 
     response = await call_next(request)
 
     process_time = time.time() - start_time
+    
+    # Extract user ID if available (e.g., from auth middleware if we had one that sets request.state.user)
+    user_id = getattr(getattr(request, "state", None), "user_id", None)
 
-    logger.info(
-        "HTTP Request",
-        extra={
-            "http_method": request.method,
-            "request_path": request.url.path,
-            "response_status": response.status_code,
-            "response_time_ms": round(process_time * 1000, 2),
-        },
-    )
+    log_data = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "request_id": request_id,
+        "endpoint": request.url.path,
+        "method": request.method,
+        "status": response.status_code,
+        "latency_ms": round(process_time * 1000, 2),
+    }
+    
+    if user_id:
+        log_data["user_id"] = str(user_id)
+
+    # Output structured JSON log
+    logger.info(json.dumps(log_data))
 
     return response
 

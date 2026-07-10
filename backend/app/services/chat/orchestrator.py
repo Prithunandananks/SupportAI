@@ -1,6 +1,5 @@
 import uuid
 from fastapi import HTTPException, status
-from typing import Tuple, List
 from app.services.retrieval.rag_pipeline import RAGPipeline
 from app.core.logger import logger
 from app.repositories.chat_repo import ChatRepository

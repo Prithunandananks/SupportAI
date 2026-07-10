@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import DashboardStats from "@/components/admin/dashboard/DashboardStats";
+import RecentActivityList from "@/components/admin/dashboard/RecentActivityList";
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -14,36 +15,11 @@ function Dashboard() {
         {/* Recent Activity */}
         <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6">
           <h2 className="text-xl font-semibold mb-5">
-            Recent Activity
+            Recent Uploads
           </h2>
 
           <div className="space-y-4">
-            <div className="border-l-4 border-cyan-500 pl-4">
-              <p className="font-medium">
-                Employee Handbook uploaded
-              </p>
-              <span className="text-slate-400 text-sm">
-                10 minutes ago
-              </span>
-            </div>
-
-            <div className="border-l-4 border-yellow-500 pl-4">
-              <p className="font-medium">
-                Low confidence response flagged
-              </p>
-              <span className="text-slate-400 text-sm">
-                22 minutes ago
-              </span>
-            </div>
-
-            <div className="border-l-4 border-green-500 pl-4">
-              <p className="font-medium">
-                Admin answered a flagged question
-              </p>
-              <span className="text-slate-400 text-sm">
-                1 hour ago
-              </span>
-            </div>
+            <RecentActivityList />
           </div>
         </div>
 

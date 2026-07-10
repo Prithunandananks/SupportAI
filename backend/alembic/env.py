@@ -6,6 +6,10 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -18,14 +22,14 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-from app.db.base import Base
+from app.db.base import Base  # noqa: E402
 import app.models.user  # noqa
 import app.models.chat  # noqa
+import app.models.document  # noqa
 target_metadata = Base.metadata
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
-    import os
     url = os.getenv("DATABASE_URL", "postgresql+asyncpg://user:password@localhost:5432/supportai")
     if url.startswith("postgresql://"):
         url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
@@ -52,7 +56,6 @@ async def run_async_migrations() -> None:
     """In this scenario we need to create an Engine
     and associate a connection with the context.
     """
-    import os
     url = os.getenv("DATABASE_URL", "postgresql+asyncpg://user:password@localhost:5432/supportai")
     if url.startswith("postgresql://"):
         url = url.replace("postgresql://", "postgresql+asyncpg://", 1)

@@ -1,5 +1,5 @@
 import re
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
 import uuid
 
 # Password must be min 8 chars, 1 uppercase, 1 lowercase, 1 numeric
@@ -32,11 +32,21 @@ class UserCreate(UserBase):
             )
         return v
 
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "email": "user@example.com",
+                "first_name": "John",
+                "last_name": "Doe",
+                "password": "Password123"
+            }
+        }
+    )
+
 
 class UserResponse(UserBase):
     id: uuid.UUID
     role: str
     is_active: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

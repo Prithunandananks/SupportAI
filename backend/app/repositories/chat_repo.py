@@ -20,6 +20,24 @@ class ChatRepository:
         stmt = select(ChatSession).where(ChatSession.id == session_id)
         result = await self.session.execute(stmt)
         return result.scalars().first()
+
+    async def get_user_sessions(self, user_id: uuid.UUID) -> List[ChatSession]:
+        stmt = (
+            select(ChatSession)
+            .where(ChatSession.user_id == user_id)
+            .order_by(ChatSession.created_at.desc())
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def update_session(self, session_id: uuid.UUID, title: Optional[str] = None) -> Optional[ChatSession]:
+        session = await self.get_session(session_id)
+        if session:
+            if title is not None:
+                session.title = title
+            await self.session.commit()
+            await self.session.refresh(session)
+        return session
         
     async def get_session_with_messages(self, session_id: uuid.UUID) -> Optional[ChatSession]:
         stmt = (

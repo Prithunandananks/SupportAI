@@ -2,45 +2,47 @@ version: '3.8'
 
 services:
   backend:
-    build:
+    build: 
       context: ./backend
-      dockerfile: Dockerfile
     ports:
       - "8000:8000"
     environment:
+      - ENVIRONMENT=production
       - DATABASE_URL=postgresql://user:password@postgres:5432/supportai
       - REDIS_URL=redis://redis:6379/0
       - QDRANT_URL=http://qdrant:6333
-      - GROQ_API_KEY=${GROQ_API_KEY:-placeholder_key}
-      - JWT_SECRET=${JWT_SECRET:-placeholder_secret}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - ALLOWED_ORIGINS=http://localhost:5173,http://localhost:80,http://frontend:80
+      - RATE_LIMIT_GLOBAL=100/minute
+      - MAX_UPLOAD_SIZE=10485760
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      qdrant:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - postgres
+      - redis
+      - qdrant
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "80:80"
+    networks:
+      - app-network
 
   postgres:
     image: postgres:15-alpine
     environment:
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=supportai
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: supportai
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d supportai"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+    ports:
+      - "5432:5432"
+    networks:
+      - app-network
 
   redis:
     image: redis:7-alpine
@@ -48,26 +50,23 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+    networks:
+      - app-network
 
   qdrant:
-    image: qdrant/qdrant:latest
+    image: qdrant/qdrant:v1.7.4
     ports:
       - "6333:6333"
-      - "6334:6334"
     volumes:
       - qdrant_data:/qdrant/storage
-    healthcheck:
-      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/6333'"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+    networks:
+      - app-network
 
 volumes:
   postgres_data:
   redis_data:
   qdrant_data:
+
+networks:
+  app-network:
+    driver: bridge

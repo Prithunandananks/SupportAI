@@ -30,6 +30,18 @@ class Settings(BaseSettings):
     ENABLE_QUERY_REWRITING: bool = True
     ENABLE_MULTI_QUERY: bool = True
     MAX_RETRIEVAL_QUERIES: int = 3
+    
+    # Production configurations
+    MAX_UPLOAD_SIZE: int = 10 * 1024 * 1024  # 10 MB
+    ALLOWED_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
+    RATE_LIMIT_GLOBAL: str = "100/minute"
+    STREAM_TIMEOUT: int = 60
+    DATABASE_POOL_SIZE: int = 20
+    QDRANT_TIMEOUT: int = 10
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
 
     model_config = SettingsConfigDict(
         env_file=".env",

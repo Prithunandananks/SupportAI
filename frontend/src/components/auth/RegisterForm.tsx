@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { authService } from "../../services/auth.service";
+import { extractErrorMessage } from "../../utils/errorHandler";
 
 function RegisterForm() {
   const navigate = useNavigate();
@@ -14,6 +16,7 @@ function RegisterForm() {
   });
 
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -26,7 +29,7 @@ function RegisterForm() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (
@@ -45,10 +48,28 @@ function RegisterForm() {
     }
 
     setError("");
+    setIsLoading(true);
 
-    alert("Registration successful! (Temporary)");
+    try {
+      const nameParts = form.fullName.trim().split(" ");
+      const firstName = nameParts[0];
+      const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : null;
 
-    navigate("/login");
+      await authService.register({
+        email: form.email,
+        password: form.password,
+        first_name: firstName,
+        last_name: lastName,
+      });
+
+      // Automatically login after successful registration could be done, 
+      // but for now, redirecting to login is safer and matches prior UX.
+      navigate("/login");
+    } catch (err) {
+      setError(extractErrorMessage(err, "Failed to register. Please try again."));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -65,7 +86,7 @@ function RegisterForm() {
       </p>
 
       {error && (
-        <p className="text-red-400 text-sm mb-4">
+        <p className="text-red-400 text-sm mb-4 text-center">
           {error}
         </p>
       )}
@@ -74,13 +95,13 @@ function RegisterForm() {
         <label className="block text-slate-300 mb-2">
           Full Name
         </label>
-
         <input
           name="fullName"
           value={form.fullName}
           onChange={handleChange}
           placeholder="Enter your full name"
-          className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3 text-white"
+          className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3 text-white outline-none focus:border-cyan-400"
+          required
         />
       </div>
 
@@ -88,14 +109,14 @@ function RegisterForm() {
         <label className="block text-slate-300 mb-2">
           Email
         </label>
-
         <input
           type="email"
           name="email"
           value={form.email}
           onChange={handleChange}
           placeholder="Enter your email"
-          className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3 text-white"
+          className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3 text-white outline-none focus:border-cyan-400"
+          required
         />
       </div>
 
@@ -103,18 +124,16 @@ function RegisterForm() {
         <label className="block text-slate-300 mb-2">
           Password
         </label>
-
         <div className="relative">
-
           <input
             type={showPassword ? "text" : "password"}
             name="password"
             value={form.password}
             onChange={handleChange}
             placeholder="Create a password"
-            className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3 pr-12 text-white"
+            className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3 pr-12 text-white outline-none focus:border-cyan-400"
+            required
           />
-
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
@@ -122,7 +141,6 @@ function RegisterForm() {
           >
             {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
           </button>
-
         </div>
       </div>
 
@@ -130,23 +148,19 @@ function RegisterForm() {
         <label className="block text-slate-300 mb-2">
           Confirm Password
         </label>
-
         <div className="relative">
-
           <input
             type={showConfirmPassword ? "text" : "password"}
             name="confirmPassword"
             value={form.confirmPassword}
             onChange={handleChange}
             placeholder="Confirm your password"
-            className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3 pr-12 text-white"
+            className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3 pr-12 text-white outline-none focus:border-cyan-400"
+            required
           />
-
           <button
             type="button"
-            onClick={() =>
-              setShowConfirmPassword(!showConfirmPassword)
-            }
+            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
             className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-cyan-400 transition"
           >
             {showConfirmPassword ? (
@@ -155,30 +169,15 @@ function RegisterForm() {
               <Eye size={20} />
             )}
           </button>
-
         </div>
       </div>
 
-       {/*<div className="mb-6">
-        <label className="block text-slate-300 mb-2">
-          Register As
-        </label>
-
-       <select
-          name="role"
-          value={form.role}
-          onChange={handleChange}
-          className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3 text-white"
-        >
-          <option value="customer">Customer</option>
-          <option value="admin">Admin</option>
-        </select>
-      </div>*/}
-
       <button
-        className="w-full bg-cyan-500 hover:bg-cyan-600 py-3 rounded-lg font-semibold transition"
+        type="submit"
+        disabled={isLoading}
+        className="w-full bg-cyan-500 hover:bg-cyan-600 py-3 rounded-lg font-semibold transition disabled:opacity-50"
       >
-        Create Account
+        {isLoading ? "Creating Account..." : "Create Account"}
       </button>
 
       <p className="text-center text-slate-400 mt-6">

@@ -1,10 +1,10 @@
 export interface Message {
-  id: number;
+  id: string | number;
   sender: "user" | "assistant";
   text: string;
 }
 
 export interface Conversation {
-  id: number;
+  id: string;
   title: string;
 }

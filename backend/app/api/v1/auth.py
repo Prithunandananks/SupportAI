@@ -70,7 +70,8 @@ async def refresh_token(
             detail="Invalid token type",
         )
 
-    user = await user_repo.get(db, id=token_data.sub)
+    import uuid
+    user = await user_repo.get(db, id=uuid.UUID(token_data.sub))
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found or inactive")
 

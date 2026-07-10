@@ -1,0 +1,26 @@
+{
+  "name": "supportai",
+  "version": "1.0.0",
+  "description": "SupportAI is a production-ready Retrieval-Augmented Generation (RAG) backend and frontend that provides intelligent document-based customer support. It leverages modern architecture components like FastAPI, React, PostgreSQL, and Qdrant.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Prithunandananks/SupportAI.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Prithunandananks/SupportAI/issues"
+  },
+  "homepage": "https://github.com/Prithunandananks/SupportAI#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "@types/node": "^26.1.1"
+  }
+}

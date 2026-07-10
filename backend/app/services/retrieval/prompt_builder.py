@@ -1,3 +1,8 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.chat import ChatMessage
+
 class PromptBuilder:
     """
     Builds prompts for the LLM using retrieved context.
@@ -6,10 +11,10 @@ class PromptBuilder:
     SYSTEM_PROMPT = """
 You are SupportAI, an AI customer support assistant.
 
-Answer ONLY using the provided context.
+The retrieved context below represents the content of the uploaded document(s).
+Answer ONLY using the provided context. If the user asks to summarize the uploaded document, summarize the provided context.
 
-If the answer is not contained in the context,
-respond politely that the information is unavailable.
+If the answer truly cannot be found in the retrieved context, and the user is not asking for a summary, respond politely that the information is unavailable ("I don't know").
 
 Do not make up information.
 

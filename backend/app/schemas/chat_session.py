@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 from datetime import datetime
 import uuid
@@ -15,8 +15,7 @@ class ChatMessageResponse(ChatMessageBase):
     session_id: uuid.UUID
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ChatSessionBase(BaseModel):
     title: Optional[str] = Field(None, description="Optional title for the session")
@@ -24,14 +23,17 @@ class ChatSessionBase(BaseModel):
 class ChatSessionCreate(ChatSessionBase):
     pass
 
+class ChatSessionUpdate(BaseModel):
+    title: Optional[str] = Field(None, description="New title for the session")
+
+
 class ChatSessionResponse(ChatSessionBase):
     id: uuid.UUID
     user_id: Optional[uuid.UUID]
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ChatSessionWithMessagesResponse(ChatSessionResponse):
     messages: List[ChatMessageResponse] = []
