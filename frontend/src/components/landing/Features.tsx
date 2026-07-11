@@ -2,22 +2,22 @@ import { Bot, FileText, ShieldCheck, BarChart3 } from "lucide-react";
 
 const features = [
   {
-    icon: <Bot size={40} />,
+    icon: <Bot size={32} />,
     title: "AI-Powered Chat",
     desc: "Instant customer support powered by Retrieval-Augmented Generation.",
   },
   {
-    icon: <FileText size={40} />,
+    icon: <FileText size={32} />,
     title: "Knowledge Base",
     desc: "Searches uploaded company documents instead of the internet.",
   },
   {
-    icon: <ShieldCheck size={40} />,
+    icon: <ShieldCheck size={32} />,
     title: "Human Review",
     desc: "Low-confidence responses are automatically flagged for admins.",
   },
   {
-    icon: <BarChart3 size={40} />,
+    icon: <BarChart3 size={32} />,
     title: "Analytics",
     desc: "Track conversations, satisfaction, confidence and knowledge gaps.",
   },
@@ -25,15 +25,19 @@ const features = [
 
 function Features() {
   return (
-    <section className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 px-10 pb-20">
+    <section className="grid md:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-6 px-6 md:px-10 pb-16 md:pb-20">
       {features.map((feature) => (
         <div
           key={feature.title}
           className="
             group
+            flex
+            flex-col
+            justify-start
+            h-full
             bg-slate-900
             rounded-2xl
-            p-6
+            p-5 md:p-6
             border
             border-slate-800
             transition-all
@@ -58,11 +62,11 @@ function Features() {
             {feature.icon}
           </div>
 
-          <h3 className="text-xl font-semibold text-white">
+          <h3 className="text-lg md:text-xl font-semibold text-white">
             {feature.title}
           </h3>
 
-          <p className="text-slate-400 mt-3">
+          <p className="mt-3 text-sm md:text-base leading-7 text-slate-400">
             {feature.desc}
           </p>
         </div>

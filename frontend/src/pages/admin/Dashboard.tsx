@@ -12,35 +12,43 @@ function Dashboard() {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-8">
         {/* Recent Activity */}
-        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6">
-          <h2 className="text-xl font-semibold mb-5">
+        <div className="
+          bg-slate-900
+          rounded-xl
+          md:rounded-2xl
+          border
+          border-slate-800
+          p-4
+          md:p-6
+          ">
+          <h2 className="text-lg md:text-xl font-semibold mb-4 md:mb-5">
             Recent Activity
           </h2>
 
           <div className="space-y-4">
             <div className="border-l-4 border-cyan-500 pl-4">
-              <p className="font-medium">
+              <p className="font-medium text-sm md:text-base">
                 Employee Handbook uploaded
               </p>
-              <span className="text-slate-400 text-sm">
+              <span className="text-slate-400 text-xs md:text-sm">
                 10 minutes ago
               </span>
             </div>
 
             <div className="border-l-4 border-yellow-500 pl-4">
-              <p className="font-medium">
+              <p className="font-medium text-sm md:text-base">
                 Low confidence response flagged
               </p>
-              <span className="text-slate-400 text-sm">
+              <span className="text-slate-400 text-xs md:text-sm">
                 22 minutes ago
               </span>
             </div>
 
             <div className="border-l-4 border-green-500 pl-4">
-              <p className="font-medium">
+              <p className="font-medium text-sm md:text-base">
                 Admin answered a flagged question
               </p>
-              <span className="text-slate-400 text-sm">
+              <span className="text-slate-400 text-xs md:text-sm">
                 1 hour ago
               </span>
             </div>
@@ -48,29 +56,64 @@ function Dashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6">
-          <h2 className="text-xl font-semibold mb-5">
+        <div className="
+          bg-slate-900
+          rounded-xl
+          md:rounded-2xl
+          border
+          border-slate-800
+          p-4
+          md:p-6
+          ">
+          <h2 className="text-lg md:text-xl font-semibold mb-4 md:mb-5">
             Quick Actions
           </h2>
 
           <div className="grid gap-4">
             <button
               onClick={() => navigate("/admin/documents")}
-              className="bg-cyan-500 hover:bg-cyan-600 rounded-xl py-3 transition"
+              className="
+              bg-cyan-500
+              hover:bg-cyan-600
+              rounded-xl
+              py-2.5
+              md:py-3
+              text-sm
+              md:text-base
+              transition
+              "
             >
               Upload New Document
             </button>
 
             <button
               onClick={() => navigate("/admin/flagged")}
-              className="bg-slate-800 hover:bg-slate-700 rounded-xl py-3 transition"
+              className="
+              bg-cyan-500
+              hover:bg-cyan-600
+              rounded-xl
+              py-2.5
+              md:py-3
+              text-sm
+              md:text-base
+              transition
+              "
             >
               Review Flagged Questions
             </button>
 
             <button
               onClick={() => navigate("/admin/analytics")}
-              className="bg-slate-800 hover:bg-slate-700 rounded-xl py-3 transition"
+              className="
+              bg-cyan-500
+              hover:bg-cyan-600
+              rounded-xl
+              py-2.5
+              md:py-3
+              text-sm
+              md:text-base
+              transition
+              "
             >
               View Analytics
             </button>

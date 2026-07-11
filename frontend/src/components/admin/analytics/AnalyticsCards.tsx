@@ -6,35 +6,39 @@ import {
 } from "lucide-react";
 
 import StatCard from "../dashboard/StatCard";
+import type { KPIData } from "@/pages/admin/Analytics";
 
-function AnalyticsCards() {
+const iconMap: Record<string, React.ReactNode> = {
+  Chats: <MessageCircle size={34} />,
+  Confidence: <BadgeCheck size={34} />,
+  Feedback: <ThumbsUp size={34} />,
+  Flagged: <AlertTriangle size={34} />,
+};
+
+interface Props {
+  kpis: KPIData[];
+}
+
+function AnalyticsCards({ kpis }: Props) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-
-      <StatCard
-        title="Chats Today"
-        value="128"
-        icon={<MessageCircle size={34} />}
-      />
-
-      <StatCard
-        title="Avg Confidence"
-        value="91%"
-        icon={<BadgeCheck size={34} />}
-      />
-
-      <StatCard
-        title="Positive Feedback"
-        value="84%"
-        icon={<ThumbsUp size={34} />}
-      />
-
-      <StatCard
-        title="Flagged Questions"
-        value="12"
-        icon={<AlertTriangle size={34} />}
-      />
-
+    <div className="
+      grid
+      grid-cols-2
+      xl:grid-cols-4
+      gap-4
+      md:gap-6
+      "
+    >
+      {kpis.map((kpi, idx) => (
+        <StatCard
+          key={idx}
+          title={kpi.title}
+          value={kpi.value.toString()}
+          icon={iconMap[kpi.iconKey]}
+          trend={kpi.trend}
+          trendLabel={kpi.trendLabel}
+        />
+      ))}
     </div>
   );
 }

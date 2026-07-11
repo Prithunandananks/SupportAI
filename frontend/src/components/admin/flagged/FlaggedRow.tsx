@@ -4,21 +4,23 @@ interface Props {
   question: string;
   confidence: number;
   status: "Pending" | "Resolved";
+  onReview: () => void;
 }
 
 function FlaggedRow({
   question,
   confidence,
   status,
+  onReview,
 }: Props) {
   return (
     <tr className="border-b border-slate-800 hover:bg-slate-800 transition">
 
-      <td className="py-4 px-4">
+      <td className="py-3 md:py-4 px-2 md:px-4">
         {question}
       </td>
 
-      <td className="py-4 px-4">
+      <td className="py-3 md:py-4 px-2 md:px-4">
 
         <span
           className={`font-semibold ${
@@ -32,18 +34,26 @@ function FlaggedRow({
 
       </td>
 
-      <td className="py-4 px-4">
-
+      <td className="py-3 md:py-4 px-2 md:px-4">
         <StatusBadge status={status} />
-
       </td>
 
-      <td className="py-4 px-4">
+      <td className="py-3 md:py-4 px-2 md:px-4">
 
-        <button className="bg-cyan-500 hover:bg-cyan-600 px-4 py-2 rounded-lg transition">
-
+        <button
+          onClick={onReview}
+          className="
+            bg-cyan-500
+            hover:bg-cyan-600
+            px-4
+            py-2
+            rounded-lg
+            text-sm
+            transition
+            text-white
+          "
+        >
           Review
-
         </button>
 
       </td>

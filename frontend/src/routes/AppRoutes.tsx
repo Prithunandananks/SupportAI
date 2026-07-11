@@ -1,14 +1,35 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { useAuth } from "@/store/AuthContext";
 
 import Landing from "../pages/public/Landing";
 import Login from "../pages/public/Login";
 import Register from "../pages/public/Register";
+import ForgotPassword from "../pages/public/ForgotPassword";
 import FlaggedQuestions from "../pages/admin/FlaggedQuestions";
 import CustomerChat from "../pages/customer/CustomerChat";
+import CustomerDashboard from "../pages/customer/CustomerDashboard";
 import Conversations from "../pages/admin/Conversations";
 import Dashboard from "../pages/admin/Dashboard";
 import Documents from "../pages/admin/Documents";
 import Analytics from "../pages/admin/Analytics";
+import CustomerProfile from "../pages/customer/Profile";
+import AdminProfile from "../pages/admin/Profile";
+import CustomerSettings from "../pages/customer/Settings";
+import AdminSettings from "../pages/admin/Settings";
+import AdminDevLogin from "../pages/admin/AdminDevLogin";
+import NotFound from "../pages/shared/NotFound";
+
+function CustomerRoute({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  if (user?.role === "customer") return <>{children}</>;
+  return <Navigate to="/" replace />;
+}
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  if (user?.role === "admin") return <>{children}</>;
+  return <Navigate to="/admin/dev-login" replace />;
+}
 
 function AppRoutes() {
   return (
@@ -19,13 +40,33 @@ function AppRoutes() {
 
       <Route path="/register" element={<Register />} />
 
-      <Route path="/chat" element={<CustomerChat />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
 
-      <Route path="/admin/dashboard" element={<Dashboard />} />
-      <Route path="/admin/documents" element={<Documents />} />
-      <Route path="/admin/flagged" element={<FlaggedQuestions />} />
-      <Route path="/admin/conversations" element={<Conversations />} />
-      <Route path="/admin/analytics" element={<Analytics />} />
+      <Route path="/dashboard" element={<CustomerRoute><CustomerDashboard /></CustomerRoute>} />
+      <Route path="/chat" element={<CustomerRoute><CustomerChat /></CustomerRoute>} />
+
+      <Route path="/admin/dev-login" element={<AdminDevLogin />} />
+      <Route path="/admin/dashboard" element={<AdminRoute><Dashboard /></AdminRoute>} />
+      <Route path="/admin/documents" element={<AdminRoute><Documents /></AdminRoute>} />
+      <Route path="/admin/flagged" element={<AdminRoute><FlaggedQuestions /></AdminRoute>} />
+      <Route path="/admin/conversations" element={<AdminRoute><Conversations /></AdminRoute>} />
+      <Route path="/admin/analytics" element={<AdminRoute><Analytics /></AdminRoute>} />
+      <Route path="/profile" element={<CustomerRoute><CustomerProfile /></CustomerRoute>} />
+
+      <Route
+          path="/admin/profile"
+          element={<AdminRoute><AdminProfile /></AdminRoute>}
+      />
+      <Route
+          path="/settings"
+          element={<CustomerRoute><CustomerSettings /></CustomerRoute>}
+      />
+      <Route
+          path="/admin/settings"
+          element={<AdminRoute><AdminSettings /></AdminRoute>}
+      />
+
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }

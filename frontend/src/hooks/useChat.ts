@@ -31,7 +31,7 @@ export function useChat() {
         id: Date.now() + 1,
         sender: "assistant",
         text:
-          "🤖 This is a temporary AI response. Later, FastAPI + Qdrant + the LLM will generate the real answer.",
+          "This is a temporary AI response. Later, FastAPI + Qdrant + the LLM will generate the real answer.",
       };
 
       setMessages((prev) => [...prev, aiMessage]);

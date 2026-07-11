@@ -1,44 +1,76 @@
-import { House } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Menu, House } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import ProfileMenu from "@/components/profile/ProfileMenu";
 
-function ChatHeader() {
+interface Props {
+  sidebarOpen: boolean;
+  setSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+function ChatHeader({ setSidebarOpen }: Props) {
   const navigate = useNavigate();
 
   return (
-    <header className="border-b border-slate-800 p-6 flex items-center justify-between">
+    <header className="border-b border-slate-800 px-5 md:px-8 py-3 md:py-6 flex items-center justify-between">
+      
+      {/* Left */}
+      <div className="flex items-center gap-5">
 
-      <div>
-        <h1 className="text-2xl font-bold text-cyan-400">
-          🤖 SupportAI
-        </h1>
+        {/* Mobile Menu */}
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="lg:hidden text-cyan-400 hover:text-cyan-300 transition"
+        >
+          <Menu size={24} />
+        </button>
 
-        <p className="text-slate-400 mt-1">
-          AI Customer Support Assistant
-        </p>
+        {/* Logo & Subtitle */}
+        <div>
+          <Link
+            to="/"
+            className=" text-base md:text-2xl font-bold text-cyan-400 hover:text-cyan-300 transition-colors"
+          >
+            SupportAI
+          </Link>
+
+          <p className="hidden md:block text-slate-400 mt-1">
+            AI Customer Support Assistant
+          </p>
+        </div>
+
       </div>
 
-      <button
-        onClick={() => navigate("/")}
-        className="
-          flex
-          items-center
-          gap-2
-          border border-slate-700
-          bg-slate-900
-          hover:border-cyan-500
-          hover:shadow-lg
-          hover:shadow-cyan-500/10
-          hover:bg-cyan-500
-          px-5
-          py-3
-          rounded-xl
-          transition-all
-          duration-300
-        "
-      >
-        <House size={18} />
-        Home
-      </button>
+      {/* Desktop Home Button */}
+      <div className="flex items-center gap-3">
+
+        <button
+  onClick={() => navigate("/dashboard")}
+  className="
+    flex
+    items-center
+    gap-1.5
+    h-11
+    px-3
+    rounded-xl
+    border
+    border-slate-700
+    bg-slate-900
+    hover:border-cyan-500
+    hover:bg-slate-800
+    transition-all
+    duration-300
+  "
+>
+  <House size={18} />
+
+  <span className="hidden sm:inline font-medium">
+    Home
+  </span>
+</button>
+
+        <ProfileMenu />
+
+      </div>
 
     </header>
   );

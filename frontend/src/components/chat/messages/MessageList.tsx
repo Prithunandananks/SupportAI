@@ -4,9 +4,11 @@ import ChatMessage from "./ChatMessage";
 
 interface Props {
   messages: Message[];
+  onFeedback?: (messageId: string | number, feedback: "like" | "dislike") => void;
+  onFlag?: (messageId: string | number) => void;
 }
 
-function MessageList({ messages }: Props) {
+function MessageList({ messages, onFeedback, onFlag }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -18,11 +20,24 @@ function MessageList({ messages }: Props) {
   if (messages.length === 0) return null;
 
   return (
-    <div className="flex-1 overflow-y-auto px-10 py-8 space-y-4">
+    <div
+        className="
+          flex-1
+          overflow-y-auto
+          px-4
+          md:px-10
+          py-6
+          md:py-8
+          space-y-6
+          scroll-smooth
+        "
+      >
       {messages.map((message) => (
         <ChatMessage
           key={message.id}
           message={message}
+          onFeedback={onFeedback}
+          onFlag={onFlag}
         />
       ))}
 

@@ -7,22 +7,101 @@ import {
   LogOut,
 } from "lucide-react";
 
-import { NavLink } from "react-router-dom";
+interface Props {
+  isOpen: boolean;
+  onClose: () => void;
+}
 
-function AdminSidebar() {
+import { NavLink, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import LogoutConfirmationModal from "@/components/shared/LogoutConfirmationModal";
+import { useAuth } from "@/store/AuthContext";
+function AdminSidebar({
+  isOpen,
+  onClose,
+}: Props) {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+
   const menuClass = ({ isActive }: { isActive: boolean }) =>
     `flex items-center gap-3 p-3 rounded-xl transition-all duration-200 ${
       isActive
-        ? "bg-cyan-500 text-white shadow-lg shadow-cyan-500/20"
-        : "text-slate-300 hover:bg-slate-800 hover:text-white"
+        ? "bg-cyan-500/15 border border-cyan-500 text-cyan-300 shadow-lg shadow-cyan-500/10"
+        : "border-transparent text-slate-300 hover:bg-slate-800 hover:border-slate-700 hover:text-white"
     }`;
 
   return (
-    <aside className="w-72 bg-slate-900 border-r border-slate-800 flex flex-col">
+    <>
+      {/* Mobile Overlay */}
+      {isOpen && (
+        <div
+          onClick={onClose}
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden"
+        />
+      )}
 
-      <h1 className="text-3xl font-bold text-cyan-400 p-6">
-        SupportAI
-      </h1>
+      <aside
+        className={`
+          fixed lg:sticky
+          top-0 left-0
+          z-40
+          h-screen
+          lg:top-0
+          w-72
+          bg-slate-900
+          border-r
+          border-slate-800
+          flex
+          flex-col
+          shadow-2xl
+          transition-transform
+          duration-300
+          ease-in-out
+          ${
+            isOpen
+              ? "translate-x-0"
+              : "-translate-x-full lg:translate-x-0"
+          }
+        `}
+      >
+
+      <div className="flex items-center justify-between p-6">
+
+  <NavLink
+    to="/"
+    className="
+      text-3xl
+      font-bold
+      text-cyan-400
+      hover:text-cyan-300
+      transition-colors
+      duration-300
+    "
+  >
+    SupportAI
+  </NavLink>
+
+  <button
+    onClick={onClose}
+    className="
+      lg:hidden
+      h-9
+      w-9
+      rounded-lg
+      flex
+      items-center
+      justify-center
+      text-slate-400
+      hover:bg-slate-800
+      hover:text-white
+      transition
+    "
+  >
+    ✕
+  </button>
+
+</div>
 
       <nav className="flex flex-col gap-2 px-4">
 
@@ -68,12 +147,42 @@ function AdminSidebar() {
 
       </nav>
 
-      <button className="mt-auto m-5 flex items-center justify-center gap-2 rounded-xl bg-red-500 py-3 transition hover:bg-red-600">
+      <button 
+        onClick={() => setIsLogoutModalOpen(true)}
+        className="
+        mt-auto
+        m-5
+        flex
+        items-center
+        justify-center
+        gap-2
+        rounded-xl
+        bg-red-500/90
+        py-3
+        transition-all
+        duration-300
+        hover:bg-red-600
+        hover:shadow-lg
+        hover:shadow-red-500/20
+        " 
+      >
         <LogOut size={18} />
         Logout
       </button>
 
     </aside>
+
+    <LogoutConfirmationModal
+      isOpen={isLogoutModalOpen}
+      onClose={() => setIsLogoutModalOpen(false)}
+      onConfirm={() => {
+        logout();
+        navigate("/", { replace: true, state: {} });
+        setIsLogoutModalOpen(false);
+      }}
+    />
+
+    </>
   );
 }
 

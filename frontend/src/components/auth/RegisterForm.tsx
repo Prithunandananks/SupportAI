@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/store/AuthContext";
 
 function RegisterForm() {
   const navigate = useNavigate();
+  const { loginCustomer } = useAuth();
 
   const [form, setForm] = useState({
     fullName: "",
@@ -46,32 +48,41 @@ function RegisterForm() {
 
     setError("");
 
-    alert("Registration successful! (Temporary)");
-
-    navigate("/login");
+    loginCustomer();
+    navigate("/chat");
   };
 
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-slate-900 p-8 rounded-2xl shadow-xl w-full max-w-md"
-    >
-      <h2 className="text-3xl font-bold text-center text-white mb-2">
+      className="
+      w-full
+      max-w-md
+      bg-slate-900
+      rounded-2xl
+      shadow-xl
+      border
+      border-slate-800
+      p-6
+      sm:p-8
+      "
+      >
+      <h2 className="text-2xl sm:text-3xl font-bold text-center text-white mb-2">
         Create Account 
       </h2>
 
-      <p className="text-slate-400 text-center mb-8">
+      <p className="text-sm sm:text-base text-slate-400 text-center mb-8">
         Join SupportAI and get started
       </p>
 
       {error && (
-        <p className="text-red-400 text-sm mb-4">
+        <p className="text-red-400 text-sm text-center mb-5">
           {error}
         </p>
       )}
 
       <div className="mb-4">
-        <label className="block text-slate-300 mb-2">
+        <label className="block text-sm text-slate-300 mb-1.5">
           Full Name
         </label>
 
@@ -80,12 +91,12 @@ function RegisterForm() {
           value={form.fullName}
           onChange={handleChange}
           placeholder="Enter your full name"
-          className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3 text-white"
+          className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3.5 text-sm sm:text-base text-white outline-none focus:border-cyan-400 transition"
         />
       </div>
 
       <div className="mb-4">
-        <label className="block text-slate-300 mb-2">
+        <label className="block text-sm text-slate-300 mb-1.5">
           Email
         </label>
 
@@ -95,12 +106,12 @@ function RegisterForm() {
           value={form.email}
           onChange={handleChange}
           placeholder="Enter your email"
-          className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3 text-white"
+          className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3.5 text-sm sm:text-base text-white outline-none focus:border-cyan-400 transition"
         />
       </div>
 
       <div className="mb-4">
-        <label className="block text-slate-300 mb-2">
+        <label className="block text-sm text-slate-300 mb-1.5">
           Password
         </label>
 
@@ -112,7 +123,7 @@ function RegisterForm() {
             value={form.password}
             onChange={handleChange}
             placeholder="Create a password"
-            className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3 pr-12 text-white"
+            className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3.5 pr-12 text-sm sm:text-base text-white outline-none focus:border-cyan-400 transition"
           />
 
           <button
@@ -127,7 +138,7 @@ function RegisterForm() {
       </div>
 
       <div className="mb-4">
-        <label className="block text-slate-300 mb-2">
+        <label className="block text-sm text-slate-300 mb-1.5">
           Confirm Password
         </label>
 
@@ -139,7 +150,7 @@ function RegisterForm() {
             value={form.confirmPassword}
             onChange={handleChange}
             placeholder="Confirm your password"
-            className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3 pr-12 text-white"
+            className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3.5 pr-12 text-sm sm:text-base text-white outline-none focus:border-cyan-400 transition"
           />
 
           <button
@@ -150,9 +161,9 @@ function RegisterForm() {
             className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-cyan-400 transition"
           >
             {showConfirmPassword ? (
-              <EyeOff size={20} />
+              <EyeOff size={18} />
             ) : (
-              <Eye size={20} />
+              <Eye size={18} />
             )}
           </button>
 
@@ -176,12 +187,25 @@ function RegisterForm() {
       </div>*/}
 
       <button
-        className="w-full bg-cyan-500 hover:bg-cyan-600 py-3 rounded-lg font-semibold transition"
+        className="
+        w-full
+        bg-cyan-500
+        hover:bg-cyan-600
+        text-white
+        font-semibold
+        py-3.5
+        rounded-lg
+        transition-all
+        duration-300
+        shadow-lg
+        shadow-cyan-500/20
+        hover:shadow-cyan-500/40
+        "
       >
         Create Account
       </button>
 
-      <p className="text-center text-slate-400 mt-6">
+      <p className="text-center text-slate-400 mt-8">
         Already have an account?{" "}
         <Link
           to="/login"

@@ -10,45 +10,76 @@ const questions = [
 
 function SuggestedQuestions({ onQuestionClick }: Props) {
   return (
-    <div className="flex flex-wrap justify-center gap-5 mt-12">
-
+    <div className="mt-10 flex flex-col items-center gap-4 w-full">
       {questions.map((question) => (
-
         <button
           key={question}
           onClick={() => onQuestionClick(question)}
           className="
             group
-            bg-slate-800
+            flex
+            items-center
+            gap-4
+
+            w-full
+            max-w-[460px]
+
+            rounded-xl
             border
             border-slate-700
-            hover:border-cyan-500
-            hover:bg-slate-700
-            rounded-2xl
-            px-6
-            py-4
+            bg-slate-800/70
+
+            px-4
+            py-3
+            md:px-5
+            md:py-4
+
+            text-left
+
             transition-all
             duration-300
-            hover:-translate-y-1
+
+            hover:border-cyan-500
+            hover:bg-slate-700
             hover:shadow-lg
             hover:shadow-cyan-500/10
-            text-left
+            hover:-translate-y-0.5
           "
         >
-          <div className="flex items-center gap-3">
-
-            <span className="text-xl group-hover:scale-110 transition">
-              ❓
-            </span>
-
-            <span>{question}</span>
-
+          <div
+            className="
+              flex
+              h-8
+              w-8
+              md:h-10
+              md:w-10
+              shrink-0
+              items-center
+              justify-center
+              rounded-full
+              bg-cyan-500/10
+              text-cyan-400
+              font-semibold
+              transition-transform
+              duration-300
+              group-hover:scale-110
+            "
+          >
+            ?
           </div>
 
+          <span
+            className="
+              text-[15px]
+              md:text-base
+              text-slate-200
+              leading-6
+            "
+          >
+            {question}
+          </span>
         </button>
-
       ))}
-
     </div>
   );
 }

@@ -6,30 +6,82 @@ interface Props {
 
 function WelcomeScreen({ onQuestionClick }: Props) {
   return (
-    <div className="flex-1 flex flex-col justify-center items-center text-center px-10">
+    <div
+      className="
+        flex-1
+        flex
+        flex-col
+        items-center
+        justify-center
+        text-center
+        px-6
+        md:px-10
+        py-8
+        md:py-12
+      "
+    >
+      {/* Mobile Badge */}
+      <span
+        className="
+          mb-4
+          rounded-full
+          border
+          border-cyan-500/30
+          bg-cyan-500/10
+          px-3
+          py-0.5
+          text-[11px]
+          font-medium
+          text-cyan-300
+        "
+      >
+        AI Customer Support
+      </span>
 
-      <div className="mb-5 text-6xl">
-        🤖
-      </div>
+      {/* Heading */}
+      <h1
+        className="
+          text-2xl
+          sm:text-4xl
+          md:text-5xl
+          lg:text-6xl
+          font-bold
+          leading-tight
+        "
+      >
+        Welcome to
 
-      <h1 className="text-5xl md:text-6xl font-bold leading-tight">
-        Welcome to{" "}
+        <br />
+
         <span className="text-cyan-400">
           SupportAI
         </span>
       </h1>
 
-      <p className="text-slate-400 mt-6 max-w-2xl text-lg leading-8">
-        Ask anything about your company's documents,
-        policies, FAQs and manuals.
-        Every response is generated using your organization's
-        knowledge base.
+      {/* Subtitle */}
+      <p
+        className="
+          mt-5
+          max-w-md
+          text-xs
+          sm:text-base
+          md:text-lg
+          leading-6
+          text-slate-400
+        "
+      >
+        Ask questions about your company's
+        documents, policies, FAQs and manuals.
+
+        <br />
+
+        Responses are generated using your
+        organization's knowledge base.
       </p>
 
       <SuggestedQuestions
         onQuestionClick={onQuestionClick}
       />
-
     </div>
   );
 }
