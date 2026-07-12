@@ -76,7 +76,9 @@ export const chatService = {
     onChunk: (chunk: string) => void,
     onComplete: () => void,
     onError: (error: Error) => void,
-    signal?: AbortSignal
+    onMetadata?: (metadata: { sources?: Citation[], confidence?: "High" | "Medium" | "Low" }) => void,
+    signal?: AbortSignal,
+    regenerate?: boolean
   ): Promise<void> {
     try {
       const token = localStorage.getItem("access_token");
@@ -90,7 +92,7 @@ export const chatService = {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, regenerate: regenerate || false }),
         signal,
       });
 
@@ -131,6 +133,9 @@ export const chatService = {
                   if (data && data.content) {
                     onChunk(data.content);
                   }
+                  if (data && (data.sources || data.confidence)) {
+                    if (onMetadata) onMetadata(data);
+                  }
                 } catch {
                   // Ignore malformed JSON gracefully as requested
                 }
@@ -152,6 +157,9 @@ export const chatService = {
               const data = JSON.parse(dataStr);
               if (data && data.content) {
                 onChunk(data.content);
+              }
+              if (data && (data.sources || data.confidence)) {
+                if (onMetadata) onMetadata(data);
               }
             } catch {
               // Ignore malformed JSON

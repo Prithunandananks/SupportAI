@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
-import { authService } from "../../services/auth.service";
+import { Link } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
 import { extractErrorMessage } from "../../utils/errorHandler";
 
 function LoginForm() {
-  const navigate = useNavigate();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -27,12 +27,7 @@ function LoginForm() {
       data.append("username", email);
       data.append("password", password);
 
-      const res = await authService.login(data);
-
-      console.log("LOGIN RESPONSE:", res);
-      console.log("TOKEN:", localStorage.getItem("access_token"));
-
-      navigate("/chat");
+      await login(data);
     } catch (err) {
       setError(extractErrorMessage(err, "Failed to login. Please check your credentials."));
     } finally {

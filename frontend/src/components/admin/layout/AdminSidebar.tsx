@@ -8,8 +8,10 @@ import {
 } from "lucide-react";
 
 import { NavLink } from "react-router-dom";
+import { useAuth } from "../../../contexts/AuthContext";
 
 function AdminSidebar() {
+  const { logout } = useAuth();
   const menuClass = ({ isActive }: { isActive: boolean }) =>
     `flex items-center gap-3 p-3 rounded-xl transition-all duration-200 ${
       isActive
@@ -68,7 +70,10 @@ function AdminSidebar() {
 
       </nav>
 
-      <button className="mt-auto m-5 flex items-center justify-center gap-2 rounded-xl bg-red-500 py-3 transition hover:bg-red-600">
+      <button 
+        onClick={logout}
+        className="mt-auto m-5 flex items-center justify-center gap-2 rounded-xl bg-red-500 py-3 transition hover:bg-red-600"
+      >
         <LogOut size={18} />
         Logout
       </button>

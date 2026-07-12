@@ -21,8 +21,12 @@ function CustomerChat() {
     isHistoryLoading,
     error,
     cancelStream,
-    regenerateMessage
+    regenerateMessage,
+    messageErrors,
+    isRegenerating
   } = useChat();
+
+  const isWaitingForFirstToken = isTyping && messages.length > 0 && messages[messages.length - 1].sender === "assistant" && messages[messages.length - 1].text === "";
 
   const inputRef = React.useRef<HTMLTextAreaElement>(null);
 
@@ -73,8 +77,10 @@ function CustomerChat() {
             <MessageList 
               messages={messages} 
               onRegenerate={regenerateMessage}
+              messageErrors={messageErrors}
+              isRegenerating={isRegenerating}
             />
-            {isTyping && (
+            {isWaitingForFirstToken && (
               <div className="px-10 pb-6 flex">
                 <div className="bg-slate-800 border border-slate-700 rounded-3xl px-6 py-4 shadow-lg">
                   <p className="text-cyan-400 font-semibold mb-3">

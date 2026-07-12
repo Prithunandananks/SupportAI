@@ -1,43 +1,19 @@
 import React from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter";
-import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { Copy, RefreshCw, ThumbsUp, ThumbsDown } from "lucide-react";
+import { Copy, RefreshCw, AlertCircle } from "lucide-react";
 import toast from "react-hot-toast";
 
 import type { Message } from "./Message";
-
-// Registering common languages for light version to save bundle size
-import tsx from "react-syntax-highlighter/dist/esm/languages/prism/tsx";
-import typescript from "react-syntax-highlighter/dist/esm/languages/prism/typescript";
-import javascript from "react-syntax-highlighter/dist/esm/languages/prism/javascript";
-import python from "react-syntax-highlighter/dist/esm/languages/prism/python";
-import sql from "react-syntax-highlighter/dist/esm/languages/prism/sql";
-import bash from "react-syntax-highlighter/dist/esm/languages/prism/bash";
-import json from "react-syntax-highlighter/dist/esm/languages/prism/json";
-import yaml from "react-syntax-highlighter/dist/esm/languages/prism/yaml";
-import css from "react-syntax-highlighter/dist/esm/languages/prism/css";
-import markdown from "react-syntax-highlighter/dist/esm/languages/prism/markdown";
-
-SyntaxHighlighter.registerLanguage("tsx", tsx);
-SyntaxHighlighter.registerLanguage("typescript", typescript);
-SyntaxHighlighter.registerLanguage("javascript", javascript);
-SyntaxHighlighter.registerLanguage("python", python);
-SyntaxHighlighter.registerLanguage("sql", sql);
-SyntaxHighlighter.registerLanguage("bash", bash);
-SyntaxHighlighter.registerLanguage("json", json);
-SyntaxHighlighter.registerLanguage("yaml", yaml);
-SyntaxHighlighter.registerLanguage("css", css);
-SyntaxHighlighter.registerLanguage("markdown", markdown);
+import { MarkdownRenderer } from "./MarkdownRenderer";
 
 interface Props {
   message: Message;
   isLast?: boolean;
   onRegenerate?: () => void;
+  error?: string;
+  isRegenerating?: boolean;
 }
 
-const ChatMessage = React.memo(({ message, isLast, onRegenerate }: Props) => {
+const ChatMessage = React.memo(({ message, isLast, onRegenerate, error, isRegenerating }: Props) => {
   const isUser = message.sender === "user";
 
   const handleCopy = () => {
@@ -45,13 +21,7 @@ const ChatMessage = React.memo(({ message, isLast, onRegenerate }: Props) => {
     toast.success("Copied to clipboard!");
   };
 
-  const handleLike = () => {
-    toast.success("Feedback submitted!");
-  };
-
-  const handleDislike = () => {
-    toast.error("Feedback submitted!");
-  };
+  const formattedTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }).format(new Date());
 
   return (
     <div
@@ -60,71 +30,97 @@ const ChatMessage = React.memo(({ message, isLast, onRegenerate }: Props) => {
       }`}
     >
       <div className={`max-w-3xl ${isUser ? "" : "w-full"}`}>
-
-        {/* Sender */}
-        <p
-          className={`text-sm mb-2 font-semibold flex items-center gap-2 ${
-            isUser
-              ? "justify-end text-cyan-400"
-              : "text-cyan-400"
+        {/* Sender and Timestamp */}
+        <div
+          className={`flex items-center gap-3 mb-2 ${
+            isUser ? "justify-end flex-row-reverse" : "justify-start"
           }`}
         >
-          {isUser ? "You" : "🤖 SupportAI"}
-        </p>
+          <p className={`text-sm font-semibold ${isUser ? "text-cyan-400" : "text-cyan-400"}`}>
+            {isUser ? "You" : "🤖 SupportAI"}
+          </p>
+          <span className="text-xs text-slate-500 font-medium">
+            {message.timestamp ? new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }).format(new Date(message.timestamp)) : formattedTime}
+          </span>
+        </div>
 
         {/* Bubble */}
         <div
           className={`rounded-3xl px-6 py-4 shadow-lg transition-all duration-300 ${
             isUser
               ? "bg-cyan-500 text-white hover:bg-cyan-400"
+              : error
+              ? "bg-red-900/20 text-white border border-red-900"
               : "bg-slate-800 text-white border border-slate-700 hover:border-cyan-500"
           }`}
         >
           {isUser ? (
             <p className="leading-7 whitespace-pre-wrap">{message.text}</p>
           ) : (
-            <div className="prose prose-invert max-w-none prose-pre:bg-slate-900 prose-pre:border prose-pre:border-slate-700 prose-p:leading-7">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  code({ inline, className, children, ...props }: any) {
-                    const match = /language-(\w+)/.exec(className || "");
-                    return !inline && match ? (
-                      <SyntaxHighlighter
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        style={vscDarkPlus as any}
-                        language={match[1]}
-                        PreTag="div"
-                        customStyle={{ margin: 0, borderRadius: '0.5rem' }}
-                        {...props}
-                      >
-                        {String(children).replace(/\n$/, "")}
-                      </SyntaxHighlighter>
-                    ) : (
-                      <code className={`${className} bg-slate-700/50 px-1.5 py-0.5 rounded text-cyan-300`} {...props}>
-                        {children}
-                      </code>
-                    );
-                  },
-                }}
-              >
-                {message.text}
-              </ReactMarkdown>
+            <div className="w-full">
+              {message.text ? (
+                 <MarkdownRenderer content={message.text} />
+              ) : error ? (
+                 <p className="text-red-400 leading-7">Generation failed. Please try again.</p>
+              ) : (
+                 <p className="text-slate-400 italic animate-pulse">Thinking...</p>
+              )}
             </div>
           )}
         </div>
 
-        {/* Assistant Extras */}
-        {!isUser && (
-          <>
-            {/* Sources section - TODO: replace with real message.sources if backend provides citations */}
-            <div className="flex flex-wrap gap-3 mt-4">
-              <span className="bg-slate-700 px-3 py-1 rounded-full text-sm flex items-center gap-1 opacity-70">
-                📄 Sources (TODO)
-              </span>
-            </div>
+        {/* Error State */}
+        {error && !isUser && (
+          <div className="flex items-center gap-2 mt-3 text-red-400 text-sm bg-red-900/10 px-4 py-2 rounded-lg border border-red-900/50">
+            <AlertCircle size={16} />
+            <span>{error}</span>
+            {isLast && onRegenerate && (
+               <button 
+                  onClick={onRegenerate}
+                  disabled={isRegenerating}
+                  className="ml-auto underline font-medium hover:text-red-300 disabled:opacity-50"
+               >
+                 Retry
+               </button>
+            )}
+          </div>
+        )}
 
+        {/* Confidence and Sources */}
+        {!isUser && !error && message.text && (message.confidence || (message.sources && message.sources.length > 0)) && (
+          <div className="mt-3 flex flex-col gap-2">
+            {message.confidence && (
+              <div className="flex items-center gap-2 text-xs font-medium">
+                <span className="text-slate-400">Confidence:</span>
+                <span className={`px-2 py-0.5 rounded-full ${
+                  message.confidence === "High" ? "bg-green-500/20 text-green-400" :
+                  message.confidence === "Medium" ? "bg-yellow-500/20 text-yellow-400" :
+                  "bg-red-500/20 text-red-400"
+                }`}>
+                  {message.confidence}
+                </span>
+              </div>
+            )}
+            
+            {message.sources && message.sources.length > 0 && (
+              <div className="bg-slate-800/50 rounded-xl p-3 border border-slate-700/50">
+                <h4 className="text-xs font-semibold text-slate-400 mb-2">Sources</h4>
+                <ul className="flex flex-col gap-1">
+                  {message.sources.map((src: { filename: string }, idx: number) => (
+                    <li key={idx} className="text-xs text-cyan-400 flex items-center gap-2">
+                      <span className="w-1 h-1 rounded-full bg-cyan-400"></span>
+                      {src.filename}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Assistant Extras */}
+        {!isUser && !error && message.text && (
+          <>
             <div className="flex gap-2 mt-4 items-center text-slate-400">
               <button
                 onClick={handleCopy}
@@ -138,31 +134,14 @@ const ChatMessage = React.memo(({ message, isLast, onRegenerate }: Props) => {
               {isLast && onRegenerate && (
                 <button
                   onClick={onRegenerate}
-                  className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition hover:text-white flex items-center gap-2"
+                  disabled={isRegenerating}
+                  className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition hover:text-white flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-label="Regenerate response"
                   title="Regenerate"
                 >
-                  <RefreshCw size={16} />
+                  <RefreshCw size={16} className={isRegenerating ? "animate-spin text-cyan-400" : ""} />
                 </button>
               )}
-
-              <button
-                onClick={handleLike}
-                className="p-2 rounded-lg bg-slate-800 hover:bg-green-900/50 transition hover:text-green-400 ml-auto"
-                aria-label="Like response"
-                title="Like"
-              >
-                <ThumbsUp size={16} />
-              </button>
-
-              <button
-                onClick={handleDislike}
-                className="p-2 rounded-lg bg-slate-800 hover:bg-red-900/50 transition hover:text-red-400"
-                aria-label="Dislike response"
-                title="Dislike"
-              >
-                <ThumbsDown size={16} />
-              </button>
             </div>
           </>
         )}

@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 import json
 import asyncio
 import uuid
+import traceback
 
+from app.core.logger import logger
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.services.chat.orchestrator import ChatOrchestrator
 from app.services.retrieval.rag_pipeline import RAGPipeline
@@ -44,30 +46,56 @@ def get_chat_orchestrator(
 
 @router.post("", response_model=ChatResponse, summary="Send a message to the AI assistant")
 async def chat_endpoint(
-    request: ChatRequest,
+    request: Request,
+    chat_req: ChatRequest,
     orchestrator: ChatOrchestrator = Depends(get_chat_orchestrator),
+    current_user: User = Depends(deps.get_current_active_user),
 ):
     """
     Process a chat message using the existing RAG pipeline and return the generated answer and citations.
     """
-    answer, sources = await orchestrator.process_message(request.message)
+    answer, sources = await orchestrator.process_message(chat_req.message)
+    req_id = getattr(request.state, "request_id", "unknown")
+    logger.info(json.dumps({
+        "event": "chat_generation",
+        "user_id": str(current_user.id),
+        "request_id": req_id
+    }))
     return ChatResponse(answer=answer, sources=sources)
 
 @router.post("/stream", summary="Send a message to the AI assistant and stream the response")
 async def chat_stream_endpoint(
-    request: ChatRequest,
+    request: Request,
+    chat_req: ChatRequest,
     orchestrator: ChatOrchestrator = Depends(get_chat_orchestrator),
+    current_user: User = Depends(deps.get_current_active_user),
 ):
     """
     Process a chat message using the existing RAG pipeline and stream the generated answer.
     """
+    req_id = getattr(request.state, "request_id", "unknown")
+    
     async def event_generator():
         try:
-            async for chunk in orchestrator.process_message_stream(request.message):
-                # Format as Server-Sent Events
-                yield f"data: {json.dumps({'content': chunk})}\n\n"
+            async for item in orchestrator.process_message_stream(chat_req.message, regenerate=chat_req.regenerate):
+                yield f"data: {json.dumps(item)}\n\n"
+            
+            logger.info(json.dumps({
+                "event": "chat_stream_generation",
+                "regenerate": chat_req.regenerate,
+                "user_id": str(current_user.id),
+                "request_id": req_id
+            }))
         except asyncio.CancelledError:
             pass
+        except Exception as e:
+            logger.error(json.dumps({
+                "event": "chat_stream_error",
+                "error": str(e),
+                "traceback": traceback.format_exc(),
+                "request_id": req_id
+            }))
+            yield f"data: {json.dumps({'error': 'An error occurred during generation'})}\n\n"
             
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
@@ -135,42 +163,84 @@ async def get_chat_session(
 
 @router.post("/session/{session_id}/message", response_model=ChatResponse, summary="Send a message in a session")
 async def send_session_message(
+    request: Request,
     session_id: uuid.UUID,
-    request: ChatRequest,
+    chat_req: ChatRequest,
     orchestrator: ChatOrchestrator = Depends(get_chat_orchestrator),
     repo: ChatRepository = Depends(get_chat_repo),
     current_user: User = Depends(deps.get_current_active_user),
 ):
+    req_id = getattr(request.state, "request_id", "unknown")
+    user_id_str = str(current_user.id)
     session = await repo.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    if session.user_id != current_user.id:
+    if str(session.user_id) != user_id_str:
+        logger.warning(json.dumps({
+            "event": "send_message_failed",
+            "reason": "forbidden",
+            "session_id": str(session_id),
+            "user_id": user_id_str,
+            "request_id": req_id
+        }))
         raise HTTPException(status_code=403, detail="Forbidden: You do not own this session")
         
-    answer, sources = await orchestrator.process_message(request.message, session_id=session_id)
+    answer, sources = await orchestrator.process_message(chat_req.message, session_id=session_id)
+    
+    logger.info(json.dumps({
+        "event": "chat_generation",
+        "session_id": str(session_id),
+        "user_id": user_id_str,
+        "request_id": req_id
+    }))
+    
     return ChatResponse(answer=answer, sources=sources)
 
 @router.post("/session/{session_id}/stream", summary="Stream a message in a session")
 async def stream_session_message(
+    request: Request,
     session_id: uuid.UUID,
-    request: ChatRequest,
+    chat_req: ChatRequest,
     orchestrator: ChatOrchestrator = Depends(get_chat_orchestrator),
     repo: ChatRepository = Depends(get_chat_repo),
     current_user: User = Depends(deps.get_current_active_user),
 ):
+    req_id = getattr(request.state, "request_id", "unknown")
+    user_id_str = str(current_user.id)
     session = await repo.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    if session.user_id != current_user.id:
+    if str(session.user_id) != user_id_str:
+        logger.warning(json.dumps({
+            "event": "stream_message_failed",
+            "reason": "forbidden",
+            "session_id": str(session_id),
+            "user_id": user_id_str,
+            "request_id": req_id
+        }))
         raise HTTPException(status_code=403, detail="Forbidden: You do not own this session")
         
     async def event_generator():
         try:
-            async for chunk in orchestrator.process_message_stream(request.message, session_id=session_id):
-                yield f"data: {json.dumps({'content': chunk})}\n\n"
+            async for item in orchestrator.process_message_stream(chat_req.message, session_id=session_id, regenerate=chat_req.regenerate):
+                yield f"data: {json.dumps(item)}\n\n"
+            logger.info(json.dumps({
+                "event": "chat_stream_started",
+                "session_id": str(session_id),
+                "user_id": user_id_str,
+                "request_id": req_id
+            }))
         except asyncio.CancelledError:
             # Client disconnected, gracefully terminate the generator
             pass
+        except Exception as e:
+            logger.error(json.dumps({
+                "event": "chat_stream_error",
+                "error": str(e),
+                "traceback": traceback.format_exc(),
+                "request_id": req_id
+            }))
+            yield f"data: {json.dumps({'error': 'An error occurred during generation'})}\n\n"
             
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 

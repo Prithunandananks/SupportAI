@@ -31,6 +31,9 @@ export const authService = {
     if (response.data.access_token) {
       localStorage.setItem("access_token", response.data.access_token);
     }
+    if (response.data.refresh_token) {
+      localStorage.setItem("refresh_token", response.data.refresh_token);
+    }
     return response.data;
   },
 
@@ -41,5 +44,6 @@ export const authService = {
 
   logout(): void {
     localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
   },
 };

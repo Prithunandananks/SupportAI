@@ -10,6 +10,8 @@ export function useChat() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isConversationsLoading, setIsConversationsLoading] = useState(true);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [messageErrors, setMessageErrors] = useState<Record<number | string, string>>({});
+  const [isRegenerating, setIsRegenerating] = useState(false);
   
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -98,6 +100,11 @@ export function useChat() {
     
     setIsTyping(true);
     setError(null);
+    setMessageErrors((prev) => {
+      const next = { ...prev };
+      delete next[assistantMessageId];
+      return next;
+    });
     
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
@@ -121,16 +128,20 @@ export function useChat() {
       (err: Error) => {
         setIsTyping(false);
         abortControllerRef.current = null;
-        setError(err.message);
-        setMessages((prev) => 
-          prev.map((msg) => 
-            msg.id === assistantMessageId 
-              ? { ...msg, text: msg.text + (msg.text ? "\n\n" : "") + `[Error: ${err.message}]` } 
+        setError("Failed to complete response.");
+        setMessageErrors((prev) => ({ ...prev, [assistantMessageId]: err.message }));
+      },
+      (metadata) => {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMessageId
+              ? { ...msg, sources: metadata.sources, confidence: metadata.confidence }
               : msg
           )
         );
       },
-      abortController.signal
+      abortController.signal,
+      false // not regenerating
     );
   }, [activeSessionId, cancelStream]);
   
@@ -185,20 +196,72 @@ export function useChat() {
   }, [activeSessionId, cancelStream, createNewChat]);
   
   const regenerateMessage = useCallback(async () => {
-    if (messages.length < 2) return;
+    if (messages.length < 2 || isRegenerating || isTyping) return;
+    if (!activeSessionId) return;
     
-    // Find the last user message
+    // Find the last user message and last assistant message
     const lastUserMessageIndex = [...messages].reverse().findIndex(m => m.sender === "user");
     if (lastUserMessageIndex === -1) return;
     
+    const lastAssistantMessageIndex = [...messages].reverse().findIndex(m => m.sender === "assistant");
+    if (lastAssistantMessageIndex === -1) return;
+
     const lastUserMessage = messages[messages.length - 1 - lastUserMessageIndex];
+    const assistantMessageId = messages[messages.length - 1 - lastAssistantMessageIndex].id;
     
-    // Remove all messages after the last user message
-    setMessages(prev => prev.slice(0, prev.length - lastUserMessageIndex));
+    // Clear the assistant message text in UI and remove error if present
+    setMessages((prev) => prev.map(msg => msg.id === assistantMessageId ? { ...msg, text: "" } : msg));
+    setMessageErrors((prev) => {
+      const next = { ...prev };
+      delete next[assistantMessageId];
+      return next;
+    });
+
+    setIsTyping(true);
+    setIsRegenerating(true);
+    setError(null);
     
-    // Send it again
-    await sendMessage(lastUserMessage.text, true);
-  }, [messages, sendMessage]);
+    cancelStream();
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    
+    await chatService.streamMessage(
+      activeSessionId,
+      lastUserMessage.text,
+      (chunk: string) => {
+        setMessages((prev) => 
+          prev.map((msg) => 
+            msg.id === assistantMessageId 
+              ? { ...msg, text: msg.text + chunk } 
+              : msg
+          )
+        );
+      },
+      () => {
+        setIsTyping(false);
+        setIsRegenerating(false);
+        abortControllerRef.current = null;
+      },
+      (err: Error) => {
+        setIsTyping(false);
+        setIsRegenerating(false);
+        abortControllerRef.current = null;
+        setError("Failed to complete response.");
+        setMessageErrors((prev) => ({ ...prev, [assistantMessageId]: err.message }));
+      },
+      (metadata) => {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMessageId
+              ? { ...msg, sources: metadata.sources, confidence: metadata.confidence }
+              : msg
+          )
+        );
+      },
+      abortController.signal,
+      true // regenerate = true
+    );
+  }, [messages, activeSessionId, isRegenerating, isTyping, cancelStream]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -223,6 +286,8 @@ export function useChat() {
     isConversationsLoading,
     isHistoryLoading,
     cancelStream,
-    regenerateMessage
+    regenerateMessage,
+    messageErrors,
+    isRegenerating
   };
 }

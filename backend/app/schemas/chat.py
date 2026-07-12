@@ -10,6 +10,10 @@ class ChatRequest(BaseModel):
         max_length=settings.MAX_MESSAGE_LENGTH,
         description="The message from the user"
     )
+    regenerate: bool = Field(
+        default=False,
+        description="Whether to regenerate the last assistant response"
+    )
 
 
 class SourceCitation(BaseModel):

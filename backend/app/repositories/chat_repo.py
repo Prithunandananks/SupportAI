@@ -80,3 +80,18 @@ class ChatRepository:
             await self.session.commit()
             return True
         return False
+
+    async def replace_last_assistant_message(self, session_id: uuid.UUID, content: str) -> bool:
+        stmt = (
+            select(ChatMessage)
+            .where(ChatMessage.session_id == session_id)
+            .order_by(ChatMessage.created_at.desc())
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        msg = result.scalars().first()
+        if msg and msg.role == 'assistant':
+            msg.content = content
+            await self.session.commit()
+            return True
+        return False

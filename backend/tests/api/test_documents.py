@@ -27,7 +27,7 @@ async def test_upload_document_authorized(client: AsyncClient, user_token: str):
     assert response.status_code == 201
     data = response.json()
     assert data["filename"] == "test.txt"
-    assert "Document processing started" in data["message"]
+    assert "processed" in data["message"]
     assert "document_id" in data
 
 

@@ -9,8 +9,13 @@ from app.services.search import SearchService
 router = APIRouter()
 
 
+from app.core.logger import logger
+import json
+from fastapi import Request
+
 @router.post("/upload", response_model=UploadResponse, status_code=201)
 async def upload_document(
+    request: Request,
     file: UploadFile = File(...),
     current_user: User = Depends(deps.get_current_active_user),
     ingestion_service: IngestionService = Depends(deps.get_ingestion_service),
@@ -20,6 +25,8 @@ async def upload_document(
     from app.core.upload_validation import validate_upload, sanitize_filename
 
     content = await file.read()
+    req_id = getattr(request.state, "request_id", "unknown")
+    user_id_str = str(current_user.id)
     try:
         # 1. Validate file
         validate_upload(file, content)
@@ -27,16 +34,48 @@ async def upload_document(
         # 2. Sanitize filename
         safe_filename = sanitize_filename(file.filename or "unknown")
         
-        return await ingestion_service.process_file(
+        res = await ingestion_service.process_file(
             content=content,
             filename=safe_filename,
             content_type=file.content_type or "application/octet-stream",
-            user_id=str(current_user.id),
+            user_id=user_id_str,
         )
+        logger.info(json.dumps({
+            "event": "document_uploaded",
+            "document_id": str(res.document_id),
+            "filename": safe_filename,
+            "user_id": user_id_str,
+            "request_id": req_id
+        }))
+        return res
     except UnsupportedDocumentTypeError as e:
+        logger.warning(json.dumps({
+            "event": "upload_failed",
+            "reason": "unsupported_type",
+            "filename": file.filename,
+            "user_id": user_id_str,
+            "request_id": req_id
+        }))
         raise HTTPException(status_code=400, detail=str(e))
     except ValueError as e:
+        logger.warning(json.dumps({
+            "event": "upload_failed",
+            "reason": "validation_error",
+            "filename": file.filename,
+            "user_id": user_id_str,
+            "request_id": req_id
+        }))
         raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        logger.error(json.dumps({
+            "event": "upload_failed",
+            "reason": "internal_error",
+            "filename": file.filename,
+            "user_id": user_id_str,
+            "request_id": req_id,
+            "error": str(e)
+        }))
+        raise HTTPException(status_code=500, detail="Internal server error during upload")
 
 
 @router.get("/search", response_model=SearchResponse)
@@ -46,5 +85,72 @@ async def search_documents(
     current_user: User = Depends(deps.get_current_active_user),
     search_service: SearchService = Depends(deps.get_search_service),
 ) -> Any:
-    results = await search_service.semantic_search(query=q, limit=limit)
+    from app.schemas.document import SearchResult, ChunkMetadata
+    
+    hybrid_results = await search_service.search(query=q, limit=limit)
+    
+    results = []
+    for point in hybrid_results.points:
+        payload = point.payload
+        text = payload.pop("text", "")
+        # Remove empty metadata fields
+        metadata = ChunkMetadata(**payload)
+        results.append(SearchResult(text=text, score=point.score, metadata=metadata))
+        
     return SearchResponse(query=q, results=results)
+
+
+@router.delete("/{document_id}", status_code=204)
+async def delete_document(
+    request: Request,
+    document_id: str,
+    current_user: User = Depends(deps.get_current_active_user),
+    document_repo = Depends(deps.get_document_repo),
+    db = Depends(deps.get_db)
+) -> None:
+    from fastapi import HTTPException
+    from sqlalchemy import select, delete
+    from app.models.document import Document
+    import uuid
+    
+    req_id = getattr(request.state, "request_id", "unknown")
+    try:
+        doc_uuid = uuid.UUID(document_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid document ID format")
+
+    # Verify document exists and belongs to user (or user is Admin)
+    stmt = select(Document).where(Document.id == doc_uuid)
+    result = await db.execute(stmt)
+    doc = result.scalar_one_or_none()
+
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+        
+    user_id_str = str(current_user.id)
+    if doc.user_id != current_user.id and current_user.role != "Admin":
+        logger.warning(json.dumps({
+            "event": "delete_document_failed",
+            "reason": "forbidden",
+            "document_id": document_id,
+            "user_id": user_id_str,
+            "request_id": req_id
+        }))
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    # 1. Delete from Qdrant
+    await document_repo.delete_document(document_id=document_id)
+
+    # 2. Delete from SQLite
+    del_stmt = delete(Document).where(Document.id == doc_uuid)
+    await db.execute(del_stmt)
+    await db.commit()
+    
+    logger.info(json.dumps({
+        "event": "document_deleted",
+        "document_id": document_id,
+        "user_id": user_id_str,
+        "request_id": req_id
+    }))
+    
+    return None

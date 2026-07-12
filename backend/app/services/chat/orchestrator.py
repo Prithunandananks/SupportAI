@@ -28,18 +28,31 @@ class ChatOrchestrator:
                 detail="An unexpected error occurred while processing your request.",
             )
 
-    async def process_message_stream(self, message: str, session_id: uuid.UUID = None):
+    async def process_message_stream(self, message: str, session_id: uuid.UUID = None, regenerate: bool = False):
         """
         Processes a user message and yields the generated answer as a stream.
         """
         try:
+            override_history = None
+            if regenerate and session_id and self.chat_repo:
+                history = await self.chat_repo.get_session_history(session_id, limit=50)
+                if history and history[-1].role == 'assistant':
+                    history.pop()
+                if history and history[-1].role == 'user':
+                    history.pop()
+                override_history = history
+
             full_answer = ""
-            async for chunk in self.rag_pipeline.run_stream(question=message, session_id=session_id):
-                full_answer += chunk
-                yield chunk
+            async for item in self.rag_pipeline.run_stream(question=message, session_id=session_id, override_history=override_history):
+                if isinstance(item, dict) and "content" in item:
+                    full_answer += item["content"]
+                yield item
                 
             if session_id and self.chat_repo:
-                await self.chat_repo.append_exchange(session_id, message, full_answer)
+                if regenerate:
+                    await self.chat_repo.replace_last_assistant_message(session_id, full_answer)
+                else:
+                    await self.chat_repo.append_exchange(session_id, message, full_answer)
                 
         except Exception as e:
             logger.error(f"Unexpected error in ChatOrchestrator streaming: {e}", exc_info=True)

@@ -45,17 +45,38 @@ app.add_middleware(
 
 app.include_router(api_router, prefix="/api/v1")
 
+from fastapi.exceptions import RequestValidationError
+from app.core.exceptions import UnsupportedDocumentTypeError
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    req_id = getattr(request.state, "request_id", "unknown")
     logger.error(json.dumps({
+        "event": "unhandled_exception",
         "error": type(exc).__name__,
         "message": str(exc),
         "traceback": traceback.format_exc(),
-        "request_id": getattr(request.state, "request_id", None)
+        "request_id": req_id,
+        "endpoint": request.url.path,
     }))
     return JSONResponse(
         status_code=500,
         content={"detail": "An unexpected error occurred. Please try again later."}
+    )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    req_id = getattr(request.state, "request_id", "unknown")
+    logger.error(json.dumps({
+        "event": "validation_error",
+        "error": "RequestValidationError",
+        "message": str(exc),
+        "request_id": req_id,
+        "endpoint": request.url.path,
+    }))
+    return JSONResponse(
+        status_code=422,
+        content={"detail": "Invalid request parameters."}
     )
 
 @app.middleware("http")

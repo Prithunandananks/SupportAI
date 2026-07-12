@@ -70,6 +70,10 @@ class AdminService {
     const response = await apiClient.get<AdminHealth>("/admin/health");
     return response.data;
   }
+
+  async deleteDocument(id: string): Promise<void> {
+    await apiClient.delete(`/documents/${id}`);
+  }
 }
 
 export const adminService = new AdminService();

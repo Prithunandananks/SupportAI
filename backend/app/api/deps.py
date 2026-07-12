@@ -50,12 +50,14 @@ _chunking_service = ChunkingService(
 
 def get_ingestion_service(
     repo: DocumentRepository = Depends(get_document_repo),
+    db: AsyncSession = Depends(get_db),
 ) -> IngestionService:
     return IngestionService(
         extraction=_extraction_service,
         chunking=_chunking_service,
         embedding=_embedding_service,
         repo=repo,
+        db=db,
     )
 
 
@@ -68,27 +70,26 @@ def get_search_service(
 async def get_current_user(
     db: AsyncSession = Depends(get_db), token: str = Depends(oauth2_scheme)
 ) -> User:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
     try:
         payload = jwt.decode(
             token, settings.JWT_SECRET, algorithms=[settings.ALGORITHM]
         )
         token_data = TokenPayload(**payload)
     except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Could not validate credentials",
-        )
+        raise credentials_exception
 
     if token_data.type != "access":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid token type",
-        )
+        raise credentials_exception
 
     import uuid
     user = await user_repo.get(db, id=uuid.UUID(token_data.sub))
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise credentials_exception
     return user
 
 

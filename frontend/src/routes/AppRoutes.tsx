@@ -1,4 +1,5 @@
 import { Routes, Route } from "react-router-dom";
+import { ProtectedRoute } from "../components/auth/ProtectedRoute";
 
 import Landing from "../pages/public/Landing";
 import Login from "../pages/public/Login";
@@ -19,13 +20,17 @@ function AppRoutes() {
 
       <Route path="/register" element={<Register />} />
 
-      <Route path="/chat" element={<CustomerChat />} />
+      <Route element={<ProtectedRoute allowedRoles={["Customer", "Admin"]} />}>
+        <Route path="/chat" element={<CustomerChat />} />
+      </Route>
 
-      <Route path="/admin/dashboard" element={<Dashboard />} />
-      <Route path="/admin/documents" element={<Documents />} />
-      <Route path="/admin/flagged" element={<FlaggedQuestions />} />
-      <Route path="/admin/conversations" element={<Conversations />} />
-      <Route path="/admin/analytics" element={<Analytics />} />
+      <Route element={<ProtectedRoute allowedRoles={["Admin"]} />}>
+        <Route path="/admin/dashboard" element={<Dashboard />} />
+        <Route path="/admin/documents" element={<Documents />} />
+        <Route path="/admin/flagged" element={<FlaggedQuestions />} />
+        <Route path="/admin/conversations" element={<Conversations />} />
+        <Route path="/admin/analytics" element={<Analytics />} />
+      </Route>
     </Routes>
   );
 }

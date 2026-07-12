@@ -12,6 +12,8 @@ from app.repositories.document_repo import DocumentRepository
 
 logger = logging.getLogger(__name__)
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 class IngestionService:
     def __init__(
         self,
@@ -19,11 +21,13 @@ class IngestionService:
         chunking: ChunkingService,
         embedding: EmbeddingService,
         repo: DocumentRepository,
+        db: AsyncSession,
     ):
         self.extraction = extraction
         self.chunking = chunking
         self.embedding = embedding
         self.repo = repo
+        self.db = db
 
     async def process_file(
         self,
@@ -94,15 +98,9 @@ class IngestionService:
         # ONLY AFTER successful Qdrant indexing
         from app.models.document import Document
         
-        # TODO: future delete operations must remove data from BOTH SQLite and Qdrant.
         logger.info("Inserting SQLite Document record for %s", filename)
         
-        # We need a db session here. We should use the async session dependency or a new session.
-        # But wait, this service doesn't have AsyncSession injected in __init__.
-        # I should just import the sessionmaker from app.db.session if needed, or I can inject it.
-        # Since I can't easily change the DI in router, I will use a short-lived session here.
-        from app.db.session import async_session_maker
-        async with async_session_maker() as session:
+        try:
             doc = Document(
                 id=uuid.UUID(document_id),
                 filename=filename,
@@ -111,8 +109,16 @@ class IngestionService:
                 content_type=content_type,
                 created_at=uploaded_at
             )
-            session.add(doc)
-            await session.commit()
+            self.db.add(doc)
+            await self.db.commit()
+        except Exception as e:
+            logger.error("Failed to insert Document metadata into SQLite for %s: %s", filename, str(e))
+            logger.info("Rolling back: deleting vectors for document %s from Qdrant", document_id)
+            try:
+                await self.repo.delete_document(document_id)
+            except Exception as rollback_e:
+                logger.error("Failed to rollback Qdrant vectors for %s: %s", document_id, str(rollback_e))
+            raise RuntimeError(f"Failed to persist document metadata: {str(e)}")
 
         logger.info("Upload completed successfully for file: %s", filename)
 

@@ -17,6 +17,8 @@ pwd_context.update(bcrypt__rounds=4)
 # Patch EmbeddingProviderFactory before importing app to avoid HuggingFace model download
 mock_embed_provider = MagicMock()
 mock_embed_provider.dimension = 384
+mock_embed_provider.provider_name = "mock_provider"
+mock_embed_provider.model_name = "mock_model"
 mock_embed_provider_factory = patch("app.services.embedding.EmbeddingProviderFactory.create", return_value=mock_embed_provider)
 mock_embed_provider_factory.start()
 
@@ -87,8 +89,7 @@ def mock_external_services():
     with patch("app.api.deps.get_qdrant_client") as mock_qdrant, \
          patch("app.services.embedding.EmbeddingService.embed_text") as mock_embed_text, \
          patch("app.services.embedding.EmbeddingService.embed_documents") as mock_embed_docs, \
-         patch("app.services.llm.llm_factory.LLMFactory.get_llm") as mock_llm, \
-         patch("app.services.ingestion.IngestionService.process_file", new_callable=AsyncMock) as mock_process_file:
+         patch("app.services.llm.llm_factory.LLMFactory.get_llm") as mock_llm:
          
         # Mock Qdrant
         qdrant_instance = AsyncMock()
@@ -107,13 +108,5 @@ def mock_external_services():
         llm_instance.generate.return_value = "This is a mocked response."
         mock_llm.return_value = llm_instance
         
-        # Mock IngestionService.process_file
-        from app.schemas.document import UploadResponse
-        mock_process_file.return_value = UploadResponse(
-            document_id="doc-123",
-            filename="test.txt",
-            total_chunks=1,
-            message="Document processing started"
-        )
         
         yield

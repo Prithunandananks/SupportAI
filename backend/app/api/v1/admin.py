@@ -20,17 +20,16 @@ def get_admin_repo(session: AsyncSession = Depends(deps.get_db)) -> AdminReposit
 
 @router.get("/stats", response_model=DashboardStatsResponse)
 async def get_dashboard_stats(
-    current_user: User = Depends(deps.get_current_active_user),
+    current_user: User = Depends(deps.require_role("Admin")),
     repo: AdminRepository = Depends(get_admin_repo),
 ) -> Any:
     """Get high level counts for dashboard cards"""
-    # In a real app we'd check if current_user.role == 'Admin'
     stats = await repo.get_stats()
     return stats
 
 @router.get("/analytics", response_model=AnalyticsResponse)
 async def get_analytics(
-    current_user: User = Depends(deps.get_current_active_user),
+    current_user: User = Depends(deps.require_role("Admin")),
     repo: AdminRepository = Depends(get_admin_repo),
 ) -> Any:
     """Get charting data"""
@@ -39,7 +38,7 @@ async def get_analytics(
 @router.get("/documents", response_model=List[AdminDocumentResponse])
 async def get_recent_documents(
     limit: int = 10,
-    current_user: User = Depends(deps.get_current_active_user),
+    current_user: User = Depends(deps.require_role("Admin")),
     repo: AdminRepository = Depends(get_admin_repo),
 ) -> Any:
     return await repo.get_recent_documents(limit=limit)
@@ -47,14 +46,14 @@ async def get_recent_documents(
 @router.get("/conversations", response_model=List[AdminConversationResponse])
 async def get_recent_conversations(
     limit: int = 10,
-    current_user: User = Depends(deps.get_current_active_user),
+    current_user: User = Depends(deps.require_role("Admin")),
     repo: AdminRepository = Depends(get_admin_repo),
 ) -> Any:
     return await repo.get_recent_conversations(limit=limit)
 
 @router.get("/health", response_model=AdminHealthResponse)
 async def get_health(
-    current_user: User = Depends(deps.get_current_active_user),
+    current_user: User = Depends(deps.require_role("Admin")),
     repo: AdminRepository = Depends(get_admin_repo),
 ) -> Any:
     stats = await repo.get_stats()

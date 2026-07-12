@@ -9,9 +9,10 @@ interface Props {
 const ALLOWED_TYPES = [
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "text/plain"
+  "text/plain",
+  "text/markdown"
 ];
-const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".txt"];
+const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".txt", ".md"];
 
 function UploadBox({ onUploadSuccess }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -28,7 +29,7 @@ function UploadBox({ onUploadSuccess }: Props) {
 
     const ext = "." + file.name.split('.').pop()?.toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(ext) || !ALLOWED_TYPES.includes(file.type)) {
-      setError("Unsupported file type. Please upload a PDF, DOCX, or TXT file.");
+      setError("Unsupported file type. Please upload a PDF, DOCX, Markdown, or TXT file.");
       return false;
     }
     return true;
@@ -106,7 +107,7 @@ function UploadBox({ onUploadSuccess }: Props) {
       </h2>
 
       <p className="text-slate-400 mt-3">
-        Drag & drop your PDF, DOCX or TXT files here
+        Drag & drop your PDF, DOCX, Markdown or TXT files here
       </p>
 
       {error && (
@@ -132,7 +133,7 @@ function UploadBox({ onUploadSuccess }: Props) {
           type="file" 
           ref={fileInputRef} 
           className="hidden" 
-          accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+          accept=".pdf,.docx,.md,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"
           onChange={handleFileSelect}
         />
         <button 

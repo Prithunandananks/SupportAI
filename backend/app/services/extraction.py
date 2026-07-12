@@ -48,13 +48,44 @@ class DocxExtractor(DocumentExtractor):
     def extract(self, content: bytes, filename: str) -> str:
         try:
             import docx
+            from docx.document import Document
+            from docx.text.paragraph import Paragraph
+            from docx.table import Table
+
+            def iter_block_items(parent):
+                """Yield each paragraph and table child within *parent*, in document order."""
+                if isinstance(parent, Document):
+                    parent_elm = parent.element.body
+                else:
+                    parent_elm = parent._element
+
+                for child in parent_elm.iterchildren():
+                    if child.tag.endswith('p'):
+                        yield Paragraph(child, parent)
+                    elif child.tag.endswith('tbl'):
+                        yield Table(child, parent)
+
             doc = docx.Document(io.BytesIO(content))
-            paragraphs = []
-            for p in doc.paragraphs:
-                text = p.text.strip()
-                if text:
-                    paragraphs.append(text)
-            return "\n".join(paragraphs)
+            extracted = []
+            
+            for block in iter_block_items(doc):
+                if isinstance(block, Paragraph):
+                    text = block.text.strip()
+                    if text:
+                        extracted.append(text)
+                elif isinstance(block, Table):
+                    for row in block.rows:
+                        row_data = [cell.text.strip() for cell in row.cells]
+                        # Remove empty cells for clean extraction
+                        row_text = " | ".join(filter(None, row_data))
+                        if row_text:
+                            extracted.append(row_text)
+
+            if not extracted:
+                logger.warning("No text extracted from DOCX '%s'. Document might be empty.", filename)
+                raise ValueError("No extractable text found. Document might be empty.")
+                
+            return "\n".join(extracted)
         except Exception as e:
             logger.exception("Exception while parsing DOCX file: %s", filename)
             raise ValueError(f"Failed to parse DOCX: {str(e)}") from e
@@ -64,6 +95,7 @@ class ExtractionService:
     def __init__(self):
         self._extractors: Dict[str, DocumentExtractor] = {
             "text/plain": PlainTextExtractor(),
+            "text/markdown": PlainTextExtractor(),
             "application/pdf": PdfExtractor(),
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document": DocxExtractor(),
         }

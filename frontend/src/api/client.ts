@@ -9,6 +9,12 @@ const apiClient = axios.create({
 // Request interceptor to automatically attach the access token
 apiClient.interceptors.request.use(
   (config) => {
+    // Let browser set Content-Type with boundary for FormData
+    if (config.data instanceof FormData) {
+      if (config.headers) {
+        delete config.headers["Content-Type"];
+      }
+    }
     const token = localStorage.getItem("access_token");
     const isAuthRoute = config.url?.includes("/auth/login") || config.url?.includes("/auth/register");
     if (token && !isAuthRoute) {

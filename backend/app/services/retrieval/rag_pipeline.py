@@ -73,21 +73,44 @@ class RAGPipeline:
 
         return answer, sources
 
-    async def run_stream(self, question: str, session_id: Optional[uuid.UUID] = None):
+    async def run_stream(self, question: str, session_id: Optional[uuid.UUID] = None, override_history: Optional[List] = None):
         """
         Execute the RAG pipeline and yield a stream of tokens.
         """
         history = []
-        if session_id and self.memory_provider:
+        if override_history is not None:
+            history = override_history
+        elif session_id and self.memory_provider:
             history = await self.memory_provider.get_conversation_context(session_id)
 
         queries = await self.query_rewriter.rewrite_and_generate_queries(question, history)
         search_results = await self.search_service.search(queries)
 
         contexts = []
+        sources = []
+        highest_score = 0.0
+
         for result in search_results.points:
             payload = result.payload or {}
             contexts.append(payload.get("text", ""))
+            score = result.score or 0.0
+            if score > highest_score:
+                highest_score = score
+                
+            sources.append({
+                "document_id": payload.get("document_id", "unknown"),
+                "filename": payload.get("filename", "unknown"),
+                "chunk_index": payload.get("chunk_index", 0),
+                "retrieved_text": payload.get("text", ""),
+                "retrieval_score": score
+            })
+
+        # Calculate confidence
+        confidence = "Low"
+        if highest_score >= 0.8:
+            confidence = "High"
+        elif highest_score >= 0.6:
+            confidence = "Medium"
 
         prompt = PromptBuilder.build_prompt(
             question=question,
@@ -96,4 +119,7 @@ class RAGPipeline:
         )
 
         async for chunk in self.llm.generate_stream(prompt):
-            yield chunk
+            yield {"content": chunk}
+            
+        if sources:
+            yield {"sources": sources, "confidence": confidence}

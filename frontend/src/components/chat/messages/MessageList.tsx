@@ -6,9 +6,11 @@ import ChatMessage from "./ChatMessage";
 interface Props {
   messages: Message[];
   onRegenerate?: () => void;
+  messageErrors?: Record<number | string, string>;
+  isRegenerating?: boolean;
 }
 
-function MessageList({ messages, onRegenerate }: Props) {
+function MessageList({ messages, onRegenerate, messageErrors, isRegenerating }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
@@ -47,6 +49,8 @@ function MessageList({ messages, onRegenerate }: Props) {
             message={message}
             isLast={index === messages.length - 1}
             onRegenerate={onRegenerate}
+            error={messageErrors ? messageErrors[message.id as number] : undefined}
+            isRegenerating={isRegenerating}
           />
         ))}
 
