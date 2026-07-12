@@ -2,10 +2,12 @@ import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuthCore";
+import { authService } from "@/services/auth.service";
+import { toast } from "sonner";
 
 function RegisterForm() {
   const navigate = useNavigate();
-  const { loginCustomer } = useAuth();
+  const { login } = useAuth();
 
   const [form, setForm] = useState({
     fullName: "",
@@ -18,6 +20,7 @@ function RegisterForm() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -28,7 +31,7 @@ function RegisterForm() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (
@@ -47,9 +50,45 @@ function RegisterForm() {
     }
 
     setError("");
+    setIsLoading(true);
 
-    loginCustomer();
-    navigate("/chat");
+    try {
+      const parts = form.fullName.split(" ");
+      const firstName = parts[0];
+      const lastName = parts.slice(1).join(" ");
+      
+      // Register
+      await authService.register({
+        email: form.email,
+        password: form.password,
+        first_name: firstName,
+        last_name: lastName || null,
+        role: "Customer"
+      });
+      
+      // Auto login after register
+      const formData = new URLSearchParams();
+      formData.append("username", form.email);
+      formData.append("password", form.password);
+      
+      const authData = await authService.login(formData);
+      const user = await authService.getCurrentUser();
+      
+      login(authData.access_token, user);
+      toast.success("Account created successfully!");
+      navigate("/chat");
+    } catch (err) {
+      if (typeof err === "object" && err !== null && "response" in err) {
+        const axiosErr = err as { response?: { status?: number, data?: { detail?: string } } };
+        if (axiosErr.response?.status === 400 && axiosErr.response?.data?.detail === "Email already registered") {
+          setError("Email already registered. Please login instead.");
+          return;
+        }
+      }
+      setError("Failed to create account. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -91,6 +130,7 @@ function RegisterForm() {
           value={form.fullName}
           onChange={handleChange}
           placeholder="Enter your full name"
+          required
           className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3.5 text-sm sm:text-base text-white outline-none focus:border-cyan-400 transition"
         />
       </div>
@@ -106,6 +146,7 @@ function RegisterForm() {
           value={form.email}
           onChange={handleChange}
           placeholder="Enter your email"
+          required
           className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3.5 text-sm sm:text-base text-white outline-none focus:border-cyan-400 transition"
         />
       </div>
@@ -123,6 +164,7 @@ function RegisterForm() {
             value={form.password}
             onChange={handleChange}
             placeholder="Create a password"
+            required
             className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3.5 pr-12 text-sm sm:text-base text-white outline-none focus:border-cyan-400 transition"
           />
 
@@ -150,6 +192,7 @@ function RegisterForm() {
             value={form.confirmPassword}
             onChange={handleChange}
             placeholder="Confirm your password"
+            required
             className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3.5 pr-12 text-sm sm:text-base text-white outline-none focus:border-cyan-400 transition"
           />
 
@@ -170,39 +213,13 @@ function RegisterForm() {
         </div>
       </div>
 
-       {/*<div className="mb-6">
-        <label className="block text-slate-300 mb-2">
-          Register As
-        </label>
-
-       <select
-          name="role"
-          value={form.role}
-          onChange={handleChange}
-          className="w-full rounded-lg bg-slate-800 border border-slate-700 px-4 py-3 text-white"
-        >
-          <option value="customer">Customer</option>
-          <option value="admin">Admin</option>
-        </select>
-      </div>*/}
-
       <button
-        className="
-        w-full
-        bg-cyan-500
-        hover:bg-cyan-600
-        text-white
-        font-semibold
-        py-3.5
-        rounded-lg
-        transition-all
-        duration-300
-        shadow-lg
-        shadow-cyan-500/20
-        hover:shadow-cyan-500/40
-        "
+        disabled={isLoading}
+        className={`w-full py-3.5 rounded-lg font-semibold transition-all duration-300 shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 text-white ${
+          isLoading ? "bg-cyan-500/50 cursor-not-allowed" : "bg-cyan-500 hover:bg-cyan-600"
+        }`}
       >
-        Create Account
+        {isLoading ? "Creating Account..." : "Create Account"}
       </button>
 
       <p className="text-center text-slate-400 mt-8">

@@ -52,7 +52,7 @@ function DocumentPreviewModal({ isOpen, onClose, document }: Props) {
           <div className="w-full bg-slate-950 rounded-xl border border-slate-800 min-h-[300px] md:min-h-[400px] flex items-center justify-center text-slate-500">
             <div className="text-center p-4">
               <div className="text-4xl mb-3">📄</div>
-              <p>Document preview is not available in mock mode.</p>
+              <p>Document preview is not available in the current backend.</p>
             </div>
           </div>
         </div>

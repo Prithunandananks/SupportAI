@@ -5,23 +5,13 @@ import SearchBar from "../conversations/SearchBar";
 import FlaggedRow from "./FlaggedRow";
 import ReviewModal from "./ReviewModal";
 
-const initialQuestions = [
-  {
-    question: "How do I install VPN?",
-    confidence: 42,
-    status: "Pending" as const,
-  },
-  {
-    question: "Refund policy?",
-    confidence: 58,
-    status: "Pending" as const,
-  },
-  {
-    question: "Leave policy?",
-    confidence: 91,
-    status: "Resolved" as const,
-  },
-];
+export interface FlaggedQuestion {
+  question: string;
+  confidence: number;
+  status: "Pending" | "Resolved";
+}
+
+const initialQuestions: FlaggedQuestion[] = [];
 
 function FlaggedTable() {
   const [questions, setQuestions] = useState(initialQuestions);
@@ -67,12 +57,12 @@ function FlaggedTable() {
       <div className="hidden md:block overflow-x-auto">
         {filteredQuestions.length === 0 ? (
           <div className="py-12 text-center text-slate-400">
-            <p className="text-lg">
-              🔍 No flagged questions found
+            <p className="text-lg text-slate-300">
+              ✓ All Clear
             </p>
 
             <p className="text-sm mt-2">
-              Try another keyword.
+              There are currently no flagged questions. All conversations are operating within confidence thresholds.
             </p>
           </div>
         ) : (
@@ -108,11 +98,11 @@ function FlaggedTable() {
         {filteredQuestions.length === 0 ? (
           <div className="rounded-xl border border-slate-700 bg-slate-800 p-6 text-center">
             <p className="text-slate-300 text-lg">
-              🔍 No flagged questions found
+              ✓ All Clear
             </p>
 
             <p className="text-slate-500 text-sm mt-2">
-              Try another keyword.
+              There are currently no flagged questions.
             </p>
           </div>
         ) : (

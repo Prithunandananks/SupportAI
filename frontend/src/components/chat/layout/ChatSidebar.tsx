@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { Pin, MoreVertical, Edit2, Trash2 } from "lucide-react";
 import type { ChatSession } from "@/components/chat/messages/Message";
 import { formatTimeAgo } from "@/utils/dateFormatter";
+import { SearchBar } from "../sidebar/SearchBar";
 
 interface Props {
   sessions: ChatSession[];
@@ -29,6 +30,7 @@ function ChatSidebar({
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -43,12 +45,14 @@ function ChatSidebar({
   }, [menuOpenId]);
 
   const sortedSessions = useMemo(() => {
-    return [...sessions].sort((a, b) => {
-      if (a.pinned && !b.pinned) return -1;
-      if (!a.pinned && b.pinned) return 1;
-      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-    });
-  }, [sessions]);
+    return [...sessions]
+      .filter(s => s.title.toLowerCase().includes(searchQuery.toLowerCase()))
+      .sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      });
+  }, [sessions, searchQuery]);
 
   const handleStartRename = (session: ChatSession, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -107,6 +111,10 @@ function ChatSidebar({
         >
           + New Chat
         </button>
+        
+        <div className="mt-4">
+          <SearchBar query={searchQuery} onChange={setSearchQuery} />
+        </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-5">
           <h3 className="text-slate-400 text-xs uppercase tracking-widest mb-4">

@@ -30,4 +30,5 @@ export interface ChatSession {
   updatedAt: string;
   lastMessageAt: string;
   messages: Message[];
+  messagesLoaded?: boolean;
 }

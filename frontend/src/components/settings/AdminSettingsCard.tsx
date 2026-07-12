@@ -45,6 +45,16 @@ function AdminSettingsCard() {
           md:p-8
         "
       >
+        {/* Notice Banner */}
+        <div className="bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 p-4 rounded-lg mb-8 flex items-start gap-3">
+          <Bell className="w-5 h-5 mt-0.5 shrink-0" />
+          <div>
+            <h3 className="font-medium">Configuration Notice</h3>
+            <p className="text-sm opacity-80 mt-1">
+              Settings, notifications, and preferences are currently managed at the system level. These options are displayed in read-only mode.
+            </p>
+          </div>
+        </div>
 
         {/* Heading */}
         <h1 className="text-3xl font-bold text-white">

@@ -6,7 +6,14 @@ import {
 } from "lucide-react";
 
 import StatCard from "../dashboard/StatCard";
-import type { KPIData } from "@/pages/admin/mockAnalyticsData";
+
+export interface KPIData {
+  title: string;
+  value: string | number;
+  iconKey: "Chats" | "Confidence" | "Feedback" | "Flagged";
+  trend?: number;
+  trendLabel?: string;
+}
 
 const iconMap: Record<string, React.ReactNode> = {
   Chats: <MessageCircle size={34} />,

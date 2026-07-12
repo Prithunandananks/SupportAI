@@ -5,9 +5,24 @@ export interface User {
   email: string;
   first_name: string | null;
   last_name: string | null;
+  name: string;
   role: string;
   is_active: boolean;
 }
+
+export interface RawUser {
+  id: string;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  role: string;
+  is_active: boolean;
+}
+
+const mapUser = (u: RawUser): User => ({
+  ...u,
+  name: [u.first_name, u.last_name].filter(Boolean).join(" ") || "User",
+});
 
 export interface AuthResponse {
   access_token: string;
@@ -17,8 +32,8 @@ export interface AuthResponse {
 
 export const authService = {
   async register(data: Record<string, unknown>): Promise<User> {
-    const response = await apiClient.post<User>("/auth/register", data);
-    return response.data;
+    const response = await apiClient.post<RawUser>("/auth/register", data);
+    return mapUser(response.data);
   },
 
   async login(data: URLSearchParams): Promise<AuthResponse> {
@@ -38,8 +53,8 @@ export const authService = {
   },
 
   async getCurrentUser(): Promise<User> {
-    const response = await apiClient.get<User>("/users/me");
-    return response.data;
+    const response = await apiClient.get<RawUser>("/users/me");
+    return mapUser(response.data);
   },
 
   logout(): void {

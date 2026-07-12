@@ -1,53 +1,35 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 
 import UploadBox from "@/components/admin/documents/UploadBox";
 import DocumentTable from "@/components/admin/documents/DocumentTable";
 
-const now = new Date();
-
-const todayMorning = new Date(now);
-todayMorning.setHours(9, 30, 0, 0);
-if (todayMorning > now) {
-  todayMorning.setDate(todayMorning.getDate() - 1);
-}
-
-const yesterdayAfternoon = new Date(now);
-yesterdayAfternoon.setDate(yesterdayAfternoon.getDate() - 1);
-yesterdayAfternoon.setHours(14, 15, 0, 0);
-
-const twoDaysAgo = new Date(now);
-twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
-twoDaysAgo.setHours(11, 45, 0, 0);
-
-const initialDocuments = [
-  {
-    id: "doc-1",
-    name: "📄Employee_Handbook.pdf",
-    type: "PDF",
-    uploadedAt: todayMorning.toISOString(),
-    size: "2.4 MB",
-  },
-  {
-    id: "doc-2",
-    name: "📄Refund_Policy.pdf",
-    type: "PDF",
-    uploadedAt: yesterdayAfternoon.toISOString(),
-    size: "1.1 MB",
-  },
-  {
-    id: "doc-3",
-    name: "📄HR_Guide.pdf",
-    type: "PDF",
-    uploadedAt: twoDaysAgo.toISOString(),
-    size: "3.5 MB",
-  },
-];
+import { adminService } from "@/services/admin.service";
+import type { DocType } from "@/components/admin/documents/DocumentTable";
 
 function Documents() {
-  const [documentsList, setDocumentsList] = useState(initialDocuments);
+  const [documentsList, setDocumentsList] = useState<DocType[]>([]);
 
-  const handleUpload = (newDoc: typeof initialDocuments[0]) => {
+  useEffect(() => {
+    const fetchDocs = async () => {
+      try {
+        const docs = await adminService.getRecentDocuments(100);
+        const mapped: DocType[] = docs.map(d => ({
+          id: d.id,
+          name: `📄${d.filename}`,
+          type: d.content_type.includes("pdf") ? "PDF" : d.content_type.includes("word") ? "DOCX" : "TXT",
+          uploadedAt: d.created_at,
+          size: d.file_size ? `${(d.file_size / (1024 * 1024)).toFixed(1)} MB` : "Unknown"
+        }));
+        setDocumentsList(mapped);
+      } catch {
+        console.error("Failed to load documents");
+      }
+    };
+    fetchDocs();
+  }, []);
+
+  const handleUpload = (newDoc: DocType) => {
     setDocumentsList(prev => [newDoc, ...prev]);
   };
 

@@ -1,5 +1,10 @@
-import type { ChartData } from "@/pages/admin/mockAnalyticsData";
-
+export interface ChartData {
+  label: string;
+  height: number;
+  chats: number;
+  avgConfidence: string;
+  positiveFeedback: string;
+}
 interface Props {
   chartData: ChartData[];
 }

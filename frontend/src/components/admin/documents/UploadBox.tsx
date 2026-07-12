@@ -2,6 +2,8 @@ import { useState, useRef } from "react";
 import { toast } from "sonner";
 import { Upload, File } from "lucide-react";
 import type { DocType } from "./DocumentTable";
+import { adminService } from "@/services/admin.service";
+import type { AxiosProgressEvent } from "axios";
 
 interface Props {
   onUpload?: (doc: DocType) => void;
@@ -19,7 +21,7 @@ function UploadBox({ onUpload }: Props) {
     }
   };
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!selectedFile) return;
 
     const fileToUpload = selectedFile;
@@ -27,36 +29,57 @@ function UploadBox({ onUpload }: Props) {
     setIsUploading(true);
     setProgress(0);
 
-    let currentProgress = 0;
+    try {
+      const result = await adminService.uploadDocument(
+        fileToUpload,
+        (progressEvent: AxiosProgressEvent) => {
+          if (progressEvent.total) {
+            const percentCompleted = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total,
+            );
+            setProgress(percentCompleted);
+          }
+        },
+      );
 
-    const interval = setInterval(() => {
-      currentProgress += 10;
+      // Determine document type safely
+      const contentType =
+        (result as { content_type?: string }).content_type ??
+        fileToUpload.type ??
+        "";
 
-      if (currentProgress >= 100) {
-        clearInterval(interval);
-        
-        if (onUpload) {
-          const ext = fileToUpload.name.split('.').pop()?.toUpperCase() || "FILE";
-          const mockSize = fileToUpload.size > 0 ? (fileToUpload.size / (1024 * 1024)).toFixed(1) : "1.2";
-          const newId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString();
-          onUpload({
-            id: newId,
-            name: `📄${fileToUpload.name}`,
-            type: ext,
-            uploadedAt: new Date().toISOString(),
-            size: `${mockSize} MB`
-          });
-        }
+      const documentType: DocType["type"] = contentType.includes("pdf")
+        ? "PDF"
+        : contentType.includes("word") ||
+            fileToUpload.name.toLowerCase().endsWith(".docx")
+          ? "DOCX"
+          : "TXT";
 
-        toast.success("Document uploaded successfully!");
-        setSelectedFile(null);
-        setIsUploading(false);
-        setProgress(0);
-        if (fileInputRef.current) fileInputRef.current.value = "";
-      } else {
-        setProgress(currentProgress);
+      if (onUpload) {
+        onUpload({
+          id: result.id,
+          name: `📄${result.filename}`,
+          type: documentType,
+          uploadedAt: result.created_at,
+          size: `${(result.file_size / (1024 * 1024)).toFixed(1)} MB`,
+        });
       }
-    }, 300);
+
+      toast.success("Document uploaded successfully!");
+
+      setSelectedFile(null);
+      setProgress(0);
+      setIsUploading(false);
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to upload document.");
+      setIsUploading(false);
+      setProgress(0);
+    }
   };
 
   return (
@@ -72,10 +95,10 @@ function UploadBox({ onUpload }: Props) {
         text-center
       "
     >
-      <input 
-        type="file" 
-        className="hidden" 
-        ref={fileInputRef} 
+      <input
+        type="file"
+        className="hidden"
+        ref={fileInputRef}
         onChange={handleFileChange}
         accept=".pdf,.docx,.txt"
       />
@@ -117,7 +140,9 @@ function UploadBox({ onUpload }: Props) {
         <div className="mt-6 flex flex-col items-center">
           <div className="flex items-center gap-2 text-cyan-400 mb-4 bg-cyan-500/10 px-4 py-2 rounded-lg max-w-full overflow-hidden">
             <File size={20} className="shrink-0" />
-            <span className="text-sm font-medium truncate">{selectedFile.name}</span>
+            <span className="text-sm font-medium truncate">
+              {selectedFile.name}
+            </span>
           </div>
           <div className="flex gap-3">
             <button
@@ -143,11 +168,15 @@ function UploadBox({ onUpload }: Props) {
       {isUploading && (
         <div className="mt-6 w-full max-w-md mx-auto">
           <div className="flex justify-between text-sm mb-2">
-            <span className="text-slate-300 truncate pr-4">Uploading {selectedFile?.name}...</span>
-            <span className="text-cyan-400 font-medium shrink-0">{progress}%</span>
+            <span className="text-slate-300 truncate pr-4">
+              Uploading {selectedFile?.name}...
+            </span>
+            <span className="text-cyan-400 font-medium shrink-0">
+              {progress}%
+            </span>
           </div>
           <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
-            <div 
+            <div
               className="bg-cyan-500 h-2.5 rounded-full transition-all duration-300 ease-out"
               style={{ width: `${progress}%` }}
             ></div>

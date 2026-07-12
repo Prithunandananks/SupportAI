@@ -1,62 +1,51 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { ReactNode } from "react";
-import { AuthContext, type User } from "./AuthContextCore";
-
-const mockCustomer: User = {
-  id: "cust-1",
-  name: "Alex",
-  email: "alex@example.com",
-  role: "customer",
-};
-
-const mockAdmin: User = {
-  id: "admin-1",
-  name: "Administrator",
-  email: "admin@supportai.com",
-  role: "admin",
-};
-
-
+import { AuthContext } from "./AuthContextCore";
+import { authService, type User } from "@/services/auth.service";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Mock auth state with localStorage persistence
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem("mock_auth") === "true";
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
 
-  const [user, setUser] = useState<User | null>(() => {
-    const savedRole = localStorage.getItem("mock_auth_role");
-    if (savedRole === "admin") return mockAdmin;
-    if (savedRole === "customer") return mockCustomer;
-    return null;
-  });
+  useEffect(() => {
+    const initAuth = async () => {
+      const token = localStorage.getItem("access_token");
+      if (token) {
+        try {
+          const currentUser = await authService.getCurrentUser();
+          setUser(currentUser);
+          setIsAuthenticated(true);
+        } catch (error) {
+          console.error("Failed to restore session", error);
+          authService.logout();
+        }
+      }
+      setIsInitializing(false);
+    };
 
-  const loginCustomer = () => {
-    localStorage.setItem("mock_auth", "true");
-    localStorage.setItem("mock_auth_role", "customer");
-    setUser(mockCustomer);
+    initAuth();
+  }, []);
+
+  const login = (token: string, newUser: User) => {
+    localStorage.setItem("access_token", token);
+    setUser(newUser);
     setIsAuthenticated(true);
   };
 
-  const loginAdmin = () => {
-    localStorage.setItem("mock_auth", "true");
-    localStorage.setItem("mock_auth_role", "admin");
-    setUser(mockAdmin);
-    setIsAuthenticated(true);
-  };
-  
   const logout = () => {
-    localStorage.removeItem("mock_auth");
-    localStorage.removeItem("mock_auth_role");
+    authService.logout();
     setUser(null);
     setIsAuthenticated(false);
   };
 
+  if (isInitializing) {
+    return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-cyan-500">Loading...</div>;
+  }
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, loginCustomer, loginAdmin, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
 }
-
-

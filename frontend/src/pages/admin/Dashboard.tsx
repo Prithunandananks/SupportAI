@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import DashboardStats from "@/components/admin/dashboard/DashboardStats";
+import SystemStatus from "@/components/admin/dashboard/SystemStatus";
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -9,6 +10,8 @@ function Dashboard() {
   return (
     <AdminLayout title="Dashboard">
       <DashboardStats />
+      
+      <SystemStatus />
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-8">
         {/* Recent Activity */}

@@ -4,10 +4,11 @@ import type { Conversation } from "@/pages/admin/Conversations";
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  onDelete?: () => void;
   conversation: Conversation | null;
 }
 
-function ConversationDetailsModal({ isOpen, onClose, conversation }: Props) {
+function ConversationDetailsModal({ isOpen, onClose, onDelete, conversation }: Props) {
   if (!isOpen || !conversation) return null;
 
   return (
@@ -80,7 +81,12 @@ function ConversationDetailsModal({ isOpen, onClose, conversation }: Props) {
         </div>
         
         {/* Footer */}
-        <div className="p-4 md:p-6 border-t border-slate-800 flex justify-end shrink-0">
+        <div className="p-4 md:p-6 border-t border-slate-800 flex justify-between shrink-0">
+          {onDelete ? (
+            <button onClick={onDelete} className="px-6 py-2 bg-red-500 hover:bg-red-600 rounded-lg text-white font-medium transition text-sm">
+              Delete
+            </button>
+          ) : <div></div>}
           <button onClick={onClose} className="px-6 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-white font-medium transition text-sm">
             Close
           </button>

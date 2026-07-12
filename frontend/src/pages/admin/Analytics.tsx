@@ -1,27 +1,72 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { RefreshCw } from "lucide-react";
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import AnalyticsCards from "@/components/admin/analytics/AnalyticsCards";
+import type { KPIData } from "@/components/admin/analytics/AnalyticsCards";
 import ActivityChart from "@/components/admin/analytics/ActivityChart";
+import type { ChartData } from "@/components/admin/analytics/ActivityChart";
 import TopTopics from "@/components/admin/analytics/TopTopics";
+import type { TopicData } from "@/components/admin/analytics/TopTopics";
+import { adminService } from "@/services/admin.service";
 
-import type { AnalyticsRange } from "./mockAnalyticsData";
-import { mockAnalyticsData } from "./mockAnalyticsData";
+export type AnalyticsRange = "today" | "7days" | "30days" | "month";
 
 function Analytics() {
   const [range, setRange] = useState<AnalyticsRange>("today");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    setTimeout(() => {
-      setIsRefreshing(false);
-      toast.success("Analytics refreshed successfully.");
-    }, 1500);
-  };
+  const [kpis, setKpis] = useState<KPIData[]>([]);
+  const [chartData, setChartData] = useState<ChartData[]>([]);
+  const [topTopics, setTopTopics] = useState<TopicData[]>([]);
 
-  const data = mockAnalyticsData[range];
+  const fetchAnalytics = useCallback(async (isManualRefresh = false) => {
+    if (isManualRefresh) {
+      setIsRefreshing(true);
+    }
+    try {
+      const [analytics, stats] = await Promise.all([
+        adminService.getAnalytics(),
+        adminService.getStats()
+      ]);
+      
+      const newKpis: KPIData[] = [
+        { title: "Total Users", value: stats.total_users.toString(), iconKey: "Chats" },
+        { title: "Total Documents", value: stats.total_documents.toString(), iconKey: "Confidence" },
+        { title: "Total Conversations", value: stats.total_conversations.toString(), iconKey: "Feedback" },
+        { title: "Total Messages", value: stats.total_ai_messages.toString(), iconKey: "Flagged" },
+      ];
+      setKpis(newKpis);
+      
+      const maxChats = Math.max(...analytics.conversations, 1);
+      const newChartData: ChartData[] = analytics.days.map((day, idx) => ({
+        label: day,
+        height: (analytics.conversations[idx] / maxChats) * 100,
+        chats: analytics.conversations[idx],
+        avgConfidence: "-",
+        positiveFeedback: "-"
+      }));
+      setChartData(newChartData);
+      
+      setTopTopics([]);
+      
+    } catch {
+      toast.error("Failed to load analytics");
+    } finally {
+      if (isManualRefresh) {
+        setIsRefreshing(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchAnalytics(false);
+  }, [fetchAnalytics, range]);
+
+  const handleRefresh = () => {
+    fetchAnalytics(true).then(() => toast.success("Analytics refreshed successfully."));
+  };
 
   return (
     <AdminLayout title="Analytics">
@@ -52,11 +97,11 @@ function Analytics() {
       </div>
 
       <div className={`space-y-6 md:space-y-8 transition-opacity duration-300 ${isRefreshing ? "opacity-50 pointer-events-none" : "opacity-100"}`}>
-        <AnalyticsCards kpis={data.kpis} />
+        <AnalyticsCards kpis={kpis} />
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 md:gap-8">
-          <ActivityChart chartData={data.chartData} />
-          <TopTopics topics={data.topTopics} />
+          <ActivityChart chartData={chartData} />
+          <TopTopics topics={topTopics} />
         </div>
       </div>
     </AdminLayout>

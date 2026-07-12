@@ -1,5 +1,8 @@
-import type { TopicData } from "@/pages/admin/mockAnalyticsData";
-import { Hash, TrendingUp } from "lucide-react";
+export interface TopicData {
+  name: string;
+  conversations: number;
+  popularity: number;
+}import { Hash, TrendingUp } from "lucide-react";
 import DashboardCard from "./DashboardCard";
 
 interface Props {

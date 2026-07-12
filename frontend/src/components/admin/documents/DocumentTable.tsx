@@ -5,6 +5,7 @@ import DocumentRow from "./DocumentRow";
 import DocumentPreviewModal from "./DocumentPreviewModal";
 import ConfirmationModal from "@/components/shared/ConfirmationModal";
 import { formatTimeAgo } from "@/utils/dateFormatter";
+import { adminService } from "@/services/admin.service";
 
 export interface DocType {
   id: string;
@@ -36,12 +37,18 @@ function DocumentTable({ documentsList, setDocumentsList }: Props) {
     setIsDeleteConfirmOpen(true);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (docToDelete) {
-      setDocumentsList(prev => prev.filter(d => d.id !== docToDelete.id));
-      toast.success("Document deleted successfully.");
-      setIsDeleteConfirmOpen(false);
-      setDocToDelete(null);
+      try {
+        await adminService.deleteDocument(docToDelete.id);
+        setDocumentsList(prev => prev.filter(d => d.id !== docToDelete.id));
+        toast.success("Document deleted successfully.");
+      } catch {
+        toast.error("Failed to delete document.");
+      } finally {
+        setIsDeleteConfirmOpen(false);
+        setDocToDelete(null);
+      }
     }
   };
 

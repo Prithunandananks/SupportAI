@@ -16,19 +16,18 @@ import CustomerProfile from "../pages/customer/Profile";
 import AdminProfile from "../pages/admin/Profile";
 import CustomerSettings from "../pages/customer/Settings";
 import AdminSettings from "../pages/admin/Settings";
-import AdminDevLogin from "../pages/admin/AdminDevLogin";
 import NotFound from "../pages/shared/NotFound";
 
 function CustomerRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  if (user?.role === "customer") return <>{children}</>;
-  return <Navigate to="/" replace />;
+  if (user?.role === "customer" || user?.role === "Customer") return <>{children}</>;
+  return <Navigate to="/login" replace />;
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  if (user?.role === "admin") return <>{children}</>;
-  return <Navigate to="/admin/dev-login" replace />;
+  if (user?.role === "admin" || user?.role === "Admin") return <>{children}</>;
+  return <Navigate to="/login" replace />;
 }
 
 function AppRoutes() {
@@ -44,8 +43,6 @@ function AppRoutes() {
 
       <Route path="/dashboard" element={<CustomerRoute><CustomerDashboard /></CustomerRoute>} />
       <Route path="/chat" element={<CustomerRoute><CustomerChat /></CustomerRoute>} />
-
-      <Route path="/admin/dev-login" element={<AdminDevLogin />} />
       <Route path="/admin/dashboard" element={<AdminRoute><Dashboard /></AdminRoute>} />
       <Route path="/admin/documents" element={<AdminRoute><Documents /></AdminRoute>} />
       <Route path="/admin/flagged" element={<AdminRoute><FlaggedQuestions /></AdminRoute>} />

@@ -1,7 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import ConversationTable from "@/components/admin/conversations/ConversationTable";
 import ConversationDetailsModal from "@/components/admin/conversations/ConversationDetailsModal";
+import { adminService } from "@/services/admin.service";
+import { chatService } from "@/services/chat.service";
+import { formatTimeAgo } from "@/utils/dateFormatter";
+import { toast } from "sonner";
 
 export interface Message {
   id: string;
@@ -21,71 +25,81 @@ export interface Conversation {
   messages: Message[];
 }
 
-const mockConversations: Conversation[] = [
-  {
-    id: "conv-1",
-    customerName: "John",
-    status: "Completed",
-    startedAt: "10:22 AM",
-    duration: "5m 12s",
-    messageCount: 4,
-    summary: "Customer inquired about the refund policy. Provided the standard 30-day refund link and resolved the issue.",
-    messages: [
-      { id: "m1", role: "user", content: "Hi, I need to know your refund policy.", timestamp: "10:22 AM" },
-      { id: "m2", role: "assistant", content: "Hello John! We offer a 30-day money-back guarantee. You can read the full policy here: [Link].", timestamp: "10:23 AM" },
-      { id: "m3", role: "user", content: "Perfect, thank you.", timestamp: "10:24 AM" },
-      { id: "m4", role: "assistant", content: "You're welcome! Is there anything else I can help you with?", timestamp: "10:24 AM" }
-    ]
-  },
-  {
-    id: "conv-2",
-    customerName: "Sarah",
-    status: "Flagged",
-    startedAt: "Yesterday",
-    duration: "12m 45s",
-    messageCount: 6,
-    summary: "Customer couldn't set up the VPN despite following the guide. AI confidence dropped below threshold.",
-    messages: [
-      { id: "m1", role: "user", content: "My VPN setup is failing.", timestamp: "14:10 PM" },
-      { id: "m2", role: "assistant", content: "Hi Sarah. Are you using Windows or Mac?", timestamp: "14:11 PM" },
-      { id: "m3", role: "user", content: "Mac. It says authentication failed.", timestamp: "14:12 PM" },
-      { id: "m4", role: "assistant", content: "Please ensure you're using the credentials sent to your email.", timestamp: "14:13 PM" },
-      { id: "m5", role: "user", content: "I am! It still doesn't work.", timestamp: "14:18 PM" },
-      { id: "m6", role: "assistant", content: "I've flagged this conversation for a human agent to review. Someone will reach out shortly.", timestamp: "14:19 PM" }
-    ]
-  },
-  {
-    id: "conv-3",
-    customerName: "David",
-    status: "Completed",
-    startedAt: "Monday",
-    duration: "2m 10s",
-    messageCount: 2,
-    summary: "Quick inquiry about the company's leave policy. Provided the direct PDF link.",
-    messages: [
-      { id: "m1", role: "user", content: "Where can I find the leave policy?", timestamp: "09:00 AM" },
-      { id: "m2", role: "assistant", content: "Hi David. The leave policy is documented in the HR Guide here: [Link].", timestamp: "09:01 AM" }
-    ]
-  }
-];
-
 function Conversations() {
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
 
-  const handleOpen = (conv: Conversation) => {
-    setSelectedConversation(conv);
+  useEffect(() => {
+    const fetchConversations = async () => {
+      try {
+        const convs = await adminService.getRecentConversations(100);
+        const mapped = convs.map(c => ({
+          id: c.id,
+          customerName: c.user ? `${c.user.first_name} ${c.user.last_name}`.trim() : "Unknown",
+          status: "Completed" as const,
+          startedAt: formatTimeAgo(c.created_at),
+          duration: "-",
+          messageCount: c.message_count,
+          summary: c.title || "No summary",
+          messages: []
+        }));
+        setConversations(mapped);
+      } catch {
+        console.error("Failed to load conversations");
+      }
+    };
+    fetchConversations();
+  }, []);
+
+  const handleOpen = async (conv: Conversation) => {
+    setSelectedConversation(conv); // Optimistic UI
+    
+    try {
+      const fullSession = await chatService.getSession(conv.id);
+      
+      const mappedMessages = fullSession.messages.map(m => ({
+        id: m.id,
+        role: m.role as "user" | "assistant",
+        content: m.content,
+        timestamp: formatTimeAgo(m.created_at)
+      }));
+      
+      setSelectedConversation(prev => {
+        if (!prev || prev.id !== conv.id) return prev;
+        return { ...prev, messages: mappedMessages };
+      });
+      
+      setConversations(prev => 
+        prev.map(c => c.id === conv.id ? { ...c, messages: mappedMessages } : c)
+      );
+    } catch {
+      console.error("Failed to load full session messages");
+    }
   };
 
   const handleClose = () => {
     setSelectedConversation(null);
   };
 
+  const handleDelete = async () => {
+    if (!selectedConversation) return;
+    try {
+      await chatService.deleteSession(selectedConversation.id);
+      setConversations(prev => prev.filter(c => c.id !== selectedConversation.id));
+      setSelectedConversation(null);
+      toast.success("Conversation deleted successfully");
+    } catch {
+      toast.error("Failed to delete conversation");
+    }
+  };
+
   return (
     <AdminLayout title="Conversations">
-      <ConversationTable conversations={mockConversations} onOpen={handleOpen} />
+      <ConversationTable conversations={conversations} onOpen={handleOpen} />
       <ConversationDetailsModal 
         isOpen={!!selectedConversation} 
         onClose={handleClose} 
+        onDelete={handleDelete}
         conversation={selectedConversation} 
       />
     </AdminLayout>

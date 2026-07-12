@@ -1,5 +1,8 @@
-import type { TopicData } from "@/pages/admin/mockAnalyticsData";
-
+export interface TopicData {
+  name: string;
+  conversations: number;
+  popularity: number;
+}
 interface Props {
   topics: TopicData[];
 }

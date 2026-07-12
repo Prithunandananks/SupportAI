@@ -1,4 +1,5 @@
 import apiClient from "../api/client";
+import type { AxiosProgressEvent } from "axios";
 
 export interface DashboardStats {
   total_users: number;
@@ -57,12 +58,17 @@ class AdminService {
   }
 
   async getRecentDocuments(limit = 10): Promise<AdminDocument[]> {
-    const response = await apiClient.get<AdminDocument[]>("/admin/documents", { params: { limit } });
+    const response = await apiClient.get<AdminDocument[]>("/admin/documents", {
+      params: { limit },
+    });
     return response.data;
   }
 
   async getRecentConversations(limit = 10): Promise<AdminConversation[]> {
-    const response = await apiClient.get<AdminConversation[]>("/admin/conversations", { params: { limit } });
+    const response = await apiClient.get<AdminConversation[]>(
+      "/admin/conversations",
+      { params: { limit } },
+    );
     return response.data;
   }
 
@@ -73,6 +79,29 @@ class AdminService {
 
   async deleteDocument(id: string): Promise<void> {
     await apiClient.delete(`/documents/${id}`);
+  }
+
+  async uploadDocument(
+    file: File,
+    onUploadProgress?: (progressEvent: AxiosProgressEvent) => void,
+  ): Promise<AdminDocument> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await apiClient.post("/documents/upload", formData, {
+      onUploadProgress,
+    });
+
+    const data = response.data;
+
+    return {
+      id: data.document_id,
+      filename: data.filename,
+      user_id: "",
+      file_size: file.size,
+      content_type: file.type,
+      created_at: new Date().toISOString(),
+    };
   }
 }
 

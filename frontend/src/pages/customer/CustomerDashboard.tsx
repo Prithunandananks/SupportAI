@@ -8,7 +8,6 @@ import PopularTopics from "@/components/customer/dashboard/PopularTopics";
 import RecentActivity from "@/components/customer/dashboard/RecentActivity";
 import ProfileSummary from "@/components/customer/dashboard/ProfileSummary";
 import SuggestedQuestions from "@/components/chat/welcome/SuggestedQuestions";
-import { mockAnalyticsData } from "@/pages/admin/mockAnalyticsData";
 import { useChat } from "@/hooks/useChatContext";
 
 function CustomerDashboard() {
@@ -103,7 +102,7 @@ function CustomerDashboard() {
             <div className="space-y-8">
               <ProfileSummary />
               <RecentActivity activities={recentActivities} />
-              <PopularTopics topics={mockAnalyticsData["30days"].topTopics} />
+              <PopularTopics topics={[]} />
             </div>
           </div>
 
