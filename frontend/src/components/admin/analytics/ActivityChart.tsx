@@ -1,4 +1,4 @@
-import type { ChartData } from "@/pages/admin/Analytics";
+import type { ChartData } from "@/pages/admin/mockAnalyticsData";
 
 interface Props {
   chartData: ChartData[];

@@ -1,18 +1,11 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "@/store/AuthContext";
+import { useAuth } from "@/hooks/useAuthCore";
 
 function WelcomeCard() {
   const { user } = useAuth();
   
   if (!user) return null;
-  const [greeting, setGreeting] = useState("Welcome back");
-
-  useEffect(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) setGreeting("Good Morning");
-    else if (hour < 18) setGreeting("Good Afternoon");
-    else setGreeting("Good Evening");
-  }, []);
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good Morning" : hour < 18 ? "Good Afternoon" : "Good Evening";
 
   return (
     <div className="bg-gradient-to-r from-slate-900 to-slate-800 border border-slate-700/50 rounded-2xl p-6 sm:p-8 shadow-2xl relative overflow-hidden group transition-all duration-300 hover:shadow-cyan-500/10">
@@ -32,3 +25,4 @@ function WelcomeCard() {
 }
 
 export default WelcomeCard;
+

@@ -3,7 +3,7 @@ import { ChevronDown, User, Settings, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ProfileAvatar from "./ProfileAvatar";
 import LogoutConfirmationModal from "@/components/shared/LogoutConfirmationModal";
-import { useAuth } from "@/store/AuthContext";
+import { useAuth } from "@/hooks/useAuthCore";
 
 function ProfileMenu() {
   const navigate = useNavigate();

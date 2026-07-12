@@ -8,8 +8,8 @@ import PopularTopics from "@/components/customer/dashboard/PopularTopics";
 import RecentActivity from "@/components/customer/dashboard/RecentActivity";
 import ProfileSummary from "@/components/customer/dashboard/ProfileSummary";
 import SuggestedQuestions from "@/components/chat/welcome/SuggestedQuestions";
-import { mockAnalyticsData } from "@/pages/admin/Analytics";
-import { useChat } from "@/store/ChatContext";
+import { mockAnalyticsData } from "@/pages/admin/mockAnalyticsData";
+import { useChat } from "@/hooks/useChatContext";
 
 function CustomerDashboard() {
   const navigate = useNavigate();
@@ -114,3 +114,4 @@ function CustomerDashboard() {
 }
 
 export default CustomerDashboard;
+

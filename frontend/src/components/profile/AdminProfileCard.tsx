@@ -1,7 +1,7 @@
 import ProfileAvatar from "./ProfileAvatar";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/store/AuthContext";
+import { useAuth } from "@/hooks/useAuthCore";
 
 function AdminProfileCard() {
   const { user } = useAuth();

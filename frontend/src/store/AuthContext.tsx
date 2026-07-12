@@ -1,36 +1,22 @@
-import { createContext, useContext, useState } from "react";
+import { useState } from "react";
 import type { ReactNode } from "react";
+import { AuthContext, type User } from "./AuthContextCore";
 
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: "customer" | "admin";
-}
-
-export const mockCustomer: User = {
+const mockCustomer: User = {
   id: "cust-1",
   name: "Alex",
   email: "alex@example.com",
   role: "customer",
 };
 
-export const mockAdmin: User = {
+const mockAdmin: User = {
   id: "admin-1",
   name: "Administrator",
   email: "admin@supportai.com",
   role: "admin",
 };
 
-interface AuthContextType {
-  isAuthenticated: boolean;
-  user: User | null;
-  loginCustomer: () => void;
-  loginAdmin: () => void;
-  logout: () => void;
-}
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   // Mock auth state with localStorage persistence
@@ -73,10 +59,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
-}
+

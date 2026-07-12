@@ -1,4 +1,4 @@
-import type { TopicData } from "@/pages/admin/Analytics";
+import type { TopicData } from "@/pages/admin/mockAnalyticsData";
 
 interface Props {
   topics: TopicData[];

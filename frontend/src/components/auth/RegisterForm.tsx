@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "@/store/AuthContext";
+import { useAuth } from "@/hooks/useAuthCore";
 
 function RegisterForm() {
   const navigate = useNavigate();

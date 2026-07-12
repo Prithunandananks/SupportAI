@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 
 import StatCard from "../dashboard/StatCard";
-import type { KPIData } from "@/pages/admin/Analytics";
+import type { KPIData } from "@/pages/admin/mockAnalyticsData";
 
 const iconMap: Record<string, React.ReactNode> = {
   Chats: <MessageCircle size={34} />,

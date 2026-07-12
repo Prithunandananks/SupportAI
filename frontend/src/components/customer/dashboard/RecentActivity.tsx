@@ -1,4 +1,4 @@
-import type { Activity } from "@/store/ChatContext";
+import type { Activity } from "@/store/ChatContextCore";
 import { formatTimeAgo } from "@/utils/dateFormatter";
 import { MessageSquare, Settings, Activity as ActivityIcon, MessageCircle, Trash2, Pencil, Pin, PinOff, User } from "lucide-react";
 import DashboardCard from "./DashboardCard";
@@ -49,3 +49,4 @@ function RecentActivity({ activities }: Props) {
 }
 
 export default RecentActivity;
+

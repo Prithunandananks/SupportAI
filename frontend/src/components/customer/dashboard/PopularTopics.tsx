@@ -1,4 +1,4 @@
-import type { TopicData } from "@/pages/admin/Analytics";
+import type { TopicData } from "@/pages/admin/mockAnalyticsData";
 import { Hash, TrendingUp } from "lucide-react";
 import DashboardCard from "./DashboardCard";
 
@@ -45,3 +45,4 @@ function PopularTopics({ topics }: Props) {
 }
 
 export default PopularTopics;
+

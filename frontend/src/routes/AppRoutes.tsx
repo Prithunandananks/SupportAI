@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { useAuth } from "@/store/AuthContext";
+import { useAuth } from "@/hooks/useAuthCore";
 
 import Landing from "../pages/public/Landing";
 import Login from "../pages/public/Login";

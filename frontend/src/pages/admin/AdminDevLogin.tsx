@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/store/AuthContext";
+import { useAuth } from "@/hooks/useAuthCore";
 
 function AdminDevLogin() {
   const navigate = useNavigate();
@@ -32,3 +32,4 @@ function AdminDevLogin() {
 }
 
 export default AdminDevLogin;
+

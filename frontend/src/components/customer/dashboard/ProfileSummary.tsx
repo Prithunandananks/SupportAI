@@ -1,6 +1,6 @@
 import DashboardCard from "./DashboardCard";
 import ProfileAvatar from "@/components/profile/ProfileAvatar";
-import { useAuth } from "@/store/AuthContext";
+import { useAuth } from "@/hooks/useAuthCore";
 
 function ProfileSummary() {
   const { user } = useAuth();
@@ -19,3 +19,4 @@ function ProfileSummary() {
 }
 
 export default ProfileSummary;
+

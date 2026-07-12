@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import ChatSidebar from "@/components/chat/layout/ChatSidebar";
@@ -8,7 +8,7 @@ import ChatInput from "@/components/chat/input/ChatInput";
 import MessageList from "@/components/chat/messages/MessageList";
 import ConfirmationModal from "@/components/shared/ConfirmationModal";
 import type { ChatSession, Message } from "@/components/chat/messages/Message";
-import { useChat } from "@/store/ChatContext";
+import { useChat } from "@/hooks/useChatContext";
 
 const generateId = () => {
   return typeof crypto !== "undefined" && crypto.randomUUID
@@ -26,17 +26,17 @@ function CustomerChat() {
     return sessions.length > 0 ? sessions[0].id : null;
   });
 
-  const logActivity = (type: string, title: string) => {
+  const logActivity = useCallback((type: "new_chat" | "continued_chat" | "deleted_chat" | "renamed_chat" | "pinned_chat" | "unpinned_chat" | "profile_updated" | "settings_updated", title: string) => {
     setActivities((prev) => [
       {
         id: generateId(),
-        type: type as any,
+        type,
         title,
         createdAt: new Date().toISOString(),
       },
       ...prev,
     ]);
-  };
+  }, [setActivities]);
   
 
 
@@ -57,7 +57,7 @@ function CustomerChat() {
     }, 0);
   };
 
-  const handleSendMessage = (text: string) => {
+  const handleSendMessage = useCallback((text: string) => {
     if (!text.trim()) return;
     
     let targetSessionId = activeSessionId;
@@ -139,7 +139,7 @@ function CustomerChat() {
       }));
       setIsTyping(false);
     }, 800);
-  };
+  }, [activeSessionId, setSessions, logActivity]);
 
   const handleMessageFeedback = (messageId: string | number, feedback: "like" | "dislike") => {
     setSessions(prev => prev.map(session => {
@@ -257,7 +257,7 @@ function CustomerChat() {
     return () => {
       if (timer) clearTimeout(timer);
     };
-  }, [location.state]);
+  }, [location.state, handleSendMessage]);
 
   return (
     <div className="bg-slate-950 text-white h-screen flex overflow-hidden">

@@ -15,7 +15,7 @@ interface Props {
 import { NavLink, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import LogoutConfirmationModal from "@/components/shared/LogoutConfirmationModal";
-import { useAuth } from "@/store/AuthContext";
+import { useAuth } from "@/hooks/useAuthCore";
 function AdminSidebar({
   isOpen,
   onClose,
