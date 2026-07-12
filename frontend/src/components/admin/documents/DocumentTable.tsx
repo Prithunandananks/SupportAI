@@ -1,137 +1,206 @@
-import { useEffect, useState, useMemo } from "react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { FileWarning } from "lucide-react";
 import DocumentRow from "./DocumentRow";
-import { adminService } from "@/services/admin.service";
-import type { AdminDocument } from "@/services/admin.service";
-import { Search } from "lucide-react";
+import DocumentPreviewModal from "./DocumentPreviewModal";
+import ConfirmationModal from "@/components/shared/ConfirmationModal";
+import { formatTimeAgo } from "@/utils/dateFormatter";
 
-export default function DocumentTable() {
-  const [documents, setDocuments] = useState<AdminDocument[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export interface DocType {
+  id: string;
+  name: string;
+  type: string;
+  uploadedAt: string;
+  size: string;
+}
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState("all");
+interface Props {
+  documentsList: DocType[];
+  setDocumentsList: React.Dispatch<React.SetStateAction<DocType[]>>;
+}
 
-  const fetchDocuments = () => {
-    setLoading(true);
-    adminService.getRecentDocuments(100)
-      .then((data) => {
-        setDocuments(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Failed to load documents", err);
-        setError("Failed to load documents.");
-        setLoading(false);
-      });
+function DocumentTable({ documentsList, setDocumentsList }: Props) {
+  const [selectedDoc, setSelectedDoc] = useState<DocType | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [docToDelete, setDocToDelete] = useState<DocType | null>(null);
+
+  const openPreview = (doc: DocType) => {
+    setSelectedDoc(doc);
+    setIsModalOpen(true);
   };
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchDocuments();
-  }, []);
-
-  const handleDelete = async (id: string) => {
-    await adminService.deleteDocument(id);
-    setDocuments(prev => prev.filter(d => d.id !== id));
+  const confirmDelete = (doc: DocType) => {
+    setDocToDelete(doc);
+    setIsDeleteConfirmOpen(true);
   };
 
-  const filteredDocs = useMemo(() => {
-    return documents.filter(doc => {
-      const matchesSearch = doc.filename.toLowerCase().includes(searchQuery.toLowerCase());
-      const shortType = (doc.content_type || "unknown").split("/").pop()?.toLowerCase();
-      const matchesType = typeFilter === "all" || shortType?.includes(typeFilter);
-      return matchesSearch && matchesType;
-    });
-  }, [documents, searchQuery, typeFilter]);
-
-  if (error) {
-    return <div className="text-red-500 bg-red-950/20 p-4 rounded-xl border border-red-900 mt-8">{error}</div>;
-  }
+  const handleDelete = () => {
+    if (docToDelete) {
+      setDocumentsList(prev => prev.filter(d => d.id !== docToDelete.id));
+      toast.success("Document deleted successfully.");
+      setIsDeleteConfirmOpen(false);
+      setDocToDelete(null);
+    }
+  };
 
   return (
-    <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 mt-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-        <h2 className="text-2xl font-semibold">
-          Uploaded Documents
-        </h2>
-        
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Search by filename..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-cyan-500 transition w-full md:w-64"
-            />
+    <div className="bg-slate-900 rounded-xl md:rounded-2xl border border-slate-800 p-4 md:p-6 mt-6 md:mt-8">
+
+      <h2 className="text-lg md:text-2xl font-semibold mb-5">
+        Uploaded Documents
+      </h2>
+
+      {documentsList.length === 0 ? (
+        <div className="py-12 md:py-20 flex flex-col items-center justify-center text-center">
+          <div className="bg-slate-800 p-4 rounded-full mb-4">
+            <FileWarning size={40} className="text-slate-400" />
           </div>
-          <select 
-            value={typeFilter}
-            onChange={e => setTypeFilter(e.target.value)}
-            className="bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-cyan-500 transition"
-          >
-            <option value="all">All Types</option>
-            <option value="pdf">PDF</option>
-            <option value="docx">DOCX</option>
-            <option value="document">Document (Word)</option>
-            <option value="txt">TXT</option>
-            <option value="plain">Plain Text</option>
-          </select>
+          <h3 className="text-lg font-semibold text-white mb-2">No documents available</h3>
+          <p className="text-slate-400 text-sm max-w-sm">
+            Upload your first knowledge document to get started.
+          </p>
         </div>
-      </div>
-      
-      <div className="overflow-x-auto">
-        <table className="w-full text-left min-w-[700px]">
+      ) : (
+        <>
+          {/* ================= Desktop Table ================= */}
+
+          <div className="hidden md:block overflow-x-auto">
+
+            <table className="w-full text-left">
+
           <thead>
+
             <tr className="border-b border-slate-700">
-              <th className="pb-4 px-4 font-medium text-slate-300">Document</th>
-              <th className="pb-4 px-4 font-medium text-slate-300">Type</th>
-              <th className="pb-4 px-4 font-medium text-slate-300">Uploaded</th>
-              <th className="pb-4 px-4 font-medium text-slate-300">Status</th>
-              <th className="pb-4 px-4 font-medium text-slate-300">Actions</th>
+
+              <th className="pb-4">Document</th>
+
+              <th className="pb-4">Type</th>
+
+              <th className="pb-4">Uploaded</th>
+
+              <th className="pb-4">Action</th>
+
             </tr>
+
           </thead>
+
           <tbody>
-            {loading ? (
-              [1,2,3].map(i => (
-                <tr key={i} className="animate-pulse border-b border-slate-800/50">
-                  <td className="py-4 px-4"><div className="h-6 bg-slate-800 rounded w-48"></div></td>
-                  <td className="py-4 px-4"><div className="h-6 bg-slate-800 rounded w-16"></div></td>
-                  <td className="py-4 px-4"><div className="h-6 bg-slate-800 rounded w-24"></div></td>
-                  <td className="py-4 px-4"><div className="h-6 bg-slate-800 rounded w-20"></div></td>
-                  <td className="py-4 px-4"><div className="h-8 bg-slate-800 rounded w-40"></div></td>
-                </tr>
-              ))
-            ) : filteredDocs.length > 0 ? (
-              filteredDocs.map((doc) => (
-                <DocumentRow
-                  key={doc.id}
-                  id={doc.id}
-                  name={doc.filename}
-                  type={doc.content_type || "Unknown"}
-                  uploaded={new Date(doc.created_at).toLocaleDateString()}
-                  onDelete={handleDelete}
-                  onReplaceComplete={fetchDocuments}
-                />
-              ))
-            ) : (
-              <tr>
-                <td colSpan={5} className="py-12">
-                  <div className="flex flex-col items-center justify-center text-slate-500">
-                    <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center mb-4 border border-slate-700">
-                      <span className="text-3xl">📄</span>
-                    </div>
-                    <h3 className="text-lg font-medium text-slate-300">No documents found</h3>
-                    <p className="text-sm mt-1">Try adjusting your search or filters.</p>
-                  </div>
-                </td>
-              </tr>
-            )}
+
+            {documentsList.map((doc) => (
+              <DocumentRow
+                key={doc.id}
+                name={doc.name}
+                type={doc.type}
+                uploaded={formatTimeAgo(doc.uploadedAt)}
+                onView={() => openPreview(doc)}
+                onDelete={() => confirmDelete(doc)}
+              />
+            ))}
+
           </tbody>
+
         </table>
+
       </div>
+
+      {/* ================= Mobile Cards ================= */}
+
+      <div className="space-y-4 md:hidden">
+
+        {documentsList.map((doc) => (
+
+          <div
+            key={doc.id}
+            className="rounded-xl border border-slate-700 bg-slate-800 p-4"
+          >
+
+            <h3 className="font-medium text-sm text-white break-all">
+              {doc.name}
+            </h3>
+
+            <div className="mt-3 flex justify-between text-sm">
+
+              <span className="text-slate-400">
+                Type
+              </span>
+
+              <span className="bg-cyan-500/20 text-cyan-400 px-2 py-1 rounded-full text-xs">
+                {doc.type}
+              </span>
+
+            </div>
+
+            <div className="mt-2 flex justify-between text-sm">
+
+              <span className="text-slate-400">
+                Uploaded
+              </span>
+
+              <span>
+                {formatTimeAgo(doc.uploadedAt)}
+              </span>
+
+            </div>
+
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => openPreview(doc)}
+                className="
+                  flex-1
+                  rounded-lg
+                  bg-slate-700
+                  py-2
+                  text-sm
+                  text-white
+                  hover:bg-slate-600
+                  transition
+                "
+              >
+                View
+              </button>
+              <button
+                onClick={() => confirmDelete(doc)}
+                className="
+                  flex-1
+                  rounded-lg
+                  bg-red-500
+                  py-2
+                  text-sm
+                  text-white
+                  hover:bg-red-600
+                  transition
+                "
+              >
+                Delete
+              </button>
+            </div>
+
+          </div>
+
+        ))}
+
+      </div>
+      </>
+      )}
+
+      <ConfirmationModal
+        isOpen={isDeleteConfirmOpen}
+        onClose={() => setIsDeleteConfirmOpen(false)}
+        onConfirm={handleDelete}
+        title="Delete Document"
+        message={`Are you sure you want to delete this document?\n\nThis action cannot be undone.`}
+        confirmText="Delete"
+      />
+
+      <DocumentPreviewModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        document={selectedDoc}
+      />
     </div>
   );
 }
+
+export default DocumentTable;

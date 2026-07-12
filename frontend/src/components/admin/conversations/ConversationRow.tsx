@@ -1,63 +1,66 @@
-import { Search, Trash2, Download } from "lucide-react";
-
 interface Props {
-  id: string;
   customer: string;
   question: string;
-  messageCount: number;
   time: string;
-  onInspect: (id: string) => void;
-  onDelete: (id: string) => void;
-  onExport: (id: string) => void;
+  status: "Completed" | "Flagged";
+  onOpen: () => void;
 }
 
 function ConversationRow({
-  id,
   customer,
   question,
-  messageCount,
   time,
-  onInspect,
-  onDelete,
-  onExport,
+  status,
+  onOpen,
 }: Props) {
   return (
-    <tr className="border-b border-slate-800/50 hover:bg-slate-800/30 transition">
-      <td className="py-4 px-4 font-medium">{customer}</td>
-      <td className="py-4 px-4 max-w-[200px] truncate" title={question}>{question}</td>
-      <td className="py-4 px-4 text-slate-400">
-        <span className="bg-slate-800 px-2 py-1 rounded text-xs font-semibold">{messageCount}</span>
-      </td>
-      <td className="py-4 px-4 text-slate-400 text-sm">{time}</td>
-      <td className="py-4 px-4">
-        <div className="flex gap-2">
-          <button 
-            onClick={() => onInspect(id)}
-            className="flex items-center gap-1 bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500 hover:text-white px-3 py-1.5 rounded transition text-sm"
-            title="Inspect Chat"
-          >
-            <Search size={16} />
-            Inspect
-          </button>
-          
-          <button 
-            onClick={() => onExport(id)}
-            className="flex items-center gap-1 bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white px-3 py-1.5 rounded transition text-sm"
-            title="Export JSON"
-          >
-            <Download size={16} />
-            Export
-          </button>
+    <tr className="border-b border-slate-800 hover:bg-slate-800 transition">
 
-          <button 
-            onClick={() => onDelete(id)}
-            className="flex items-center gap-1 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white p-1.5 rounded transition text-sm"
-            title="Delete Conversation"
-          >
-            <Trash2 size={16} />
-          </button>
-        </div>
+      <td className="py-3 md:py-4 px-2 md:px-4">
+        {customer}
       </td>
+
+      <td className="py-3 md:py-4 px-2 md:px-4">
+        {question}
+      </td>
+
+      <td className="py-3 md:py-4 px-2 md:px-4 text-slate-400">
+        {time}
+      </td>
+
+      <td className="py-3 md:py-4 px-2 md:px-4">
+
+        <span
+          className={`px-3 py-1 rounded-full text-sm ${
+            status === "Completed"
+              ? "bg-green-500/20 text-green-400"
+              : "bg-yellow-500/20 text-yellow-400"
+          }`}
+        >
+          {status}
+        </span>
+
+      </td>
+
+      <td className="py-3 md:py-4 px-2 md:px-4">
+
+        <button
+          onClick={onOpen}
+          className="
+            bg-cyan-500
+            hover:bg-cyan-600
+            px-4
+            py-2
+            rounded-lg
+            text-sm
+            transition
+          "
+        >
+          Open
+        </button>
+
+      </td>
+
     </tr>
   );
 }

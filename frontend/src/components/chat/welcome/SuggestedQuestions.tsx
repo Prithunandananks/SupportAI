@@ -3,50 +3,83 @@ interface Props {
 }
 
 const questions = [
-  { text: "How do I reset my password?", icon: "🔑" },
-  { text: "How can I request a refund?", icon: "💸" },
-  { text: "How do I contact customer support?", icon: "📞" },
-  { text: "Where can I find the API docs?", icon: "📖" },
+  "How do I reset my password?",
+  "How can I request a refund?",
+  "How do I contact customer support?",
 ];
 
 function SuggestedQuestions({ onQuestionClick }: Props) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-12 w-full max-w-3xl">
-
-      {questions.map((q) => (
-
+    <div className="mt-10 flex flex-col items-center gap-4 w-full">
+      {questions.map((question) => (
         <button
-          key={q.text}
-          onClick={() => onQuestionClick(q.text)}
+          key={question}
+          onClick={() => onQuestionClick(question)}
           className="
             group
-            bg-slate-800/50
+            flex
+            items-center
+            gap-4
+
+            w-full
+            max-w-[460px]
+
+            rounded-xl
             border
-            border-slate-700/50
-            hover:border-cyan-500/50
-            hover:bg-slate-700/50
-            rounded-2xl
-            px-5
-            py-4
+            border-slate-700
+            bg-slate-800/70
+
+            px-4
+            py-3
+            md:px-5
+            md:py-4
+
+            text-left
+
             transition-all
             duration-300
-            hover:-translate-y-1
-            text-left
-            flex
-            flex-col
-            gap-2
+
+            hover:border-cyan-500
+            hover:bg-slate-700
+            hover:shadow-lg
+            hover:shadow-cyan-500/10
+            hover:-translate-y-0.5
           "
         >
-          <span className="text-2xl group-hover:scale-110 transition opacity-80">
-            {q.icon}
-          </span>
-          <span className="text-sm text-slate-300 group-hover:text-cyan-100 font-medium">
-            {q.text}
+          <div
+            className="
+              flex
+              h-8
+              w-8
+              md:h-10
+              md:w-10
+              shrink-0
+              items-center
+              justify-center
+              rounded-full
+              bg-cyan-500/10
+              text-cyan-400
+              font-semibold
+              transition-transform
+              duration-300
+              group-hover:scale-110
+            "
+          >
+            ?
+          </div>
+
+          <span
+            className="
+              text-[15px]
+              md:text-base
+              text-slate-200
+              leading-6
+            "
+          >
+            {question}
           </span>
         </button>
-
       ))}
-
     </div>
   );
 }
