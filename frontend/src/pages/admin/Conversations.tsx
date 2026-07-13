@@ -21,7 +21,8 @@ export interface Conversation {
   startedAt: string;
   duration: string;
   messageCount: number;
-  summary: string;
+  title: string | null;
+  summary: string | null;
   messages: Message[];
 }
 
@@ -40,7 +41,8 @@ function Conversations() {
           startedAt: formatTimeAgo(c.created_at),
           duration: "-",
           messageCount: c.message_count,
-          summary: c.title || "No summary",
+          title: c.title,
+          summary: null,
           messages: []
         }));
         setConversations(mapped);

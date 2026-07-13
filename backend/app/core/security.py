@@ -1,5 +1,8 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any, Union
+import hmac
+import hashlib
+import re
 from jose import jwt
 from passlib.context import CryptContext
 from app.core.config import settings
@@ -59,3 +62,23 @@ def create_refresh_token(
         to_encode, settings.JWT_SECRET, algorithm=settings.ALGORITHM
     )
     return encoded_jwt
+
+def create_hmac_token(token: str) -> str:
+    return hmac.new(
+        settings.JWT_SECRET.encode(),
+        token.encode(),
+        hashlib.sha256
+    ).hexdigest()
+
+def validate_password_strength(password: str) -> bool:
+    if len(password) < 12:
+        return False
+    if not re.search(r"[A-Z]", password):
+        return False
+    if not re.search(r"[a-z]", password):
+        return False
+    if not re.search(r"\d", password):
+        return False
+    if not re.search(r"[^A-Za-z0-9]", password):
+        return False
+    return True

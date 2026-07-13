@@ -7,7 +7,8 @@ import WelcomeScreen from "@/components/chat/welcome/WelcomeScreen";
 import ChatInput from "@/components/chat/input/ChatInput";
 import MessageList from "@/components/chat/messages/MessageList";
 import ConfirmationModal from "@/components/shared/ConfirmationModal";
-import type { ChatSession, Message } from "@/components/chat/messages/Message";
+import ReportMessageModal from "@/components/chat/messages/ReportMessageModal";
+import type { ChatSession, Message, Source } from "@/components/chat/messages/Message";
 import { useChat } from "@/hooks/useChatContext";
 import { chatService } from "@/services/chat.service";
 
@@ -46,6 +47,7 @@ function CustomerChat() {
   
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
   const [messageToFlag, setMessageToFlag] = useState<string | number | null>(null);
+  const [selectedSource, setSelectedSource] = useState<Source | null>(null);
 
   const activeSession = useMemo(() => {
     return sessions.find(s => s.id === activeSessionId) || null;
@@ -185,21 +187,23 @@ function CustomerChat() {
                 return {
                   ...session,
                   messages: session.messages.map(msg => {
+                    if (msg.id === userMessage.id && metadata.user_message_id) {
+                      return { ...msg, id: metadata.user_message_id };
+                    }
                     if (msg.id === aiMessageId) {
                       let confidenceScore = msg.confidence;
-                      if (metadata.confidence) {
-                         if (metadata.confidence === "High") confidenceScore = 95;
-                         else if (metadata.confidence === "Medium") confidenceScore = 75;
-                         else confidenceScore = 50;
+                      if (metadata.confidence !== undefined) {
+                         confidenceScore = typeof metadata.confidence === "number" ? metadata.confidence : undefined;
                       }
                       return { 
                         ...msg, 
-                        sources: metadata.sources ? metadata.sources.map((c) => ({
-                          id: c.document_id || generateId(),
+                        id: metadata.message_id || msg.id,
+                        sources: metadata.sources ? metadata.sources.map((c: { filename?: string; retrieval_score?: number }) => ({
+                          id: generateId(),
                           name: c.filename || "Document",
-                          page: c.chunk_index || 1,
-                          section: c.retrieved_text ? c.retrieved_text.substring(0, 50) : "",
-                          relevance: Math.round(confidenceScore ?? 95)
+                          relevance: typeof c.retrieval_score === 'number' 
+                              ? (c.retrieval_score <= 1 ? Math.round(c.retrieval_score * 100) : c.retrieval_score) 
+                              : 0
                         })) : msg.sources,
                         confidence: confidenceScore
                       };
@@ -210,6 +214,17 @@ function CustomerChat() {
               }
               return session;
             }));
+
+            // Handle title generation from metadata
+            if (metadata.title) {
+              const newTitle = metadata.title;
+              setSessions(prev => prev.map(session => {
+                if (session.id === actualSessionId) {
+                  return { ...session, title: newTitle };
+                }
+                return session;
+              }));
+            }
           }
         );
       } catch {
@@ -221,46 +236,63 @@ function CustomerChat() {
     sendToBackend();
   }, [activeSessionId, sessions, setSessions, logActivity]);
 
-  const handleMessageFeedback = (messageId: string | number, feedback: "like" | "dislike") => {
-    setSessions(prev => prev.map(session => {
-      if (session.id === activeSessionId) {
-        return {
-          ...session,
-          messages: session.messages.map(msg => {
-            if (msg.id === messageId) {
-              return { ...msg, feedback: msg.feedback === feedback ? null : feedback };
-            }
-            return msg;
-          })
-        };
-      }
-      return session;
-    }));
+  const handleMessageFeedback = async (messageId: string | number, feedback: "like" | "dislike") => {
+    try {
+      await chatService.submitFeedback(activeSessionId!, messageId.toString(), feedback);
+      
+      setSessions(prev => prev.map(session => {
+        if (session.id === activeSessionId) {
+          return {
+            ...session,
+            messages: session.messages.map(msg => {
+              if (msg.id === messageId) {
+                return { ...msg, feedback };
+              }
+              return msg;
+            })
+          };
+        }
+        return session;
+      }));
+    } catch {
+      toast.error("Failed to submit feedback.");
+    }
   };
 
   const confirmFlagMessage = (messageId: string | number) => {
     setMessageToFlag(messageId);
   };
 
-  const handleFlagMessage = () => {
+  const handleFlagMessage = async (reason: string, comment?: string) => {
     if (!messageToFlag || !activeSessionId) return;
     
-    setSessions(prev => prev.map(session => {
-      if (session.id === activeSessionId) {
-        return {
-          ...session,
-          messages: session.messages.map(msg => {
-            if (msg.id === messageToFlag) {
-              return { ...msg, flagged: true };
-            }
-            return msg;
-          })
-        };
+    try {
+      await chatService.flagMessage(activeSessionId, messageToFlag.toString(), reason, comment);
+      toast.success("Response reported successfully.");
+      
+      setSessions(prev => prev.map(session => {
+        if (session.id === activeSessionId) {
+          return {
+            ...session,
+            messages: session.messages.map(msg => {
+              if (msg.id === messageToFlag) {
+                return { ...msg, flagged: true };
+              }
+              return msg;
+            })
+          };
+        }
+        return session;
+      }));
+    } catch (error) {
+      const err = error as { response?: { data?: { detail?: string } } };
+      if (err.response?.data?.detail) {
+        toast.error(err.response.data.detail);
+      } else {
+        toast.error("Failed to report response.");
       }
-      return session;
-    }));
+    }
     
-    toast.success("Response reported successfully.");
     setMessageToFlag(null);
   };
 
@@ -379,6 +411,8 @@ function CustomerChat() {
                   sender: m.role === "user" ? "user" : "assistant",
                   text: m.content,
                   createdAt: m.created_at,
+                  feedback: (m.feedback?.toLowerCase() === 'like' || m.feedback?.toLowerCase() === 'dislike') ? m.feedback.toLowerCase() as "like" | "dislike" : null,
+                  flagged: m.flagged,
                 })),
                 messagesLoaded: true
               };
@@ -440,6 +474,7 @@ function CustomerChat() {
                 messages={activeSession.messages} 
                 onFeedback={handleMessageFeedback}
                 onFlag={confirmFlagMessage}
+                onSourceClick={setSelectedSource}
               />
 
               {isTyping && (
@@ -482,15 +517,51 @@ function CustomerChat() {
         cancelText="Cancel"
       />
 
-      <ConfirmationModal
+      <ReportMessageModal
         isOpen={!!messageToFlag}
         onClose={() => setMessageToFlag(null)}
-        onConfirm={handleFlagMessage}
-        title="Report this AI response?"
-        message="This response will be marked for administrator review."
-        confirmText="Report"
-        cancelText="Cancel"
+        onSubmit={handleFlagMessage}
       />
+
+      {/* Source Excerpt Modal */}
+      {selectedSource && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl flex flex-col">
+            <div className="flex justify-between items-start mb-4 border-b border-slate-800 pb-4">
+              <h2 className="text-lg font-bold text-white">Source Information</h2>
+              <button 
+                onClick={() => setSelectedSource(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="flex flex-col gap-4 mb-6">
+              <div>
+                <p className="text-sm text-slate-400 mb-1">Document</p>
+                <p className="text-white font-medium break-all">{selectedSource.name}</p>
+              </div>
+              
+              <div>
+                <p className="text-sm text-slate-400 mb-1">Retrieval Score</p>
+                <p className="text-cyan-400 font-medium">{selectedSource.relevance}%</p>
+              </div>
+            </div>
+            
+            <p className="text-sm text-slate-400 italic mb-6">
+              This response was generated using your organization's knowledge base.
+            </p>
+
+            <button
+              onClick={() => setSelectedSource(null)}
+              className="w-full bg-slate-800 hover:bg-slate-700 text-white font-medium py-2 rounded-lg transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

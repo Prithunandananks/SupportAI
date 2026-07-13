@@ -32,10 +32,10 @@ function LoginForm() {
       login(authData.access_token, user);
       toast.success("Welcome back!");
       
-      if (user.role === "Admin") {
+      if (user.role.toLowerCase() === "admin") {
         navigate("/admin/dashboard");
       } else {
-        navigate("/chat");
+        navigate("/dashboard");
       }
     } catch {
       toast.error("Invalid credentials. Please try again.");

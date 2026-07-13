@@ -12,6 +12,11 @@ class UserRepository(BaseRepository[User, UserCreate]):
         result = await db.execute(query)
         return result.scalars().first()
 
+    async def get_admins(self, db: AsyncSession) -> list[User]:
+        query = select(User).filter(User.role == "Admin")
+        result = await db.execute(query)
+        return list(result.scalars().all())
+
     async def create(self, db: AsyncSession, *, obj_in: UserCreate) -> User:
         db_obj = User(
             email=obj_in.email,

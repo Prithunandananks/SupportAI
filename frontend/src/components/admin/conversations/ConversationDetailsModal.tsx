@@ -74,9 +74,15 @@ function ConversationDetailsModal({ isOpen, onClose, onDelete, conversation }: P
           {/* Summary */}
           <div>
             <h3 className="text-lg font-medium text-white mb-4 border-b border-slate-800 pb-2">Conversation Summary</h3>
-            <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-800 text-slate-300 text-sm italic">
-              {conversation.summary}
-            </div>
+            {conversation.summary ? (
+              <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-800 text-slate-300 text-sm italic">
+                {conversation.summary}
+              </div>
+            ) : (
+              <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-800 text-slate-500 text-sm italic text-center">
+                No summary generated for this conversation.
+              </div>
+            )}
           </div>
         </div>
         

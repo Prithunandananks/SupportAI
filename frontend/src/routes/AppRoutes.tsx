@@ -5,6 +5,7 @@ import Landing from "../pages/public/Landing";
 import Login from "../pages/public/Login";
 import Register from "../pages/public/Register";
 import ForgotPassword from "../pages/public/ForgotPassword";
+import ResetPassword from "../pages/public/ResetPassword";
 import FlaggedQuestions from "../pages/admin/FlaggedQuestions";
 import CustomerChat from "../pages/customer/CustomerChat";
 import CustomerDashboard from "../pages/customer/CustomerDashboard";
@@ -17,6 +18,12 @@ import AdminProfile from "../pages/admin/Profile";
 import CustomerSettings from "../pages/customer/Settings";
 import AdminSettings from "../pages/admin/Settings";
 import NotFound from "../pages/shared/NotFound";
+
+import MyTickets from "../pages/customer/MyTickets";
+import TicketDetails from "@/pages/customer/TicketDetails";
+import Notifications from "@/pages/customer/Notifications";
+import AdminTickets from "../pages/admin/AdminTickets";
+import AdminTicketDetails from "../pages/admin/AdminTicketDetails";
 
 function CustomerRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -40,6 +47,7 @@ function AppRoutes() {
       <Route path="/register" element={<Register />} />
 
       <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       <Route path="/dashboard" element={<CustomerRoute><CustomerDashboard /></CustomerRoute>} />
       <Route path="/chat" element={<CustomerRoute><CustomerChat /></CustomerRoute>} />
@@ -48,7 +56,12 @@ function AppRoutes() {
       <Route path="/admin/flagged" element={<AdminRoute><FlaggedQuestions /></AdminRoute>} />
       <Route path="/admin/conversations" element={<AdminRoute><Conversations /></AdminRoute>} />
       <Route path="/admin/analytics" element={<AdminRoute><Analytics /></AdminRoute>} />
+      <Route path="/admin/tickets" element={<AdminRoute><AdminTickets /></AdminRoute>} />
+      <Route path="/admin/tickets/:id" element={<AdminRoute><AdminTicketDetails /></AdminRoute>} />
       <Route path="/profile" element={<CustomerRoute><CustomerProfile /></CustomerRoute>} />
+      <Route path="/customer/tickets" element={<CustomerRoute><MyTickets /></CustomerRoute>} />
+      <Route path="/customer/tickets/:id" element={<CustomerRoute><TicketDetails /></CustomerRoute>} />
+      <Route path="/notifications" element={<CustomerRoute><Notifications /></CustomerRoute>} />
 
       <Route
           path="/admin/profile"

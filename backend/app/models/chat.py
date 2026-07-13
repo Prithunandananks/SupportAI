@@ -1,9 +1,14 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import String, DateTime, ForeignKey, Text
+from sqlalchemy import String, DateTime, ForeignKey, Text, Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
-from app.db.base import Base
+import enum
+from app.db.base_class import Base
+
+class FeedbackEnum(str, enum.Enum):
+    LIKE = "LIKE"
+    DISLIKE = "DISLIKE"
 
 class ChatSession(Base):
     __tablename__ = "chat_sessions"
@@ -44,6 +49,14 @@ class ChatMessage(Base):
     )
     role: Mapped[str] = mapped_column(String(50), nullable=False) # e.g. 'user' or 'assistant'
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    
+    feedback: Mapped[FeedbackEnum | None] = mapped_column(SQLEnum(FeedbackEnum), nullable=True)
+
+    tickets = relationship("Ticket", foreign_keys="[Ticket.chat_message_id]", viewonly=True)
+
+    @property
+    def flagged(self) -> bool:
+        return len(self.tickets) > 0
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

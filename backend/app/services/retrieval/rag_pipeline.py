@@ -38,26 +38,30 @@ class RAGPipeline:
 
         contexts = []
         sources = []
+        seen_docs = set()
 
         for result in search_results.points:
             payload = result.payload or {}
             text = payload.get("text", "")
+            doc_id = payload.get("document_id", "unknown")
+            
             contexts.append(text)
             
-            # Construct citation
-            doc_id = payload.get("document_id", "unknown")
-            filename = payload.get("filename", "unknown")
-            chunk_idx = payload.get("chunk_index", 0)
-            
-            sources.append(
-                SourceCitation(
-                    document_id=doc_id,
-                    filename=filename,
-                    chunk_index=chunk_idx,
-                    retrieved_text=text,
-                    retrieval_score=result.score
+            if doc_id not in seen_docs:
+                seen_docs.add(doc_id)
+                # Construct citation
+                filename = payload.get("filename", "unknown")
+                chunk_idx = payload.get("chunk_index", 0)
+                
+                sources.append(
+                    SourceCitation(
+                        filename=filename,
+                        retrieval_score=result.score
+                    )
                 )
-            )
+
+        if not contexts:
+            return "I couldn't find relevant information in the current knowledge base. Please try rephrasing your question or contact an administrator if you believe the information should exist.", []
 
         history = []
         if session_id and self.memory_provider:
@@ -89,28 +93,35 @@ class RAGPipeline:
         contexts = []
         sources = []
         highest_score = 0.0
+        seen_docs = set()
 
         for result in search_results.points:
             payload = result.payload or {}
-            contexts.append(payload.get("text", ""))
+            text = payload.get("text", "")
+            doc_id = payload.get("document_id", "unknown")
+            
+            contexts.append(text)
             score = result.score or 0.0
             if score > highest_score:
                 highest_score = score
                 
-            sources.append({
-                "document_id": payload.get("document_id", "unknown"),
-                "filename": payload.get("filename", "unknown"),
-                "chunk_index": payload.get("chunk_index", 0),
-                "retrieved_text": payload.get("text", ""),
-                "retrieval_score": score
-            })
+            if doc_id not in seen_docs:
+                seen_docs.add(doc_id)
+                sources.append({
+                    "filename": payload.get("filename", "unknown"),
+                    "retrieval_score": score
+                })
 
         # Calculate confidence
-        confidence = "Low"
-        if highest_score >= 0.8:
-            confidence = "High"
-        elif highest_score >= 0.6:
-            confidence = "Medium"
+        confidence = None
+        if highest_score > 0:
+            confidence = int(highest_score * 100)
+
+        if not contexts:
+            yield {"content": "I couldn't find relevant information in the current knowledge base. Please try rephrasing your question or contact an administrator if you believe the information should exist."}
+            if sources or confidence is not None:
+                yield {"sources": sources, "confidence": confidence}
+            return
 
         prompt = PromptBuilder.build_prompt(
             question=question,

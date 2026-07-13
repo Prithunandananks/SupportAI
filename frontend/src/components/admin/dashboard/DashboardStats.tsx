@@ -32,14 +32,14 @@ function DashboardStats() {
       />
 
       <StatCard
-        title="Flagged Questions"
-        value="8"
+        title="Open Reports"
+        value={stats ? stats.open_reports.toString() : "0"}
         icon={<AlertTriangle className="w-7 h-7 md:w-9 md:h-9" />}
       />
 
       <StatCard
-        title="Average Confidence"
-        value="94%"
+        title="Positive Feedback"
+        value={stats && stats.positive_feedback !== null ? `${stats.positive_feedback}%` : "No Data"}
         icon={<BadgeCheck className="w-7 h-7 md:w-9 md:h-9" />}
       />
 

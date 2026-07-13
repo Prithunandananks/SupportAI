@@ -12,13 +12,41 @@ from app.db.qdrant import qdrant_db
 from app.api.deps import _embedding_provider
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
+from alembic import command
+from alembic.config import Config
+from app.db.session import AsyncSessionLocal
+from app.db.seed import seed_admin
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 from app.core.rate_limit import setup_rate_limiting
 import uuid
 import json
 
+def _run_alembic_upgrade():
+    alembic_cfg = Config("alembic.ini")
+    command.upgrade(alembic_cfg, "head")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Run Alembic migrations in a separate thread to avoid event loop conflicts
+    try:
+        logger.info("Running database migrations...")
+        loop = asyncio.get_running_loop()
+        with ThreadPoolExecutor() as pool:
+            await loop.run_in_executor(pool, _run_alembic_upgrade)
+        logger.info("Database migrations completed.")
+    except Exception as e:
+        logger.error(f"Failed to run database migrations: {e}")
+        raise
+
+    # Seed Admin User
+    try:
+        async with AsyncSessionLocal() as db:
+            await seed_admin(db)
+    except Exception as e:
+        logger.error(f"Failed to seed admin user: {e}")
+
     # Initialize Qdrant collection using the dynamic dimension from the Embedding Provider
     await qdrant_db.initialize_collection(dimension=_embedding_provider.dimension)
     

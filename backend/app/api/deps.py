@@ -105,7 +105,7 @@ def require_role(role: str):
     async def role_dependency(
         current_user: User = Depends(get_current_active_user),
     ) -> User:
-        if current_user.role != role:
+        if current_user.role.lower() != role.lower():
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Operation requires {role} role",

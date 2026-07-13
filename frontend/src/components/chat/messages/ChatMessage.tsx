@@ -1,16 +1,17 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Copy, Check, ThumbsUp, ThumbsDown, Flag } from "lucide-react";
-import type { Message } from "./Message";
+import type { Message, Source } from "./Message";
 import { formatTimeAgo } from "@/utils/dateFormatter";
 
 interface Props {
   message: Message;
   onFeedback?: (messageId: string | number, feedback: "like" | "dislike") => void;
   onFlag?: (messageId: string | number) => void;
+  onSourceClick?: (source: Source) => void;
 }
 
-function ChatMessage({ message, onFeedback, onFlag }: Props) {
+function ChatMessage({ message, onFeedback, onFlag, onSourceClick }: Props) {
   const isUser = message.sender === "user";
   const [copied, setCopied] = useState(false);
 
@@ -21,14 +22,14 @@ function ChatMessage({ message, onFeedback, onFlag }: Props) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const getConfidenceBadge = (confidence?: number) => {
-    if (confidence === undefined) return null;
-    if (confidence >= 90) return { label: "🟢 High", color: "bg-green-900/60 text-green-300" };
-    if (confidence >= 70) return { label: "🟡 Medium", color: "bg-yellow-900/60 text-yellow-300" };
-    return { label: "🔴 Low", color: "bg-red-900/60 text-red-300" };
+  const getRetrievalBadge = (confidence?: number | null) => {
+    if (confidence === undefined || confidence === null) return { label: "No Data", color: "bg-slate-800 text-slate-400" };
+    if (confidence >= 80) return { label: "High Retrieval Score", color: "bg-green-900/60 text-green-300" };
+    if (confidence >= 50) return { label: "Medium Retrieval Score", color: "bg-yellow-900/60 text-yellow-300" };
+    return { label: "Low Retrieval Score", color: "bg-red-900/60 text-red-300" };
   };
 
-  const confidenceBadge = getConfidenceBadge(message.confidence);
+  const retrievalBadge = getRetrievalBadge(message.confidence);
 
   return (
     <div className={`flex mb-6 md:mb-8 animate-in fade-in slide-in-from-bottom-2 duration-300 ${isUser ? "justify-end" : "justify-start"}`}>
@@ -54,32 +55,27 @@ function ChatMessage({ message, onFeedback, onFlag }: Props) {
         {!isUser && (
           <>
             <div className="flex flex-wrap gap-2 md:gap-3 mt-3 md:mt-4">
-              {confidenceBadge && (
-                <span className={`${confidenceBadge.color} px-3 md:px-4 py-1 rounded-full text-xs md:text-sm flex items-center gap-1 font-medium`}>
-                  {confidenceBadge.label} Confidence <span className="opacity-75 text-[10px] md:text-xs ml-1">{message.confidence}%</span>
+              {retrievalBadge && (
+                <span className={`${retrievalBadge.color} px-3 md:px-4 py-1 rounded-full text-xs md:text-sm flex items-center gap-1 font-medium`}>
+                  {retrievalBadge.label} {message.confidence != null && <span className="opacity-75 text-[10px] md:text-xs ml-1">{message.confidence}%</span>}
                 </span>
               )}
 
               {message.sources?.map((source) => (
                 <div key={source.id} className="group relative">
-                  <span className="bg-slate-700 hover:bg-slate-600 px-3 md:px-4 py-1 rounded-full text-xs md:text-sm cursor-help transition flex items-center gap-1 font-medium text-slate-200">
+                  <button 
+                    onClick={() => onSourceClick?.(source)}
+                    className="bg-slate-700 hover:bg-slate-600 px-3 md:px-4 py-1 rounded-full text-xs md:text-sm cursor-pointer transition flex items-center gap-1 font-medium text-slate-200"
+                  >
                     📄 {source.name}
-                  </span>
+                  </button>
                   
                   {/* Tooltip */}
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-3 bg-slate-900 border border-slate-700 rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 flex flex-col gap-1.5 text-xs">
                     <p className="text-white font-medium truncate">📄 {source.name}</p>
-                    <div className="flex justify-between text-slate-300 mt-1">
-                      <span>Page:</span>
-                      <span className="text-white">{source.page}</span>
-                    </div>
-                    <div className="flex justify-between text-slate-300">
-                      <span>Section:</span>
-                      <span className="text-white">{source.section}</span>
-                    </div>
                     <div className="flex justify-between text-slate-300 pt-1 border-t border-slate-800 mt-1">
-                      <span>Relevance:</span>
-                      <span className="text-cyan-400 font-medium">{source.relevance}% Match</span>
+                      <span>Retrieval Score:</span>
+                      <span className="text-cyan-400 font-medium">{source.relevance}%</span>
                     </div>
                   </div>
                 </div>

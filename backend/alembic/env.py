@@ -26,11 +26,12 @@ from app.db.base import Base  # noqa: E402
 import app.models.user  # noqa
 import app.models.chat  # noqa
 import app.models.document  # noqa
+import app.models.password_reset  # noqa
 target_metadata = Base.metadata
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
-    url = os.getenv("DATABASE_URL", "postgresql+asyncpg://user:password@localhost:5432/supportai")
+    url = os.getenv("DATABASE_URL", "")
     if url.startswith("postgresql://"):
         url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
 
@@ -56,7 +57,7 @@ async def run_async_migrations() -> None:
     """In this scenario we need to create an Engine
     and associate a connection with the context.
     """
-    url = os.getenv("DATABASE_URL", "postgresql+asyncpg://user:password@localhost:5432/supportai")
+    url = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:12345@localhost:5432/supportai")
     if url.startswith("postgresql://"):
         url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
 

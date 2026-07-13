@@ -1,13 +1,16 @@
 import AppRoutes from "./routes/AppRoutes";
 import { AuthProvider } from "./store/AuthContext";
 import { ChatProvider } from "./store/ChatContext";
+import { NotificationProvider } from "./store/NotificationProvider";
 
 function App() {
   return (
     <AuthProvider>
-      <ChatProvider>
-        <AppRoutes />
-      </ChatProvider>
+      <NotificationProvider>
+        <ChatProvider>
+          <AppRoutes />
+        </ChatProvider>
+      </NotificationProvider>
     </AuthProvider>
   );
 }

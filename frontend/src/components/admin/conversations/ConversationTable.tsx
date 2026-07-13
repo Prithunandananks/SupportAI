@@ -16,7 +16,7 @@ function ConversationTable({ conversations, onOpen }: Props) {
 
     return conversations.filter((conversation) => {
       const userMessages = conversation.messages.filter(m => m.role === "user");
-      const question = userMessages.length > 0 ? userMessages[0].content : conversation.summary;
+      const question = userMessages.length > 0 ? userMessages[0].content : (conversation.title || "No data");
 
       return (
         conversation.customerName.toLowerCase().includes(query) ||
@@ -73,7 +73,7 @@ function ConversationTable({ conversations, onOpen }: Props) {
             <tbody>
               {filteredConversations.map((conversation) => {
                 const userMessages = conversation.messages.filter(m => m.role === "user");
-                const question = userMessages.length > 0 ? userMessages[0].content : conversation.summary;
+                const question = userMessages.length > 0 ? userMessages[0].content : (conversation.title || "No data");
 
                 return (
                   <ConversationRow
@@ -107,7 +107,7 @@ function ConversationTable({ conversations, onOpen }: Props) {
         ) : (
           filteredConversations.map((conversation) => {
             const userMessages = conversation.messages.filter(m => m.role === "user");
-            const question = userMessages.length > 0 ? userMessages[0].content : conversation.summary;
+            const question = userMessages.length > 0 ? userMessages[0].content : (conversation.title || "No data");
 
             return (
               <div

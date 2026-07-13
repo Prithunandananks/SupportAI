@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { MessageSquarePlus, Settings } from "lucide-react";
+import { MessageSquarePlus, Settings, Ticket } from "lucide-react";
 import { toast } from "sonner";
 
 function QuickActions() {
@@ -10,6 +10,8 @@ function QuickActions() {
       navigate(route, { state: { newChat: true } });
     } else if (route === "/settings") {
       navigate(route);
+    } else if (route === "/tickets") {
+      navigate(route);
     } else {
       toast.info("This feature will be available after backend integration.");
     }
@@ -17,11 +19,12 @@ function QuickActions() {
 
   const actions = [
     { title: "Start New Chat", icon: MessageSquarePlus, route: "/chat", color: "text-cyan-400", bg: "bg-cyan-500/10" },
+    { title: "Support Tickets", icon: Ticket, route: "/tickets", color: "text-indigo-400", bg: "bg-indigo-500/10" },
     { title: "Account Settings", icon: Settings, route: "/settings", color: "text-amber-400", bg: "bg-amber-500/10" },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
       {actions.map((action, idx) => (
         <button
           key={idx}

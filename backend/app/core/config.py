@@ -10,6 +10,14 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str
     JWT_SECRET: str
     LLM_MODEL: str
+    FRONTEND_URL: str = "http://localhost:5173"
+
+    # Admin seed credentials
+    ADMIN_EMAIL: str | None = None
+    ADMIN_PASSWORD: str | None = None
+    ADMIN_FIRST_NAME: str | None = None
+    ADMIN_LAST_NAME: str | None = None
+    ADMIN_ROLE: str = "admin"
 
     @property
     def is_development(self) -> bool:
@@ -37,6 +45,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_GLOBAL: str = "100/minute"
     STREAM_TIMEOUT: int = 60
     DATABASE_POOL_SIZE: int = 20
+    DATABASE_MAX_OVERFLOW: int = 10
     QDRANT_TIMEOUT: int = 10
 
     @property

@@ -10,6 +10,7 @@ from app.schemas.admin import (
     AdminDocumentResponse,
     AdminConversationResponse,
     AdminHealthResponse,
+    AdminActivityResponse,
 )
 from app.db.qdrant import qdrant_db
 
@@ -50,6 +51,14 @@ async def get_recent_conversations(
     repo: AdminRepository = Depends(get_admin_repo),
 ) -> Any:
     return await repo.get_recent_conversations(limit=limit)
+
+@router.get("/recent-activity", response_model=List[AdminActivityResponse])
+async def get_recent_activity(
+    limit: int = 10,
+    current_user: User = Depends(deps.require_role("Admin")),
+    repo: AdminRepository = Depends(get_admin_repo),
+) -> Any:
+    return await repo.get_recent_activity(limit=limit)
 
 @router.get("/health", response_model=AdminHealthResponse)
 async def get_health(

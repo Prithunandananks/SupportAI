@@ -5,10 +5,8 @@ export interface ChatRequest {
 }
 
 export interface Citation {
-  document_id: string;
   filename: string;
-  chunk_index: number;
-  retrieved_text: string;
+  retrieval_score: number;
 }
 
 export interface ChatResponse {
@@ -29,10 +27,17 @@ export interface ChatMessageResponse {
   role: string;
   content: string;
   created_at: string;
+  feedback?: string;
+  flagged?: boolean;
 }
 
 export interface ChatSessionWithMessagesResponse extends ChatSessionResponse {
   messages: ChatMessageResponse[];
+}
+
+export interface FeedbackResponse {
+  implemented: boolean;
+  message: string;
 }
 
 export const chatService = {
@@ -65,6 +70,16 @@ export const chatService = {
     await apiClient.delete(`/chat/session/${sessionId}`);
   },
 
+  async submitFeedback(sessionId: string, messageId: string, feedback: "like" | "dislike"): Promise<FeedbackResponse> {
+    const response = await apiClient.post<FeedbackResponse>(`/chat/session/${sessionId}/message/${messageId}/feedback`, { feedback });
+    return response.data;
+  },
+
+  async flagMessage(sessionId: string, messageId: string, reason: string, comment?: string): Promise<FeedbackResponse> {
+    const response = await apiClient.post<FeedbackResponse>(`/chat/session/${sessionId}/message/${messageId}/flag`, { reason, comment });
+    return response.data;
+  },
+
   async sendMessage(sessionId: string, message: string): Promise<ChatResponse> {
     const response = await apiClient.post<ChatResponse>(`/chat/session/${sessionId}/message`, { message });
     return response.data;
@@ -76,7 +91,7 @@ export const chatService = {
     onChunk: (chunk: string) => void,
     onComplete: () => void,
     onError: (error: Error) => void,
-    onMetadata?: (metadata: { sources?: Citation[], confidence?: "High" | "Medium" | "Low" }) => void,
+    onMetadata?: (metadata: { sources?: Citation[], confidence?: number, title?: string, message_id?: string, user_message_id?: string }) => void,
     signal?: AbortSignal,
     regenerate?: boolean
   ): Promise<void> {
@@ -133,7 +148,7 @@ export const chatService = {
                   if (data && data.content) {
                     onChunk(data.content);
                   }
-                  if (data && (data.sources || data.confidence)) {
+                  if (data && (data.sources || data.confidence !== undefined || data.message_id || data.user_message_id || data.title)) {
                     if (onMetadata) onMetadata(data);
                   }
                 } catch {
@@ -158,7 +173,7 @@ export const chatService = {
               if (data && data.content) {
                 onChunk(data.content);
               }
-              if (data && (data.sources || data.confidence)) {
+              if (data && (data.sources || data.confidence !== undefined || data.message_id || data.user_message_id || data.title)) {
                 if (onMetadata) onMetadata(data);
               }
             } catch {

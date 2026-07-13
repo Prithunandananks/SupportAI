@@ -17,10 +17,7 @@ class ChatRequest(BaseModel):
 
 
 class SourceCitation(BaseModel):
-    document_id: str
     filename: str
-    chunk_index: int
-    retrieved_text: str
     retrieval_score: Optional[float] = None
 
 
@@ -29,3 +26,10 @@ class ChatResponse(BaseModel):
     sources: List[SourceCitation] = Field(
         default_factory=list, description="Source documents used for generation"
     )
+
+class FeedbackRequest(BaseModel):
+    feedback: str = Field(..., description="The feedback to submit, either 'like' or 'dislike'")
+
+class FlagRequest(BaseModel):
+    reason: str = Field(..., description="Reason for flagging the message")
+    comment: Optional[str] = Field(None, description="Optional comment from the user")

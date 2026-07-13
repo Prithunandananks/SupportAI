@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, User, Settings, LogOut } from "lucide-react";
+import { ChevronDown, User, Settings, LogOut, Ticket } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ProfileAvatar from "./ProfileAvatar";
 import LogoutConfirmationModal from "@/components/shared/LogoutConfirmationModal";
@@ -137,6 +137,27 @@ function ProfileMenu() {
 >
   <Settings size={18} />
   Settings
+</button>
+
+            <button
+  onClick={() => {
+    navigate(user.role === "admin" ? "/admin/tickets" : "/customer/tickets");
+    setOpen(false);
+  }}
+  className="
+    flex
+    items-center
+    gap-3
+    w-full
+    px-5
+    py-3
+    hover:bg-slate-800
+    transition
+    text-white
+  "
+>
+  <Ticket size={18} />
+  Tickets
 </button>
 
             <div className="border-t border-slate-800" />

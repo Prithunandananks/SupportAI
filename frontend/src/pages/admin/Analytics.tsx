@@ -31,10 +31,13 @@ function Analytics() {
       ]);
       
       const newKpis: KPIData[] = [
-        { title: "Total Users", value: stats.total_users.toString(), iconKey: "Chats" },
-        { title: "Total Documents", value: stats.total_documents.toString(), iconKey: "Confidence" },
-        { title: "Total Conversations", value: stats.total_conversations.toString(), iconKey: "Feedback" },
-        { title: "Total Messages", value: stats.total_ai_messages.toString(), iconKey: "Flagged" },
+        { title: "Likes", value: stats.likes.toString(), iconKey: "Feedback" },
+        { title: "Dislikes", value: stats.dislikes.toString(), iconKey: "Feedback" },
+        { title: "Positive %", value: stats.positive_feedback !== null ? `${stats.positive_feedback}%` : "No Data", iconKey: "Feedback" },
+        { title: "Total Reports", value: stats.total_reports.toString(), iconKey: "Flagged" },
+        { title: "Open Reports", value: stats.open_reports.toString(), iconKey: "Flagged" },
+        { title: "Closed Reports", value: stats.closed_reports.toString(), iconKey: "Flagged" },
+        { title: "Report Rate", value: stats.report_rate !== null ? `${stats.report_rate}%` : "No Data", iconKey: "Flagged" },
       ];
       setKpis(newKpis);
       
@@ -100,7 +103,18 @@ function Analytics() {
         <AnalyticsCards kpis={kpis} />
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 md:gap-8">
-          <ActivityChart chartData={chartData} />
+          {chartData.length === 0 || chartData.every(d => d.chats === 0) ? (
+            <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4 md:p-6 flex flex-col h-full min-h-[220px]">
+              <h2 className="text-lg md:text-2xl font-semibold mb-4 md:mb-6">
+                Chat Activity
+              </h2>
+              <div className="flex-1 flex items-center justify-center text-slate-400">
+                No data available
+              </div>
+            </div>
+          ) : (
+            <ActivityChart chartData={chartData} />
+          )}
           <TopTopics topics={topTopics} />
         </div>
       </div>

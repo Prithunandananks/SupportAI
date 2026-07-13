@@ -1,8 +1,6 @@
 export interface Source {
   id: string;
   name: string;
-  page: number;
-  section: string;
   relevance: number;
 }
 

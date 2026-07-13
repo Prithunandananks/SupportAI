@@ -17,7 +17,7 @@ from fastapi import Request
 async def upload_document(
     request: Request,
     file: UploadFile = File(...),
-    current_user: User = Depends(deps.get_current_active_user),
+    current_user: User = Depends(deps.require_role("admin")),
     ingestion_service: IngestionService = Depends(deps.get_ingestion_service),
 ) -> Any:
     from fastapi import HTTPException
@@ -104,7 +104,7 @@ async def search_documents(
 async def delete_document(
     request: Request,
     document_id: str,
-    current_user: User = Depends(deps.get_current_active_user),
+    current_user: User = Depends(deps.require_role("admin")),
     document_repo = Depends(deps.get_document_repo),
     db = Depends(deps.get_db)
 ) -> None:
@@ -128,7 +128,7 @@ async def delete_document(
         raise HTTPException(status_code=404, detail="Document not found")
         
     user_id_str = str(current_user.id)
-    if doc.user_id != current_user.id and current_user.role != "Admin":
+    if doc.user_id != current_user.id and current_user.role.lower() != "admin":
         logger.warning(json.dumps({
             "event": "delete_document_failed",
             "reason": "forbidden",

@@ -14,12 +14,12 @@ const features = [
   {
     icon: <ShieldCheck size={32} />,
     title: "Human Review",
-    desc: "Low-confidence responses are automatically flagged for admins.",
+    desc: "Low-retrieval-score responses are automatically flagged for admins.",
   },
   {
     icon: <BarChart3 size={32} />,
     title: "Analytics",
-    desc: "Track conversations, satisfaction, confidence and knowledge gaps.",
+    desc: "Track conversations, satisfaction, retrieval scores and knowledge gaps.",
   },
 ];
 

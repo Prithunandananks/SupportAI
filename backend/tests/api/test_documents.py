@@ -15,11 +15,22 @@ async def test_upload_document_unauthorized(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_upload_document_authorized(client: AsyncClient, user_token: str):
+async def test_upload_document_forbidden(client: AsyncClient, user_token: str):
     file_content = b"This is a test document."
     response = await client.post(
         "/api/v1/documents/upload",
         headers={"Authorization": f"Bearer {user_token}"},
+        files={"file": ("test.txt", file_content, "text/plain")}
+    )
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_upload_document_authorized(client: AsyncClient, admin_token: str):
+    file_content = b"This is a test document."
+    response = await client.post(
+        "/api/v1/documents/upload",
+        headers={"Authorization": f"Bearer {admin_token}"},
         files={"file": ("test.txt", file_content, "text/plain")}
     )
     if response.status_code != 201:
@@ -32,11 +43,11 @@ async def test_upload_document_authorized(client: AsyncClient, user_token: str):
 
 
 @pytest.mark.asyncio
-async def test_upload_document_invalid_type(client: AsyncClient, user_token: str):
+async def test_upload_document_invalid_type(client: AsyncClient, admin_token: str):
     file_content = b"This is a fake image."
     response = await client.post(
         "/api/v1/documents/upload",
-        headers={"Authorization": f"Bearer {user_token}"},
+        headers={"Authorization": f"Bearer {admin_token}"},
         files={"file": ("test.jpg", file_content, "image/jpeg")}
     )
     assert response.status_code == 400

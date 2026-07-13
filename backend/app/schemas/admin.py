@@ -10,6 +10,16 @@ class DashboardStatsResponse(BaseModel):
     total_conversations: int
     total_ai_messages: int
     total_documents: int
+    flagged_questions: int
+    average_confidence: Optional[float] = None
+    positive_feedback: Optional[float] = None
+    negative_feedback: Optional[float] = None
+    likes: int
+    dislikes: int
+    total_reports: int
+    open_reports: int
+    closed_reports: int
+    report_rate: Optional[float] = None
 
 class AnalyticsResponse(BaseModel):
     days: List[str]
@@ -38,3 +48,9 @@ class AdminHealthResponse(BaseModel):
     documents: int
     users: int
     conversations: int
+
+class AdminActivityResponse(BaseModel):
+    id: str
+    type: str
+    description: str
+    created_at: datetime

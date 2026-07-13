@@ -42,7 +42,7 @@ class ChatRepository:
     async def get_session_with_messages(self, session_id: uuid.UUID) -> Optional[ChatSession]:
         stmt = (
             select(ChatSession)
-            .options(selectinload(ChatSession.messages))
+            .options(selectinload(ChatSession.messages).selectinload(ChatMessage.tickets))
             .where(ChatSession.id == session_id)
         )
         result = await self.session.execute(stmt)
@@ -60,6 +60,19 @@ class ChatRepository:
         # Return in chronological order
         return messages[::-1]
 
+    async def get_message(self, message_id: uuid.UUID) -> Optional[ChatMessage]:
+        stmt = select(ChatMessage).where(ChatMessage.id == message_id)
+        result = await self.session.execute(stmt)
+        return result.scalars().first()
+
+    async def update_message_feedback(self, message_id: uuid.UUID, feedback: str) -> Optional[ChatMessage]:
+        message = await self.get_message(message_id)
+        if message:
+            message.feedback = feedback
+            await self.session.commit()
+            await self.session.refresh(message)
+        return message
+
     async def append_message(self, session_id: uuid.UUID, role: str, content: str) -> ChatMessage:
         message = ChatMessage(session_id=session_id, role=role, content=content)
         self.session.add(message)
@@ -67,11 +80,14 @@ class ChatRepository:
         await self.session.refresh(message)
         return message
 
-    async def append_exchange(self, session_id: uuid.UUID, user_message: str, assistant_message: str) -> None:
+    async def append_exchange(self, session_id: uuid.UUID, user_message: str, assistant_message: str) -> tuple[uuid.UUID, uuid.UUID]:
         u_msg = ChatMessage(session_id=session_id, role="user", content=user_message)
         a_msg = ChatMessage(session_id=session_id, role="assistant", content=assistant_message)
         self.session.add_all([u_msg, a_msg])
         await self.session.commit()
+        await self.session.refresh(u_msg)
+        await self.session.refresh(a_msg)
+        return u_msg.id, a_msg.id
 
     async def delete_session(self, session_id: uuid.UUID) -> bool:
         chat_session = await self.get_session(session_id)
@@ -81,7 +97,7 @@ class ChatRepository:
             return True
         return False
 
-    async def replace_last_assistant_message(self, session_id: uuid.UUID, content: str) -> bool:
+    async def replace_last_assistant_message(self, session_id: uuid.UUID, content: str) -> Optional[ChatMessage]:
         stmt = (
             select(ChatMessage)
             .where(ChatMessage.session_id == session_id)
@@ -93,5 +109,6 @@ class ChatRepository:
         if msg and msg.role == 'assistant':
             msg.content = content
             await self.session.commit()
-            return True
-        return False
+            await self.session.refresh(msg)
+            return msg
+        return None

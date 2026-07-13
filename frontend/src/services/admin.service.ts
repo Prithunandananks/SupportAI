@@ -7,6 +7,16 @@ export interface DashboardStats {
   total_conversations: number;
   total_ai_messages: number;
   total_documents: number;
+  flagged_questions: number;
+  average_confidence: number | null;
+  positive_feedback: number | null;
+  negative_feedback: number | null;
+  likes: number;
+  dislikes: number;
+  total_reports: number;
+  open_reports: number;
+  closed_reports: number;
+  report_rate: number | null;
 }
 
 export interface AnalyticsData {
@@ -46,6 +56,13 @@ export interface AdminHealth {
   conversations: number;
 }
 
+export interface AdminActivity {
+  id: string;
+  type: string;
+  description: string;
+  created_at: string;
+}
+
 class AdminService {
   async getStats(): Promise<DashboardStats> {
     const response = await apiClient.get<DashboardStats>("/admin/stats");
@@ -74,6 +91,13 @@ class AdminService {
 
   async getHealth(): Promise<AdminHealth> {
     const response = await apiClient.get<AdminHealth>("/admin/health");
+    return response.data;
+  }
+
+  async getRecentActivity(limit = 10): Promise<AdminActivity[]> {
+    const response = await apiClient.get<AdminActivity[]>("/admin/recent-activity", {
+      params: { limit },
+    });
     return response.data;
   }
 

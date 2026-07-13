@@ -17,35 +17,41 @@ function TopTopics({ topics }: Props) {
       </h2>
 
       <div className="space-y-4 md:space-y-6 flex-1">
-        {topThreeTopics.map((topic, index) => (
-          <div
-            key={topic.name}
-            className="border-b border-slate-800 pb-3 md:pb-4 last:border-0 last:pb-0"
-          >
-            <div className="flex justify-between items-center mb-2">
-              <div className="flex items-center gap-2">
-                <span className="text-cyan-400">📄</span>
-                <span className="text-sm md:text-base font-medium text-slate-200">{topic.name}</span>
-              </div>
-              <span className="text-cyan-400 font-semibold text-sm">
-                #{index + 1}
-              </span>
-            </div>
-            
-            <div className="flex justify-between items-center text-xs text-slate-400 mb-1.5">
-              <span>{topic.conversations} conversations</span>
-              <span>{topic.popularity}%</span>
-            </div>
-            
-            {/* Progress Bar */}
-            <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-              <div 
-                className="bg-cyan-500 h-full rounded-full transition-all duration-500" 
-                style={{ width: `${topic.popularity}%` }} 
-              />
-            </div>
+        {topThreeTopics.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-slate-400 min-h-[100px]">
+            No data available
           </div>
-        ))}
+        ) : (
+          topThreeTopics.map((topic, index) => (
+            <div
+              key={topic.name}
+              className="border-b border-slate-800 pb-3 md:pb-4 last:border-0 last:pb-0"
+            >
+              <div className="flex justify-between items-center mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-cyan-400">📄</span>
+                  <span className="text-sm md:text-base font-medium text-slate-200">{topic.name}</span>
+                </div>
+                <span className="text-cyan-400 font-semibold text-sm">
+                  #{index + 1}
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center text-xs text-slate-400 mb-1.5">
+                <span>{topic.conversations} conversations</span>
+                <span>{topic.popularity}%</span>
+              </div>
+              
+              {/* Progress Bar */}
+              <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                <div 
+                  className="bg-cyan-500 h-full rounded-full transition-all duration-500" 
+                  style={{ width: `${topic.popularity}%` }} 
+                />
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

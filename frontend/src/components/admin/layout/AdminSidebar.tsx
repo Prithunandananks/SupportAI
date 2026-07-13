@@ -4,6 +4,7 @@ import {
   MessagesSquare,
   TriangleAlert,
   BarChart3,
+  Ticket,
   LogOut,
 } from "lucide-react";
 
@@ -127,6 +128,14 @@ function AdminSidebar({
         >
           <MessagesSquare size={20} />
           Conversations
+        </NavLink>
+
+        <NavLink
+          to="/admin/tickets"
+          className={menuClass}
+        >
+          <Ticket size={20} />
+          Tickets
         </NavLink>
 
         <NavLink

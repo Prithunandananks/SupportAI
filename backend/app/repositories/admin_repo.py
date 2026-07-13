@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, cast, Date
 
 from app.models.user import User
 from app.models.chat import ChatSession, ChatMessage
@@ -27,13 +27,105 @@ class AdminRepository:
         active_users_stmt = select(func.count(func.distinct(ChatSession.user_id)))
         active_users = (await self.session.execute(active_users_stmt)).scalar() or 0
 
+        # Feedback counts
+        from app.models.chat import FeedbackEnum
+        likes_stmt = select(func.count(ChatMessage.id)).where(ChatMessage.feedback == FeedbackEnum.LIKE)
+        dislikes_stmt = select(func.count(ChatMessage.id)).where(ChatMessage.feedback == FeedbackEnum.DISLIKE)
+        likes = (await self.session.execute(likes_stmt)).scalar() or 0
+        dislikes = (await self.session.execute(dislikes_stmt)).scalar() or 0
+        total_feedback = likes + dislikes
+        positive_feedback = round((likes / total_feedback) * 100, 1) if total_feedback > 0 else None
+        negative_feedback = round((dislikes / total_feedback) * 100, 1) if total_feedback > 0 else None
+
+        # Reports counts
+        from app.models.ticket import Ticket, TicketCategory, TicketStatus
+        total_reports_stmt = select(func.count(Ticket.id)).where(Ticket.category == TicketCategory.REPORT)
+        open_reports_stmt = select(func.count(Ticket.id)).where(Ticket.category == TicketCategory.REPORT, Ticket.status == TicketStatus.OPEN)
+        closed_reports_stmt = select(func.count(Ticket.id)).where(Ticket.category == TicketCategory.REPORT, Ticket.status.in_([TicketStatus.RESOLVED, TicketStatus.CLOSED]))
+        total_reports = (await self.session.execute(total_reports_stmt)).scalar() or 0
+        open_reports = (await self.session.execute(open_reports_stmt)).scalar() or 0
+        closed_reports = (await self.session.execute(closed_reports_stmt)).scalar() or 0
+        
+        # Report rate (% of AI messages reported)
+        report_rate = round((total_reports / total_ai_messages) * 100, 1) if total_ai_messages > 0 else None
+
         return {
             "total_users": total_users,
             "active_users": active_users,
             "total_conversations": total_convos,
             "total_ai_messages": total_ai_messages,
             "total_documents": total_documents,
+            "flagged_questions": total_reports,
+            "average_confidence": None,
+            "positive_feedback": positive_feedback,
+            "negative_feedback": negative_feedback,
+            "likes": likes,
+            "dislikes": dislikes,
+            "total_reports": total_reports,
+            "open_reports": open_reports,
+            "closed_reports": closed_reports,
+            "report_rate": report_rate
         }
+
+    async def get_recent_activity(self, limit: int = 10) -> List[Dict[str, Any]]:
+        # Fetch recent documents
+        doc_stmt = select(Document).order_by(desc(Document.created_at)).limit(limit)
+        docs = (await self.session.execute(doc_stmt)).scalars().all()
+        
+        # Fetch recent conversations
+        chat_stmt = select(ChatSession).order_by(desc(ChatSession.created_at)).limit(limit)
+        chats = (await self.session.execute(chat_stmt)).scalars().all()
+        
+        activities = []
+        for d in docs:
+            activities.append({
+                "id": f"doc-{d.id}",
+                "type": "Document uploaded",
+                "description": d.filename,
+                "created_at": d.created_at
+            })
+            
+        for c in chats:
+            title = c.title or "New Chat"
+            activities.append({
+                "id": f"chat-{c.id}",
+                "type": "Conversation created",
+                "description": title,
+                "created_at": c.created_at
+            })
+
+        try:
+            # We don't import Ticket at the top to avoid circular imports, but let's do it safely
+            from app.models.ticket import Ticket, TicketMessage
+            
+            ticket_stmt = select(Ticket).order_by(desc(Ticket.created_at)).limit(limit)
+            tickets = (await self.session.execute(ticket_stmt)).scalars().all()
+            
+            msg_stmt = select(TicketMessage).order_by(desc(TicketMessage.created_at)).limit(limit)
+            msgs = (await self.session.execute(msg_stmt)).scalars().all()
+
+            for t in tickets:
+                activities.append({
+                    "id": f"ticket-{t.id}",
+                    "type": "Ticket created",
+                    "description": t.title,
+                    "created_at": t.created_at
+                })
+                
+            for m in msgs:
+                activities.append({
+                    "id": f"msg-{m.id}",
+                    "type": "Ticket answered",
+                    "description": f"Message on ticket",
+                    "created_at": m.created_at
+                })
+        except Exception:
+            # Tickets tables may not exist yet if migrations haven't run
+            await self.session.rollback()
+            
+        # Sort by created_at descending
+        activities.sort(key=lambda x: x["created_at"], reverse=True)
+        return activities[:limit]
 
     async def get_recent_documents(self, limit: int = 10) -> List[Document]:
         stmt = select(Document).order_by(desc(Document.created_at)).limit(limit)
@@ -76,29 +168,40 @@ class AdminRepository:
         
         doc_stmt = (
             select(
-                func.strftime('%Y-%m-%d', Document.created_at).label('date'),
+                cast(Document.created_at, Date).label('date'),
                 func.count(Document.id).label('count')
             )
             .where(Document.created_at >= start_date)
-            .group_by('date')
-            .order_by('date')
+            .group_by(cast(Document.created_at, Date))
+            .order_by(cast(Document.created_at, Date))
         )
         
         chat_stmt = (
             select(
-                func.strftime('%Y-%m-%d', ChatSession.created_at).label('date'),
+                cast(ChatSession.created_at, Date).label('date'),
                 func.count(ChatSession.id).label('count')
             )
             .where(ChatSession.created_at >= start_date)
-            .group_by('date')
-            .order_by('date')
+            .group_by(cast(ChatSession.created_at, Date))
+            .order_by(cast(ChatSession.created_at, Date))
         )
         
         doc_result = await self.session.execute(doc_stmt)
         chat_result = await self.session.execute(chat_stmt)
 
-        daily_uploads = {row.date: row.count for row in doc_result.all()}
-        daily_conversations = {row.date: row.count for row in chat_result.all()}
+        daily_uploads = {}
+        for row in doc_result.all():
+            # In SQLite, cast(..., Date) might return string or datetime.date depending on driver.
+            # In PostgreSQL asyncpg, it returns datetime.date.
+            d_str = str(row.date)[:10] if row.date else None
+            if d_str:
+                daily_uploads[d_str] = row.count
+
+        daily_conversations = {}
+        for row in chat_result.all():
+            d_str = str(row.date)[:10] if row.date else None
+            if d_str:
+                daily_conversations[d_str] = row.count
 
         # Generate the last 7 days list formatted
         days = []

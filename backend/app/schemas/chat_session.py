@@ -14,6 +14,8 @@ class ChatMessageResponse(ChatMessageBase):
     id: uuid.UUID
     session_id: uuid.UUID
     created_at: datetime
+    feedback: Optional[str] = None
+    flagged: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 

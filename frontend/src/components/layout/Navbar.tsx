@@ -3,6 +3,7 @@ import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuthCore";
 import ProfileMenu from "@/components/profile/ProfileMenu";
+import NotificationDropdown from "./NotificationDropdown";
 
 interface Props {
   forcePublic?: boolean;
@@ -41,7 +42,10 @@ function Navbar({ forcePublic = false }: Props = {}) {
         {/* Desktop Menu */}
         <div className="hidden md:flex items-center gap-4">
           {showAuthenticatedMenu ? (
-            <ProfileMenu />
+            <>
+              <NotificationDropdown />
+              <ProfileMenu />
+            </>
           ) : (
             <>
               <Link
@@ -74,7 +78,8 @@ function Navbar({ forcePublic = false }: Props = {}) {
       {isOpen && (
         <div className="md:hidden px-6 pb-5 flex flex-col gap-3 bg-slate-950 border-t border-slate-800 animate-in fade-in duration-200 pt-4">
           {showAuthenticatedMenu ? (
-            <div className="flex justify-end">
+            <div className="flex justify-between items-center w-full">
+              <NotificationDropdown />
               <ProfileMenu />
             </div>
           ) : (

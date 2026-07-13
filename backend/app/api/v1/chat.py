@@ -8,7 +8,7 @@ import uuid
 import traceback
 
 from app.core.logger import logger
-from app.schemas.chat import ChatRequest, ChatResponse
+from app.schemas.chat import ChatRequest, ChatResponse, FeedbackRequest, FlagRequest
 from app.services.chat.orchestrator import ChatOrchestrator
 from app.services.retrieval.rag_pipeline import RAGPipeline
 from app.api import deps
@@ -23,6 +23,9 @@ from app.schemas.chat_session import (
     ChatSessionUpdate
 )
 from app.models.user import User
+from app.models.chat import FeedbackEnum
+from app.models.ticket import Ticket, TicketCategory, TicketStatus
+from app.repositories.ticket_repo import ticket_repo
 
 router = APIRouter()
 
@@ -126,7 +129,7 @@ async def rename_chat_session(
     session = await repo.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    if session.user_id != current_user.id:
+    if session.user_id != current_user.id and current_user.role.lower() != "admin":
         raise HTTPException(status_code=403, detail="Forbidden: You do not own this session")
     
     updated_session = await repo.update_session(session_id, request.title)
@@ -142,7 +145,7 @@ async def patch_chat_session(
     session = await repo.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    if session.user_id != current_user.id:
+    if session.user_id != current_user.id and current_user.role.lower() != "admin":
         raise HTTPException(status_code=403, detail="Forbidden: You do not own this session")
     
     updated_session = await repo.update_session(session_id, request.title)
@@ -157,7 +160,7 @@ async def get_chat_session(
     session = await repo.get_session_with_messages(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    if session.user_id != current_user.id:
+    if session.user_id != current_user.id and current_user.role.lower() != "admin":
         raise HTTPException(status_code=403, detail="Forbidden: You do not own this session")
     return session
 
@@ -175,7 +178,7 @@ async def send_session_message(
     session = await repo.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    if str(session.user_id) != user_id_str:
+    if str(session.user_id) != user_id_str and current_user.role.lower() != "admin":
         logger.warning(json.dumps({
             "event": "send_message_failed",
             "reason": "forbidden",
@@ -210,7 +213,7 @@ async def stream_session_message(
     session = await repo.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    if str(session.user_id) != user_id_str:
+    if str(session.user_id) != user_id_str and current_user.role.lower() != "admin":
         logger.warning(json.dumps({
             "event": "stream_message_failed",
             "reason": "forbidden",
@@ -253,10 +256,90 @@ async def delete_chat_session(
     session = await repo.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    if session.user_id != current_user.id:
+    if session.user_id != current_user.id and current_user.role.lower() != "admin":
         raise HTTPException(status_code=403, detail="Forbidden: You do not own this session")
 
     deleted = await repo.delete_session(session_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Session not found")
     return None
+
+@router.post("/session/{session_id}/message/{message_id}/feedback", summary="Submit feedback for a message")
+async def submit_message_feedback(
+    session_id: uuid.UUID,
+    message_id: uuid.UUID,
+    feedback_req: FeedbackRequest,
+    repo: ChatRepository = Depends(get_chat_repo),
+    current_user: User = Depends(deps.get_current_active_user),
+):
+    session = await repo.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.user_id != current_user.id and current_user.role.lower() != "admin":
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    msg = await repo.get_message(message_id)
+    if not msg or msg.session_id != session_id:
+        raise HTTPException(status_code=404, detail="Message not found in this session")
+
+    feedback_val = feedback_req.feedback.upper()
+    if feedback_val not in [FeedbackEnum.LIKE.value, FeedbackEnum.DISLIKE.value]:
+        raise HTTPException(status_code=400, detail="Invalid feedback value")
+
+    await repo.update_message_feedback(message_id, feedback_val)
+
+    return {
+        "implemented": True,
+        "message": "Feedback saved successfully."
+    }
+
+@router.post("/session/{session_id}/message/{message_id}/flag", summary="Flag a message for review")
+async def flag_message(
+    session_id: uuid.UUID,
+    message_id: uuid.UUID,
+    flag_req: FlagRequest,
+    repo: ChatRepository = Depends(get_chat_repo),
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+):
+    session = await repo.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.user_id != current_user.id and current_user.role.lower() != "admin":
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    msg = await repo.get_message(message_id)
+    if not msg or msg.session_id != session_id:
+        raise HTTPException(status_code=404, detail="Message not found in this session")
+
+    # Check for existing open reports by this customer for this message
+    from sqlalchemy import select
+    stmt = select(Ticket).where(
+        Ticket.customer_id == current_user.id,
+        Ticket.chat_message_id == message_id,
+        Ticket.status == TicketStatus.OPEN
+    )
+    result = await db.execute(stmt)
+    existing_ticket = result.scalars().first()
+    
+    if existing_ticket:
+        raise HTTPException(status_code=400, detail="You already have an open report for this message.")
+
+    from app.services.ticket_service import ticket_service
+    from app.schemas.ticket import TicketCreate
+    
+    new_ticket_in = TicketCreate(
+        title=f"Reported AI Response: {flag_req.reason}",
+        description=flag_req.comment or "Customer flagged this message for review.",
+        category=TicketCategory.REPORT,
+        conversation_id=session_id,
+        chat_message_id=message_id,
+        report_reason=flag_req.reason,
+        customer_comment=flag_req.comment
+    )
+    await ticket_service.create_ticket(db, ticket_in=new_ticket_in, customer_id=current_user.id)
+
+    return {
+        "implemented": True,
+        "message": "Message reported successfully."
+    }
