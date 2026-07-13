@@ -35,11 +35,11 @@ jobs:
         
     - name: Run tests
       env:
-        ENVIRONMENT: test
-        DATABASE_URL: sqlite+aiosqlite:///:memory:
-        REDIS_URL: redis://localhost:6379/0
-        QDRANT_URL: http://localhost:6333
-        GROQ_API_KEY: test_key
-        JWT_SECRET: test_secret
+        ENVIRONMENT: "test"
+        DATABASE_URL: "sqlite+aiosqlite:///:memory:"
+        REDIS_URL: "redis://localhost:6379/0"
+        QDRANT_URL: "http://localhost:6333"
+        GROQ_API_KEY: "test_key"
+        JWT_SECRET: "test_secret"
       run: |
         pytest tests/
