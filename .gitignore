@@ -39,3 +39,8 @@ build/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Python coverage
+.coverage
+coverage/
+htmlcov/
