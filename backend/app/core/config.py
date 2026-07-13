@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     DATABASE_URL: str
 
-    REDIS_URL: str
+    REDIS_URL: str | None = None
     QDRANT_URL: str
     GROQ_API_KEY: str
     JWT_SECRET: str

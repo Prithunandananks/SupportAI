@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
-import { useLocation } from "react-router-dom";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import ChatSidebar from "@/components/chat/layout/ChatSidebar";
 import ChatHeader from "@/components/chat/layout/ChatHeader";
@@ -21,6 +21,8 @@ const generateId = () => {
 function CustomerChat() {
   const { sessions, setSessions, setActivities } = useChat();
   const location = useLocation();
+  const navigate = useNavigate();
+  const handleSendMessageRef = useRef<((text: string) => void) | null>(null);
 
   const [activeSessionId, setActiveSessionId] = useState<string | null>(() => {
     if (location.state?.newChat) return null;
@@ -134,6 +136,8 @@ function CustomerChat() {
         }
         
         const aiMessageId = generateId();
+        let currentAiMessageId = aiMessageId;
+        let currentUserMessageId = userMessage.id;
         const aiMessage: Message = {
           id: aiMessageId,
           sender: "assistant",
@@ -164,7 +168,7 @@ function CustomerChat() {
                 return {
                   ...session,
                   messages: session.messages.map(msg => {
-                    if (msg.id === aiMessageId) {
+                    if (msg.id === currentAiMessageId) {
                       return { ...msg, text: msg.text + chunk };
                     }
                     return msg;
@@ -182,22 +186,31 @@ function CustomerChat() {
             toast.error("Failed to generate response.");
           },
           (metadata) => {
+            const oldUserMsgId = currentUserMessageId;
+            const oldAiMsgId = currentAiMessageId;
+            const newUserMsgId = metadata.user_message_id;
+            const newAiMsgId = metadata.message_id;
+
+            if (newUserMsgId) currentUserMessageId = newUserMsgId;
+            if (newAiMsgId) currentAiMessageId = newAiMsgId;
+
             setSessions(prev => prev.map(session => {
               if (session.id === actualSessionId) {
                 return {
                   ...session,
                   messages: session.messages.map(msg => {
-                    if (msg.id === userMessage.id && metadata.user_message_id) {
-                      return { ...msg, id: metadata.user_message_id };
+                    if (msg.id === oldUserMsgId && newUserMsgId) {
+                      return { ...msg, id: newUserMsgId };
                     }
-                    if (msg.id === aiMessageId) {
+                    if (msg.id === oldAiMsgId) {
                       let confidenceScore = msg.confidence;
                       if (metadata.confidence !== undefined) {
                          confidenceScore = typeof metadata.confidence === "number" ? metadata.confidence : undefined;
                       }
+                      
                       return { 
                         ...msg, 
-                        id: metadata.message_id || msg.id,
+                        id: newAiMsgId || oldAiMsgId,
                         sources: metadata.sources ? metadata.sources.map((c: { filename?: string; retrieval_score?: number }) => ({
                           id: generateId(),
                           name: c.filename || "Document",
@@ -235,6 +248,11 @@ function CustomerChat() {
     
     sendToBackend();
   }, [activeSessionId, sessions, setSessions, logActivity]);
+
+  // Keep a stable ref to handleSendMessage so effects can call it without retriggering
+  useEffect(() => {
+    handleSendMessageRef.current = handleSendMessage;
+  }, [handleSendMessage]);
 
   const handleMessageFeedback = async (messageId: string | number, feedback: "like" | "dislike") => {
     try {
@@ -427,23 +445,28 @@ function CustomerChat() {
     loadMessages();
   }, [activeSessionId, sessions, setSessions]);
 
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
+  const initialQuestionRef = useRef<string | null>(null);
 
-    if (location.state) {      
-      if (location.state.initialQuestion) {
-        timer = setTimeout(() => {
-          handleSendMessage(location.state.initialQuestion);
+  useEffect(() => {
+    if (location.state?.initialQuestion) {
+      const q = location.state.initialQuestion;
+      
+      // Guard against double submission via strict ref equality
+      if (initialQuestionRef.current !== q) {
+        initialQuestionRef.current = q;
+        
+        // Clear React Router state reliably
+        navigate(location.pathname, { replace: true, state: {} });
+        
+        // Execute outside the render cycle
+        setTimeout(() => {
+          if (handleSendMessageRef.current) {
+            handleSendMessageRef.current(q);
+          }
         }, 0);
       }
-      
-      window.history.replaceState({}, "");
     }
-
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
-  }, [location.state, handleSendMessage]);
+  }, [location.state, location.pathname, navigate]);
 
   return (
     <div className="bg-slate-950 text-white h-screen flex overflow-hidden">
