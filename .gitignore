@@ -44,3 +44,10 @@ build/
 .coverage
 coverage/
 htmlcov/
+
+# Local debug files
+backend/e2e_api.py
+backend/e2e_trace.py
+backend/refund_policy.pdf
+backend/scratch_pg.py
+backend/supportai.db
