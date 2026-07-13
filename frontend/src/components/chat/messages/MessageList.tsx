@@ -6,10 +6,9 @@ interface Props {
   messages: Message[];
   onFeedback?: (messageId: string | number, feedback: "like" | "dislike") => void;
   onFlag?: (messageId: string | number) => void;
-  onSourceClick?: (source: Source) => void;
 }
 
-function MessageList({ messages, onFeedback, onFlag, onSourceClick }: Props) {
+function MessageList({ messages, onFeedback, onFlag }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -39,7 +38,6 @@ function MessageList({ messages, onFeedback, onFlag, onSourceClick }: Props) {
           message={message}
           onFeedback={onFeedback}
           onFlag={onFlag}
-          onSourceClick={onSourceClick}
         />
       ))}
 

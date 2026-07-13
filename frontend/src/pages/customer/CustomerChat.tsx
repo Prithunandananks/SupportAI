@@ -49,7 +49,6 @@ function CustomerChat() {
   
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
   const [messageToFlag, setMessageToFlag] = useState<string | number | null>(null);
-  const [selectedSource, setSelectedSource] = useState<Source | null>(null);
 
   const activeSession = useMemo(() => {
     return sessions.find(s => s.id === activeSessionId) || null;
@@ -213,7 +212,7 @@ function CustomerChat() {
                         id: newAiMsgId || oldAiMsgId,
                         sources: metadata.sources ? metadata.sources.map((c: { filename?: string; retrieval_score?: number }) => ({
                           id: generateId(),
-                          name: c.filename || "Document",
+                          name: "Document",
                           relevance: typeof c.retrieval_score === 'number' 
                               ? (c.retrieval_score <= 1 ? Math.round(c.retrieval_score * 100) : c.retrieval_score) 
                               : 0
@@ -497,7 +496,6 @@ function CustomerChat() {
                 messages={activeSession.messages} 
                 onFeedback={handleMessageFeedback}
                 onFlag={confirmFlagMessage}
-                onSourceClick={setSelectedSource}
               />
 
               {isTyping && (
@@ -547,44 +545,6 @@ function CustomerChat() {
       />
 
       {/* Source Excerpt Modal */}
-      {selectedSource && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl flex flex-col">
-            <div className="flex justify-between items-start mb-4 border-b border-slate-800 pb-4">
-              <h2 className="text-lg font-bold text-white">Source Information</h2>
-              <button 
-                onClick={() => setSelectedSource(null)}
-                className="text-slate-400 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-            
-            <div className="flex flex-col gap-4 mb-6">
-              <div>
-                <p className="text-sm text-slate-400 mb-1">Document</p>
-                <p className="text-white font-medium break-all">{selectedSource.name}</p>
-              </div>
-              
-              <div>
-                <p className="text-sm text-slate-400 mb-1">Retrieval Score</p>
-                <p className="text-cyan-400 font-medium">{selectedSource.relevance}%</p>
-              </div>
-            </div>
-            
-            <p className="text-sm text-slate-400 italic mb-6">
-              This response was generated using your organization's knowledge base.
-            </p>
-
-            <button
-              onClick={() => setSelectedSource(null)}
-              className="w-full bg-slate-800 hover:bg-slate-700 text-white font-medium py-2 rounded-lg transition-colors"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
