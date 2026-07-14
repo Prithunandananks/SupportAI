@@ -8,7 +8,7 @@ import ChatInput from "@/components/chat/input/ChatInput";
 import MessageList from "@/components/chat/messages/MessageList";
 import ConfirmationModal from "@/components/shared/ConfirmationModal";
 import ReportMessageModal from "@/components/chat/messages/ReportMessageModal";
-import type { ChatSession, Message, Source } from "@/components/chat/messages/Message";
+import type { ChatSession, Message } from "@/components/chat/messages/Message";
 import { useChat } from "@/hooks/useChatContext";
 import { chatService } from "@/services/chat.service";
 
@@ -30,28 +30,42 @@ function CustomerChat() {
     return sessions.length > 0 ? sessions[0].id : null;
   });
 
-  const logActivity = useCallback((type: "new_chat" | "continued_chat" | "deleted_chat" | "renamed_chat" | "pinned_chat" | "unpinned_chat" | "profile_updated" | "settings_updated", title: string) => {
-    setActivities((prev) => [
-      {
-        id: generateId(),
-        type,
-        title,
-        createdAt: new Date().toISOString(),
-      },
-      ...prev,
-    ]);
-  }, [setActivities]);
-  
-
+  const logActivity = useCallback(
+    (
+      type:
+        | "new_chat"
+        | "continued_chat"
+        | "deleted_chat"
+        | "renamed_chat"
+        | "pinned_chat"
+        | "unpinned_chat"
+        | "profile_updated"
+        | "settings_updated",
+      title: string,
+    ) => {
+      setActivities((prev) => [
+        {
+          id: generateId(),
+          type,
+          title,
+          createdAt: new Date().toISOString(),
+        },
+        ...prev,
+      ]);
+    },
+    [setActivities],
+  );
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
-  
+
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
-  const [messageToFlag, setMessageToFlag] = useState<string | number | null>(null);
+  const [messageToFlag, setMessageToFlag] = useState<string | number | null>(
+    null,
+  );
 
   const activeSession = useMemo(() => {
-    return sessions.find(s => s.id === activeSessionId) || null;
+    return sessions.find((s) => s.id === activeSessionId) || null;
   }, [sessions, activeSessionId]);
 
   const handleNewChat = () => {
@@ -61,216 +75,258 @@ function CustomerChat() {
     }, 0);
   };
 
-  const handleSendMessage = useCallback((text: string) => {
-    if (!text.trim()) return;
-    
-    let targetSessionId = activeSessionId;
-    
-    if (!targetSessionId) {
-      const now = new Date().toISOString();
-      const tempId = generateId();
-      
-      const newSession: ChatSession = {
-        id: tempId,
-        title: text,
-        pinned: false,
-        createdAt: now,
-        updatedAt: now,
-        lastMessageAt: now,
-        messages: [],
-        messagesLoaded: true
-      };
-      
-      setSessions(prev => [newSession, ...prev]);
-      setActiveSessionId(tempId);
-      targetSessionId = tempId;
-      logActivity("new_chat", "Started a new conversation");
-      
-      // We will create the actual session in the backend before sending
-    } else {
-      logActivity("continued_chat", "Continued conversation");
-    }
-    
-    const now = new Date().toISOString();
-    const userMessage: Message = {
-      id: generateId(),
-      sender: "user",
-      text,
-      createdAt: now,
-    };
-    
-    setSessions(prev => prev.map(session => {
-      if (session.id === targetSessionId) {
-        const newTitle = session.title === "New Chat" && session.messages.length === 0 ? text : session.title;
-        return {
-          ...session,
-          title: newTitle,
+  const handleSendMessage = useCallback(
+    (text: string) => {
+      if (!text.trim()) return;
+
+      let targetSessionId = activeSessionId;
+
+      if (!targetSessionId) {
+        const now = new Date().toISOString();
+        const tempId = generateId();
+
+        const newSession: ChatSession = {
+          id: tempId,
+          title: text,
+          pinned: false,
+          createdAt: now,
           updatedAt: now,
           lastMessageAt: now,
-          messages: [...session.messages, userMessage]
+          messages: [],
+          messagesLoaded: true,
         };
+
+        setSessions((prev) => [newSession, ...prev]);
+        setActiveSessionId(tempId);
+        targetSessionId = tempId;
+        logActivity("new_chat", "Started a new conversation");
+
+        // We will create the actual session in the backend before sending
+      } else {
+        logActivity("continued_chat", "Continued conversation");
       }
-      return session;
-    }));
-    
-    setIsTyping(true);
-    
-    const sendToBackend = async () => {
-      try {
-        let actualSessionId = targetSessionId;
-        
-        // If this is a temporary session (created just now, not from backend), create it in backend
-        const isTemp = !sessions.find(s => s.id === targetSessionId) || activeSessionId === null;
-        if (isTemp) {
-          const created = await chatService.createSession(text);
-          actualSessionId = created.id;
-          
-          setSessions(prev => prev.map(s => {
-            if (s.id === targetSessionId) {
-              return { ...s, id: actualSessionId };
-            }
-            return s;
-          }));
-          setActiveSessionId(actualSessionId);
-        }
-        
-        const aiMessageId = generateId();
-        let currentAiMessageId = aiMessageId;
-        let currentUserMessageId = userMessage.id;
-        const aiMessage: Message = {
-          id: aiMessageId,
-          sender: "assistant",
-          text: "",
-          createdAt: new Date().toISOString(),
-        };
-        
-        setSessions(prev => prev.map(session => {
-          if (session.id === actualSessionId) {
+
+      const now = new Date().toISOString();
+      const userMessage: Message = {
+        id: generateId(),
+        sender: "user",
+        text,
+        createdAt: now,
+      };
+
+      setSessions((prev) =>
+        prev.map((session) => {
+          if (session.id === targetSessionId) {
+            const newTitle =
+              session.title === "New Chat" && session.messages.length === 0
+                ? text
+                : session.title;
             return {
               ...session,
-              updatedAt: aiMessage.createdAt!,
-              lastMessageAt: aiMessage.createdAt!,
-              messages: [...session.messages, aiMessage]
+              title: newTitle,
+              updatedAt: now,
+              lastMessageAt: now,
+              messages: [...session.messages, userMessage],
             };
           }
           return session;
-        }));
-        
-        setIsTyping(false);
-        
-        await chatService.streamMessage(
-          actualSessionId,
-          text,
-          (chunk) => {
-            setSessions(prev => prev.map(session => {
-              if (session.id === actualSessionId) {
-                return {
-                  ...session,
-                  messages: session.messages.map(msg => {
-                    if (msg.id === currentAiMessageId) {
-                      return { ...msg, text: msg.text + chunk };
-                    }
-                    return msg;
-                  })
-                };
-              }
-              return session;
-            }));
-          },
-          () => {
-            // Completed
-          },
-          (err) => {
-            console.error("Stream error", err);
-            toast.error("Failed to generate response.");
-          },
-          (metadata) => {
-            const oldUserMsgId = currentUserMessageId;
-            const oldAiMsgId = currentAiMessageId;
-            const newUserMsgId = metadata.user_message_id;
-            const newAiMsgId = metadata.message_id;
+        }),
+      );
 
-            if (newUserMsgId) currentUserMessageId = newUserMsgId;
-            if (newAiMsgId) currentAiMessageId = newAiMsgId;
+      setIsTyping(true);
 
-            setSessions(prev => prev.map(session => {
-              if (session.id === actualSessionId) {
-                return {
-                  ...session,
-                  messages: session.messages.map(msg => {
-                    if (msg.id === oldUserMsgId && newUserMsgId) {
-                      return { ...msg, id: newUserMsgId };
-                    }
-                    if (msg.id === oldAiMsgId) {
-                      let confidenceScore = msg.confidence;
-                      if (metadata.confidence !== undefined) {
-                         confidenceScore = typeof metadata.confidence === "number" ? metadata.confidence : undefined;
-                      }
-                      
-                      return { 
-                        ...msg, 
-                        id: newAiMsgId || oldAiMsgId,
-                        sources: metadata.sources ? metadata.sources.map((c: { filename?: string; retrieval_score?: number }) => ({
-                          id: generateId(),
-                          name: "Document",
-                          relevance: typeof c.retrieval_score === 'number' 
-                              ? (c.retrieval_score <= 1 ? Math.round(c.retrieval_score * 100) : c.retrieval_score) 
-                              : 0
-                        })) : msg.sources,
-                        confidence: confidenceScore
-                      };
-                    }
-                    return msg;
-                  })
-                };
-              }
-              return session;
-            }));
+      const sendToBackend = async () => {
+        try {
+          let actualSessionId = targetSessionId;
 
-            // Handle title generation from metadata
-            if (metadata.title) {
-              const newTitle = metadata.title;
-              setSessions(prev => prev.map(session => {
-                if (session.id === actualSessionId) {
-                  return { ...session, title: newTitle };
+          // If this is a temporary session (created just now, not from backend), create it in backend
+          const isTemp =
+            !sessions.find((s) => s.id === targetSessionId) ||
+            activeSessionId === null;
+          if (isTemp) {
+            const created = await chatService.createSession(text);
+            actualSessionId = created.id;
+
+            setSessions((prev) =>
+              prev.map((s) => {
+                if (s.id === targetSessionId) {
+                  return { ...s, id: actualSessionId };
                 }
-                return session;
-              }));
-            }
+                return s;
+              }),
+            );
+            setActiveSessionId(actualSessionId);
           }
-        );
-      } catch {
-        setIsTyping(false);
-        toast.error("An error occurred while communicating with the AI.");
-      }
-    };
-    
-    sendToBackend();
-  }, [activeSessionId, sessions, setSessions, logActivity]);
+
+          const aiMessageId = generateId();
+          let currentAiMessageId = aiMessageId;
+          let currentUserMessageId = userMessage.id;
+          const aiMessage: Message = {
+            id: aiMessageId,
+            sender: "assistant",
+            text: "",
+            createdAt: new Date().toISOString(),
+          };
+
+          setSessions((prev) =>
+            prev.map((session) => {
+              if (session.id === actualSessionId) {
+                return {
+                  ...session,
+                  updatedAt: aiMessage.createdAt!,
+                  lastMessageAt: aiMessage.createdAt!,
+                  messages: [...session.messages, aiMessage],
+                };
+              }
+              return session;
+            }),
+          );
+
+          setIsTyping(false);
+
+          await chatService.streamMessage(
+            actualSessionId,
+            text,
+            (chunk) => {
+              setSessions((prev) =>
+                prev.map((session) => {
+                  if (session.id === actualSessionId) {
+                    return {
+                      ...session,
+                      messages: session.messages.map((msg) => {
+                        if (msg.id === currentAiMessageId) {
+                          return { ...msg, text: msg.text + chunk };
+                        }
+                        return msg;
+                      }),
+                    };
+                  }
+                  return session;
+                }),
+              );
+            },
+            () => {
+              // Completed
+            },
+            (err) => {
+              console.error("Stream error", err);
+              toast.error("Failed to generate response.");
+            },
+            (metadata) => {
+              const oldUserMsgId = currentUserMessageId;
+              const oldAiMsgId = currentAiMessageId;
+              const newUserMsgId = metadata.user_message_id;
+              const newAiMsgId = metadata.message_id;
+
+              if (newUserMsgId) currentUserMessageId = newUserMsgId;
+              if (newAiMsgId) currentAiMessageId = newAiMsgId;
+
+              setSessions((prev) =>
+                prev.map((session) => {
+                  if (session.id === actualSessionId) {
+                    return {
+                      ...session,
+                      messages: session.messages.map((msg) => {
+                        if (msg.id === oldUserMsgId && newUserMsgId) {
+                          return { ...msg, id: newUserMsgId };
+                        }
+                        if (msg.id === oldAiMsgId) {
+                          let confidenceScore = msg.confidence;
+                          if (metadata.confidence !== undefined) {
+                            confidenceScore =
+                              typeof metadata.confidence === "number"
+                                ? metadata.confidence
+                                : undefined;
+                          }
+
+                          return {
+                            ...msg,
+                            id: newAiMsgId || oldAiMsgId,
+                            sources: metadata.sources
+                              ? metadata.sources.map(
+                                  (c: {
+                                    filename?: string;
+                                    retrieval_score?: number;
+                                  }) => ({
+                                    id: generateId(),
+                                    name: "Document",
+                                    relevance:
+                                      typeof c.retrieval_score === "number"
+                                        ? c.retrieval_score <= 1
+                                          ? Math.round(c.retrieval_score * 100)
+                                          : c.retrieval_score
+                                        : 0,
+                                  }),
+                                )
+                              : msg.sources,
+                            confidence: confidenceScore,
+                          };
+                        }
+                        return msg;
+                      }),
+                    };
+                  }
+                  return session;
+                }),
+              );
+
+              // Handle title generation from metadata
+              if (metadata.title) {
+                const newTitle = metadata.title;
+                setSessions((prev) =>
+                  prev.map((session) => {
+                    if (session.id === actualSessionId) {
+                      return { ...session, title: newTitle };
+                    }
+                    return session;
+                  }),
+                );
+              }
+            },
+          );
+        } catch {
+          setIsTyping(false);
+          toast.error("An error occurred while communicating with the AI.");
+        }
+      };
+
+      sendToBackend();
+    },
+    [activeSessionId, sessions, setSessions, logActivity],
+  );
 
   // Keep a stable ref to handleSendMessage so effects can call it without retriggering
   useEffect(() => {
     handleSendMessageRef.current = handleSendMessage;
   }, [handleSendMessage]);
 
-  const handleMessageFeedback = async (messageId: string | number, feedback: "like" | "dislike") => {
+  const handleMessageFeedback = async (
+    messageId: string | number,
+    feedback: "like" | "dislike",
+  ) => {
     try {
-      await chatService.submitFeedback(activeSessionId!, messageId.toString(), feedback);
-      
-      setSessions(prev => prev.map(session => {
-        if (session.id === activeSessionId) {
-          return {
-            ...session,
-            messages: session.messages.map(msg => {
-              if (msg.id === messageId) {
-                return { ...msg, feedback };
-              }
-              return msg;
-            })
-          };
-        }
-        return session;
-      }));
+      await chatService.submitFeedback(
+        activeSessionId!,
+        messageId.toString(),
+        feedback,
+      );
+
+      setSessions((prev) =>
+        prev.map((session) => {
+          if (session.id === activeSessionId) {
+            return {
+              ...session,
+              messages: session.messages.map((msg) => {
+                if (msg.id === messageId) {
+                  return { ...msg, feedback };
+                }
+                return msg;
+              }),
+            };
+          }
+          return session;
+        }),
+      );
     } catch {
       toast.error("Failed to submit feedback.");
     }
@@ -282,25 +338,32 @@ function CustomerChat() {
 
   const handleFlagMessage = async (reason: string, comment?: string) => {
     if (!messageToFlag || !activeSessionId) return;
-    
+
     try {
-      await chatService.flagMessage(activeSessionId, messageToFlag.toString(), reason, comment);
+      await chatService.flagMessage(
+        activeSessionId,
+        messageToFlag.toString(),
+        reason,
+        comment,
+      );
       toast.success("Response reported successfully.");
-      
-      setSessions(prev => prev.map(session => {
-        if (session.id === activeSessionId) {
-          return {
-            ...session,
-            messages: session.messages.map(msg => {
-              if (msg.id === messageToFlag) {
-                return { ...msg, flagged: true };
-              }
-              return msg;
-            })
-          };
-        }
-        return session;
-      }));
+
+      setSessions((prev) =>
+        prev.map((session) => {
+          if (session.id === activeSessionId) {
+            return {
+              ...session,
+              messages: session.messages.map((msg) => {
+                if (msg.id === messageToFlag) {
+                  return { ...msg, flagged: true };
+                }
+                return msg;
+              }),
+            };
+          }
+          return session;
+        }),
+      );
     } catch (error) {
       const err = error as { response?: { data?: { detail?: string } } };
       if (err.response?.data?.detail) {
@@ -309,24 +372,24 @@ function CustomerChat() {
         toast.error("Failed to report response.");
       }
     }
-    
+
     setMessageToFlag(null);
   };
 
   const handleTogglePin = (id: string) => {
-    setSessions(prev => {
-      const sessionToToggle = prev.find(s => s.id === id);
+    setSessions((prev) => {
+      const sessionToToggle = prev.find((s) => s.id === id);
       if (!sessionToToggle) return prev;
 
       if (!sessionToToggle.pinned) {
-        const pinnedCount = prev.filter(s => s.pinned).length;
+        const pinnedCount = prev.filter((s) => s.pinned).length;
         if (pinnedCount >= 3) {
           toast.warning("You can only pin up to 3 conversations.");
           return prev;
         }
       }
-      
-      return prev.map(s => {
+
+      return prev.map((s) => {
         if (s.id === id) {
           const isPinning = !s.pinned;
           if (isPinning) logActivity("pinned_chat", "Pinned conversation");
@@ -337,31 +400,33 @@ function CustomerChat() {
       });
     });
   };
-  
+
   const handleRenameSession = async (id: string, newTitle: string) => {
     if (!newTitle.trim()) return;
     try {
       await chatService.renameSession(id, newTitle.trim());
-      setSessions(prev => prev.map(s => s.id === id ? { ...s, title: newTitle.trim() } : s));
+      setSessions((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, title: newTitle.trim() } : s)),
+      );
       logActivity("renamed_chat", "Renamed conversation");
       toast.success("Chat renamed successfully");
     } catch {
       toast.error("Failed to rename chat");
     }
   };
-  
+
   const confirmDelete = (id: string) => {
     setSessionToDelete(id);
   };
-  
+
   const handleDeleteSession = async () => {
     if (!sessionToDelete) return;
-    
+
     try {
       await chatService.deleteSession(sessionToDelete);
-      setSessions(prev => {
-        const filtered = prev.filter(s => s.id !== sessionToDelete);
-        
+      setSessions((prev) => {
+        const filtered = prev.filter((s) => s.id !== sessionToDelete);
+
         if (sessionToDelete === activeSessionId) {
           if (filtered.length > 0) {
             setActiveSessionId(filtered[0].id);
@@ -371,7 +436,7 @@ function CustomerChat() {
         }
         return filtered;
       });
-      
+
       toast.success("Chat deleted successfully");
       logActivity("deleted_chat", "Deleted conversation");
     } catch {
@@ -385,7 +450,7 @@ function CustomerChat() {
     const fetchSessions = async () => {
       try {
         const res = await chatService.getSessions();
-        const mapped: ChatSession[] = res.map(s => ({
+        const mapped: ChatSession[] = res.map((s) => ({
           id: s.id,
           title: s.title || "New Chat",
           pinned: false,
@@ -393,10 +458,13 @@ function CustomerChat() {
           updatedAt: s.updated_at,
           lastMessageAt: s.updated_at,
           messages: [],
-          messagesLoaded: false
+          messagesLoaded: false,
         }));
         // Sort by updatedAt descending
-        mapped.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+        mapped.sort(
+          (a, b) =>
+            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+        );
         setSessions(mapped);
         if (mapped.length > 0 && !activeSessionId && !location.state?.newChat) {
           setActiveSessionId(mapped[0].id);
@@ -405,7 +473,7 @@ function CustomerChat() {
         toast.error("Failed to load chat history");
       }
     };
-    
+
     // We only want to fetch on initial mount if sessions are empty
     if (sessions.length === 0) {
       fetchSessions();
@@ -415,27 +483,33 @@ function CustomerChat() {
   useEffect(() => {
     const loadMessages = async () => {
       if (!activeSessionId) return;
-      const session = sessions.find(s => s.id === activeSessionId);
+      const session = sessions.find((s) => s.id === activeSessionId);
       if (session && !session.messagesLoaded && session.id.includes("-")) {
         try {
           const full = await chatService.getSession(activeSessionId);
-          setSessions(prev => prev.map(s => {
-            if (s.id === activeSessionId) {
-              return {
-                ...s,
-                messages: full.messages.map(m => ({
-                  id: m.id,
-                  sender: m.role === "user" ? "user" : "assistant",
-                  text: m.content,
-                  createdAt: m.created_at,
-                  feedback: (m.feedback?.toLowerCase() === 'like' || m.feedback?.toLowerCase() === 'dislike') ? m.feedback.toLowerCase() as "like" | "dislike" : null,
-                  flagged: m.flagged,
-                })),
-                messagesLoaded: true
-              };
-            }
-            return s;
-          }));
+          setSessions((prev) =>
+            prev.map((s) => {
+              if (s.id === activeSessionId) {
+                return {
+                  ...s,
+                  messages: full.messages.map((m) => ({
+                    id: m.id,
+                    sender: m.role === "user" ? "user" : "assistant",
+                    text: m.content,
+                    createdAt: m.created_at,
+                    feedback:
+                      m.feedback?.toLowerCase() === "like" ||
+                      m.feedback?.toLowerCase() === "dislike"
+                        ? (m.feedback.toLowerCase() as "like" | "dislike")
+                        : null,
+                    flagged: m.flagged,
+                  })),
+                  messagesLoaded: true,
+                };
+              }
+              return s;
+            }),
+          );
         } catch {
           console.error("Failed to load messages");
         }
@@ -449,14 +523,14 @@ function CustomerChat() {
   useEffect(() => {
     if (location.state?.initialQuestion) {
       const q = location.state.initialQuestion;
-      
+
       // Guard against double submission via strict ref equality
       if (initialQuestionRef.current !== q) {
         initialQuestionRef.current = q;
-        
+
         // Clear React Router state reliably
         navigate(location.pathname, { replace: true, state: {} });
-        
+
         // Execute outside the render cycle
         setTimeout(() => {
           if (handleSendMessageRef.current) {
@@ -482,18 +556,15 @@ function CustomerChat() {
       />
 
       <main className="flex-1 flex flex-col overflow-hidden">
-        <ChatHeader
-          sidebarOpen={sidebarOpen}
-          setSidebarOpen={setSidebarOpen}
-        />
+        <ChatHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
         <div className="flex-1 overflow-y-auto">
           {!activeSession || activeSession.messages.length === 0 ? (
             <WelcomeScreen onQuestionClick={handleSendMessage} />
           ) : (
             <>
-              <MessageList 
-                messages={activeSession.messages} 
+              <MessageList
+                messages={activeSession.messages}
                 onFeedback={handleMessageFeedback}
                 onFlag={confirmFlagMessage}
               />

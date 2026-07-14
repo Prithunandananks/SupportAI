@@ -14,13 +14,23 @@ function Documents() {
     const fetchDocs = async () => {
       try {
         const docs = await adminService.getRecentDocuments(100);
-        const mapped: DocType[] = docs.map(d => ({
-          id: d.id,
-          name: `📄${d.filename}`,
-          type: d.content_type.includes("pdf") ? "PDF" : d.content_type.includes("word") ? "DOCX" : "TXT",
-          uploadedAt: d.created_at,
-          size: d.file_size ? `${(d.file_size / (1024 * 1024)).toFixed(1)} MB` : "Unknown"
-        }));
+        const mapped: DocType[] = docs.map(d => {
+          const ext = d.filename.split('.').pop()?.toLowerCase();
+          let docType = "FILE";
+          if (ext === "pdf") docType = "PDF";
+          else if (ext === "docx") docType = "DOCX";
+          else if (ext === "txt") docType = "TXT";
+          else if (ext === "md") docType = "MD";
+          else if (ext) docType = ext.toUpperCase();
+
+          return {
+            id: d.id,
+            name: `📄${d.filename}`,
+            type: docType,
+            uploadedAt: d.created_at,
+            size: d.file_size ? `${(d.file_size / (1024 * 1024)).toFixed(1)} MB` : "Unknown"
+          };
+        });
         setDocumentsList(mapped);
       } catch {
         console.error("Failed to load documents");

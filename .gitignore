@@ -51,3 +51,12 @@ backend/e2e_trace.py
 backend/refund_policy.pdf
 backend/scratch_pg.py
 backend/supportai.db
+
+# Local uploaded documents
+backend/storage/
+storage/
+
+# Local testing files
+test_25mb.pdf
+test_40mb.pdf
+test_50mb.pdf

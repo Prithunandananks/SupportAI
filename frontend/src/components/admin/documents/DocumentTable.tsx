@@ -37,6 +37,15 @@ function DocumentTable({ documentsList, setDocumentsList }: Props) {
     setIsDeleteConfirmOpen(true);
   };
 
+  const handleDownload = async (doc: DocType) => {
+    try {
+      toast.info(`Downloading ${doc.name.replace(/^📄\s*/, '')}...`);
+      await adminService.downloadDocument(doc.id, doc.name);
+    } catch {
+      toast.error("Failed to download document. It may not be available on the server.");
+    }
+  };
+
   const handleDelete = async () => {
     if (docToDelete) {
       try {
@@ -81,13 +90,13 @@ function DocumentTable({ documentsList, setDocumentsList }: Props) {
 
             <tr className="border-b border-slate-700">
 
-              <th className="pb-4">Document</th>
+              <th className="pb-4 px-2 md:px-4 font-medium text-left w-1/3">Document</th>
 
-              <th className="pb-4">Type</th>
+              <th className="pb-4 px-2 md:px-4 font-medium text-center">Type</th>
 
-              <th className="pb-4">Uploaded</th>
+              <th className="pb-4 px-2 md:px-4 font-medium text-center">Uploaded</th>
 
-              <th className="pb-4">Action</th>
+              <th className="pb-4 px-2 md:px-4 font-medium text-center">Action</th>
 
             </tr>
 
@@ -102,6 +111,7 @@ function DocumentTable({ documentsList, setDocumentsList }: Props) {
                 type={doc.type}
                 uploaded={formatTimeAgo(doc.uploadedAt)}
                 onView={() => openPreview(doc)}
+                onDownload={() => handleDownload(doc)}
                 onDelete={() => confirmDelete(doc)}
               />
             ))}
@@ -166,6 +176,23 @@ function DocumentTable({ documentsList, setDocumentsList }: Props) {
                 "
               >
                 View
+              </button>
+              <button
+                onClick={() => handleDownload(doc)}
+                className="
+                  flex-1
+                  rounded-lg
+                  border border-cyan-500
+                  text-cyan-400
+                  py-2
+                  text-sm
+                  hover:bg-cyan-500/10
+                  transition
+                  flex items-center justify-center gap-1.5
+                "
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                <span className="hidden sm:inline">Download</span>
               </button>
               <button
                 onClick={() => confirmDelete(doc)}

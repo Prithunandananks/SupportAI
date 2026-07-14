@@ -101,6 +101,17 @@ class IngestionService:
         logger.info("Inserting SQLite Document record for %s", filename)
         
         try:
+            # 6. Save original file to disk first
+            import os
+            from pathlib import Path
+            storage_dir = Path("storage/documents")
+            storage_dir.mkdir(parents=True, exist_ok=True)
+            ext = os.path.splitext(filename)[1]
+            file_path = storage_dir / f"{document_id}{ext}"
+            with open(file_path, "wb") as f:
+                f.write(content)
+
+            # 7. Commit SQLite record
             doc = Document(
                 id=uuid.UUID(document_id),
                 filename=filename,
@@ -112,13 +123,22 @@ class IngestionService:
             self.db.add(doc)
             await self.db.commit()
         except Exception as e:
-            logger.error("Failed to insert Document metadata into SQLite for %s: %s", filename, str(e))
+            logger.error("Failed to persist document for %s: %s", filename, str(e))
             logger.info("Rolling back: deleting vectors for document %s from Qdrant", document_id)
             try:
                 await self.repo.delete_document(document_id)
             except Exception as rollback_e:
                 logger.error("Failed to rollback Qdrant vectors for %s: %s", document_id, str(rollback_e))
-            raise RuntimeError(f"Failed to persist document metadata: {str(e)}")
+            
+            # Rollback file if it was created
+            if 'file_path' in locals() and file_path.exists():
+                try:
+                    file_path.unlink()
+                except Exception as file_e:
+                    logger.error("Failed to rollback file %s: %s", file_path, str(file_e))
+                    
+            await self.db.rollback()
+            raise RuntimeError(f"Failed to persist document: {str(e)}")
 
         logger.info("Upload completed successfully for file: %s", filename)
 

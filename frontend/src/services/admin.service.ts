@@ -127,6 +127,26 @@ class AdminService {
       created_at: new Date().toISOString(),
     };
   }
+
+  async getDocumentPreview(id: string): Promise<Blob> {
+    const response = await apiClient.get<Blob>(`/documents/${id}/download`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  }
+
+  async downloadDocument(id: string, filename: string): Promise<void> {
+    const blob = await this.getDocumentPreview(id);
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    // Strip the emoji prefix if it exists
+    a.download = filename.replace(/^📄\s*/, '');
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  }
 }
 
 export const adminService = new AdminService();

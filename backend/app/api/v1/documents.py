@@ -9,9 +9,17 @@ from app.services.search import SearchService
 router = APIRouter()
 
 
-from app.core.logger import logger
+import os
 import json
-from fastapi import Request
+import logging
+from fastapi import Request, Response
+
+logger = logging.getLogger(__name__)
+from fastapi.responses import FileResponse
+from pathlib import Path
+
+STORAGE_DIR = Path("storage/documents")
+STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 
 @router.post("/upload", response_model=UploadResponse, status_code=201)
 async def upload_document(
@@ -40,6 +48,7 @@ async def upload_document(
             content_type=file.content_type or "application/octet-stream",
             user_id=user_id_str,
         )
+
         logger.info(json.dumps({
             "event": "document_uploaded",
             "document_id": str(res.document_id),
@@ -100,6 +109,41 @@ async def search_documents(
     return SearchResponse(query=q, results=results)
 
 
+@router.get("/{document_id}/download")
+async def download_document(
+    document_id: str,
+    current_user: User = Depends(deps.require_role("admin")),
+    db = Depends(deps.get_db)
+) -> Any:
+    from fastapi import HTTPException
+    from sqlalchemy import select
+    from app.models.document import Document
+    import uuid
+
+    try:
+        doc_uuid = uuid.UUID(document_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid document ID format")
+
+    stmt = select(Document).where(Document.id == doc_uuid)
+    result = await db.execute(stmt)
+    doc = result.scalar_one_or_none()
+
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document metadata not found")
+
+    ext = os.path.splitext(doc.filename)[1]
+    file_path = STORAGE_DIR / f"{document_id}{ext}"
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Original document file not found")
+
+    return FileResponse(
+        path=file_path,
+        filename=doc.filename,
+        media_type=doc.content_type
+    )
+
+
 @router.delete("/{document_id}", status_code=204)
 async def delete_document(
     request: Request,
@@ -145,6 +189,15 @@ async def delete_document(
     del_stmt = delete(Document).where(Document.id == doc_uuid)
     await db.execute(del_stmt)
     await db.commit()
+    
+    # 3. Delete stored original file
+    ext = os.path.splitext(doc.filename)[1]
+    file_path = STORAGE_DIR / f"{document_id}{ext}"
+    try:
+        if file_path.exists():
+            file_path.unlink()
+    except Exception as e:
+        logger.error(f"Failed to delete original file for {document_id}: {e}")
     
     logger.info(json.dumps({
         "event": "document_deleted",

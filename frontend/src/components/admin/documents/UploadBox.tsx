@@ -43,17 +43,13 @@ function UploadBox({ onUpload }: Props) {
       );
 
       // Determine document type safely
-      const contentType =
-        (result as { content_type?: string }).content_type ??
-        fileToUpload.type ??
-        "";
-
-      const documentType: DocType["type"] = contentType.includes("pdf")
-        ? "PDF"
-        : contentType.includes("word") ||
-            fileToUpload.name.toLowerCase().endsWith(".docx")
-          ? "DOCX"
-          : "TXT";
+      const ext = fileToUpload.name.split('.').pop()?.toLowerCase();
+      let documentType: DocType["type"] = "FILE";
+      if (ext === "pdf") documentType = "PDF";
+      else if (ext === "docx") documentType = "DOCX";
+      else if (ext === "txt") documentType = "TXT";
+      else if (ext === "md") documentType = "MD";
+      else if (ext) documentType = ext.toUpperCase();
 
       if (onUpload) {
         onUpload({
@@ -100,7 +96,7 @@ function UploadBox({ onUpload }: Props) {
         className="hidden"
         ref={fileInputRef}
         onChange={handleFileChange}
-        accept=".pdf,.docx,.txt"
+        accept=".pdf,.docx,.txt,.md"
       />
 
       <h2 className="text-base md:text-2xl font-semibold text-white">
@@ -110,7 +106,7 @@ function UploadBox({ onUpload }: Props) {
       {!selectedFile && !isUploading && (
         <>
           <p className="text-slate-400 text-sm md:text-base mt-2 md:mt-3">
-            Drag & drop your PDF, DOCX or TXT files here
+            Drag & drop your PDF, DOCX, TXT or MD files here
           </p>
 
           <button
