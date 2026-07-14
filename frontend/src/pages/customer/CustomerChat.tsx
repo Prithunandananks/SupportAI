@@ -27,8 +27,18 @@ function CustomerChat() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(() => {
     if (location.state?.newChat) return null;
     if (location.state?.activeSessionId) return location.state.activeSessionId;
+    const saved = localStorage.getItem("activeChatSessionId");
+    if (saved) return saved;
     return sessions.length > 0 ? sessions[0].id : null;
   });
+
+  useEffect(() => {
+    if (activeSessionId) {
+      localStorage.setItem("activeChatSessionId", activeSessionId);
+    } else {
+      localStorage.removeItem("activeChatSessionId");
+    }
+  }, [activeSessionId]);
 
   const logActivity = useCallback(
     (
@@ -521,22 +531,21 @@ function CustomerChat() {
   const initialQuestionRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (location.state?.initialQuestion) {
-      const q = location.state.initialQuestion;
-
-      // Guard against double submission via strict ref equality
-      if (initialQuestionRef.current !== q) {
-        initialQuestionRef.current = q;
-
-        // Clear React Router state reliably
+    // Clear state so that refresh doesn't trigger newChat or initialQuestion again
+    if (location.state?.newChat || location.state?.activeSessionId || location.state?.initialQuestion) {
+      if (location.state?.initialQuestion) {
+        const q = location.state.initialQuestion;
+        if (initialQuestionRef.current !== q) {
+          initialQuestionRef.current = q;
+          navigate(location.pathname, { replace: true, state: {} });
+          setTimeout(() => {
+            if (handleSendMessageRef.current) {
+              handleSendMessageRef.current(q);
+            }
+          }, 0);
+        }
+      } else {
         navigate(location.pathname, { replace: true, state: {} });
-
-        // Execute outside the render cycle
-        setTimeout(() => {
-          if (handleSendMessageRef.current) {
-            handleSendMessageRef.current(q);
-          }
-        }, 0);
       }
     }
   }, [location.state, location.pathname, navigate]);

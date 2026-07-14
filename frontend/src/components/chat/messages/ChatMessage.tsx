@@ -24,27 +24,6 @@ function ChatMessage({ message, onFeedback, onFlag }: Props) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const getRetrievalBadge = (confidence?: number | null) => {
-    if (confidence === undefined || confidence === null)
-      return { label: "No Data", color: "bg-slate-800 text-slate-400" };
-    if (confidence >= 80)
-      return {
-        label: "High Retrieval Score",
-        color: "bg-green-900/60 text-green-300",
-      };
-    if (confidence >= 50)
-      return {
-        label: "Medium Retrieval Score",
-        color: "bg-yellow-900/60 text-yellow-300",
-      };
-    return {
-      label: "Low Retrieval Score",
-      color: "bg-red-900/60 text-red-300",
-    };
-  };
-
-  const retrievalBadge = getRetrievalBadge(message.confidence);
-
   return (
     <div
       className={`flex mb-6 md:mb-8 animate-in fade-in slide-in-from-bottom-2 duration-300 ${isUser ? "justify-end" : "justify-start"}`}
@@ -74,21 +53,6 @@ function ChatMessage({ message, onFeedback, onFlag }: Props) {
         {/* Assistant Extras */}
         {!isUser && (
           <>
-            <div className="flex flex-wrap gap-2 md:gap-3 mt-3 md:mt-4">
-              {retrievalBadge && (
-                <span
-                  className={`${retrievalBadge.color} px-3 md:px-4 py-1 rounded-full text-xs md:text-sm flex items-center gap-1 font-medium`}
-                >
-                  {retrievalBadge.label}{" "}
-                  {message.confidence != null && (
-                    <span className="opacity-75 text-[10px] md:text-xs ml-1">
-                      {message.confidence}%
-                    </span>
-                  )}
-                </span>
-              )}
-            </div>
-
             {/* Actions Toolbar */}
             <div className="flex gap-2 mt-3 md:mt-4">
               <button

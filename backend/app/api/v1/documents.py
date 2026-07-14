@@ -100,7 +100,7 @@ async def search_documents(
     
     results = []
     for point in hybrid_results.points:
-        payload = point.payload
+        payload = point.payload.copy() if point.payload else {}
         text = payload.pop("text", "")
         # Remove empty metadata fields
         metadata = ChunkMetadata(**payload)
