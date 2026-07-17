@@ -16,6 +16,7 @@ class ChatMessageResponse(ChatMessageBase):
     created_at: datetime
     feedback: Optional[str] = None
     flagged: bool = False
+    is_support: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 

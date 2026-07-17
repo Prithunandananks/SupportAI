@@ -23,11 +23,12 @@ router = APIRouter()
 async def list_all_tickets(
     status: Optional[TicketStatus] = Query(None),
     priority: Optional[TicketPriority] = Query(None),
+    is_flagged: Optional[bool] = Query(None),
     db: AsyncSession = Depends(deps.get_db),
     current_admin: User = Depends(deps.require_role("admin"))
 ):
     """List all tickets across all users (with filtering). Admin only."""
-    return await ticket_repo.get_all_with_filters(db, status=status, priority=priority)
+    return await ticket_repo.get_all_with_filters(db, status=status, priority=priority, is_flagged=is_flagged)
 
 @router.get("/{id}", response_model=AdminTicketDetailResponse)
 async def get_ticket_details(

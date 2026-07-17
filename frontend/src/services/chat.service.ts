@@ -29,6 +29,7 @@ export interface ChatMessageResponse {
   created_at: string;
   feedback?: string;
   flagged?: boolean;
+  is_support?: boolean;
 }
 
 export interface ChatSessionWithMessagesResponse extends ChatSessionResponse {

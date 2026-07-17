@@ -156,13 +156,48 @@ async def get_chat_session(
     session_id: uuid.UUID,
     repo: ChatRepository = Depends(get_chat_repo),
     current_user: User = Depends(deps.get_current_active_user),
+    db: AsyncSession = Depends(deps.get_db),
 ):
     session = await repo.get_session_with_messages(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     if session.user_id != current_user.id and current_user.role.lower() != "admin":
         raise HTTPException(status_code=403, detail="Forbidden: You do not own this session")
-    return session
+        
+    from sqlalchemy import select
+    from app.models.ticket import Ticket, TicketMessage
+    from app.schemas.chat_session import ChatMessageResponse
+    
+    stmt = (
+        select(TicketMessage)
+        .join(Ticket, Ticket.id == TicketMessage.ticket_id)
+        .where(Ticket.conversation_id == session_id)
+    )
+    result = await db.execute(stmt)
+    ticket_msgs = result.scalars().all()
+    
+    messages_resp = [ChatMessageResponse.model_validate(m) for m in session.messages]
+    
+    for tm in ticket_msgs:
+        messages_resp.append(ChatMessageResponse(
+            id=tm.id,
+            session_id=session_id,
+            created_at=tm.created_at,
+            role="assistant",
+            content=tm.message,
+            is_support=True
+        ))
+        
+    messages_resp.sort(key=lambda x: x.created_at)
+    
+    return {
+        "id": session.id,
+        "title": session.title,
+        "user_id": session.user_id,
+        "created_at": session.created_at,
+        "updated_at": session.updated_at,
+        "messages": messages_resp
+    }
 
 @router.post("/session/{session_id}/message", response_model=ChatResponse, summary="Send a message in a session")
 async def send_session_message(

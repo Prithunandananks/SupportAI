@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { type AdminTicketDetail, ticketService, TicketStatus } from '../../services/ticket.service';
+import type { ChatSessionWithMessagesResponse, ChatMessageResponse } from '../../services/chat.service';
 import { ArrowLeft as ArrowLeftIcon } from 'lucide-react';
 import AdminLayout from '@/components/admin/layout/AdminLayout';
 
@@ -10,6 +11,7 @@ const AdminTicketDetails: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [replyMessage, setReplyMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [chatSession, setChatSession] = useState<ChatSessionWithMessagesResponse | null>(null);
   
   const [status, setStatus] = useState<TicketStatus>(TicketStatus.OPEN);
 
@@ -18,6 +20,12 @@ const AdminTicketDetails: React.FC = () => {
       const data = await ticketService.getAdminTicket(ticketId);
       setTicket(data);
       setStatus(data.status);
+      
+      if (data.conversation_id) {
+        import('../../services/chat.service').then(({ chatService }) => {
+          chatService.getSession(data.conversation_id!).then(setChatSession).catch(console.error);
+        });
+      }
     } catch (error) {
       console.error('Failed to fetch ticket:', error);
     } finally {
@@ -73,10 +81,10 @@ const AdminTicketDetails: React.FC = () => {
   if (!ticket) return <div className="p-8 text-center text-red-500">Ticket not found</div>;
 
   return (
-    <AdminLayout title="Ticket Details">
+    <AdminLayout title="Flagged Question Details">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
-          <Link to="/admin/tickets" className="inline-flex items-center text-sm font-medium text-cyan-400 hover:text-cyan-300">
+          <Link to="/admin/flagged" className="inline-flex items-center text-sm font-medium text-cyan-400 hover:text-cyan-300">
             <ArrowLeftIcon className="mr-2 h-4 w-4" aria-hidden="true" />
             Back to Dashboard
           </Link>
@@ -94,9 +102,49 @@ const AdminTicketDetails: React.FC = () => {
                 </p>
               </div>
               <div className="border-t border-slate-800 px-4 py-5 sm:p-6">
-                <div className="prose max-w-none text-slate-300">
-                  <p className="whitespace-pre-wrap">{ticket.description}</p>
-                </div>
+                {ticket.category === 'REPORT' && ticket.chat_message_id && chatSession ? (
+                  <div className="space-y-6">
+                    {(() => {
+                      const aiMsgIdx = chatSession.messages.findIndex((m: ChatMessageResponse) => m.id === ticket.chat_message_id);
+                      const userMsg = aiMsgIdx > 0 ? chatSession.messages[aiMsgIdx - 1] : null;
+                      const aiMsg = aiMsgIdx >= 0 ? chatSession.messages[aiMsgIdx] : null;
+                      
+                      return (
+                        <>
+                          {userMsg && (
+                            <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
+                              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Customer Question</h4>
+                              <p className="text-sm text-slate-200 whitespace-pre-wrap">{userMsg.content}</p>
+                            </div>
+                          )}
+                          {aiMsg && (
+                            <div className="bg-cyan-900/20 rounded-lg p-4 border border-cyan-800/50">
+                              <h4 className="text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-2">AI Response</h4>
+                              <p className="text-sm text-slate-300 whitespace-pre-wrap">{aiMsg.content}</p>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                    
+                    <div className="border-t border-slate-800 pt-6">
+                      <div className="mb-4">
+                        <h4 className="text-xs font-semibold text-orange-400 uppercase tracking-wider mb-1">Flag Reason</h4>
+                        <p className="text-sm font-medium text-white">{ticket.report_reason || 'Unknown'}</p>
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-semibold text-orange-400 uppercase tracking-wider mb-1">Customer Comment</h4>
+                        <p className="text-sm text-slate-300 italic">
+                          {ticket.customer_comment ? `"${ticket.customer_comment}"` : "No additional comments provided."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="prose max-w-none text-slate-300">
+                    <p className="whitespace-pre-wrap">{ticket.description}</p>
+                  </div>
+                )}
               </div>
             </div>
 

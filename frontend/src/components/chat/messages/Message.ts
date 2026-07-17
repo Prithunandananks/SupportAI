@@ -13,6 +13,7 @@ export interface Message {
   sources?: Source[];
   feedback?: "like" | "dislike" | null;
   flagged?: boolean;
+  isSupport?: boolean;
 }
 
 export interface Conversation {

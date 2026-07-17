@@ -18,13 +18,10 @@ export const TicketPriority = {
 export type TicketPriority = typeof TicketPriority[keyof typeof TicketPriority];
 
 export const TicketCategory = {
+  REPORT: 'REPORT',
   GENERAL: 'GENERAL',
-  TECHNICAL: 'TECHNICAL',
-  ACCOUNT: 'ACCOUNT',
-  BILLING: 'BILLING',
   BUG: 'BUG',
-  FEATURE_REQUEST: 'FEATURE_REQUEST',
-  OTHER: 'OTHER',
+  FEATURE: 'FEATURE',
 } as const;
 export type TicketCategory = typeof TicketCategory[keyof typeof TicketCategory];
 
@@ -47,6 +44,9 @@ export interface Ticket {
   customer_id: string;
   assigned_admin_id?: string;
   conversation_id?: string;
+  chat_message_id?: string;
+  report_reason?: string;
+  customer_comment?: string;
   created_at: string;
   updated_at: string;
   closed_at?: string;
@@ -96,10 +96,11 @@ export const ticketService = {
   },
   
   // Admin Methods
-  getAllTickets: async (status?: TicketStatus, priority?: TicketPriority) => {
+  getAllTickets: async (status?: TicketStatus, priority?: TicketPriority, isFlagged?: boolean) => {
     const params = new URLSearchParams();
     if (status) params.append('status', status);
     if (priority) params.append('priority', priority);
+    if (isFlagged !== undefined) params.append('is_flagged', isFlagged.toString());
     const response = await apiClient.get<Ticket[]>(`/admin/tickets?${params.toString()}`);
     return response.data;
   },

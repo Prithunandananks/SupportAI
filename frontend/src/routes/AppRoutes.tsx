@@ -22,8 +22,8 @@ import NotFound from "../pages/shared/NotFound";
 import MyTickets from "../pages/customer/MyTickets";
 import TicketDetails from "@/pages/customer/TicketDetails";
 import Notifications from "@/pages/customer/Notifications";
-import AdminTickets from "../pages/admin/AdminTickets";
 import AdminTicketDetails from "../pages/admin/AdminTicketDetails";
+import AIQuality from "../pages/admin/AIQuality";
 
 function CustomerRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -54,10 +54,10 @@ function AppRoutes() {
       <Route path="/admin/dashboard" element={<AdminRoute><Dashboard /></AdminRoute>} />
       <Route path="/admin/documents" element={<AdminRoute><Documents /></AdminRoute>} />
       <Route path="/admin/flagged" element={<AdminRoute><FlaggedQuestions /></AdminRoute>} />
+      <Route path="/admin/quality" element={<AdminRoute><AIQuality /></AdminRoute>} />
       <Route path="/admin/conversations" element={<AdminRoute><Conversations /></AdminRoute>} />
       <Route path="/admin/analytics" element={<AdminRoute><Analytics /></AdminRoute>} />
-      <Route path="/admin/tickets" element={<AdminRoute><AdminTickets /></AdminRoute>} />
-      <Route path="/admin/tickets/:id" element={<AdminRoute><AdminTicketDetails /></AdminRoute>} />
+      <Route path="/admin/flagged/:id" element={<AdminRoute><AdminTicketDetails /></AdminRoute>} />
       <Route path="/profile" element={<CustomerRoute><CustomerProfile /></CustomerRoute>} />
       <Route path="/customer/tickets" element={<CustomerRoute><MyTickets /></CustomerRoute>} />
       <Route path="/customer/tickets/:id" element={<CustomerRoute><TicketDetails /></CustomerRoute>} />

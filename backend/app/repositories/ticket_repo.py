@@ -31,13 +31,19 @@ class TicketRepository(BaseRepository[Ticket, dict]):
         self, 
         db: AsyncSession, 
         status: Optional[TicketStatus] = None, 
-        priority: Optional[TicketPriority] = None
+        priority: Optional[TicketPriority] = None,
+        is_flagged: Optional[bool] = None
     ) -> List[Ticket]:
         stmt = select(Ticket).order_by(desc(Ticket.created_at))
         if status:
             stmt = stmt.where(Ticket.status == status)
         if priority:
             stmt = stmt.where(Ticket.priority == priority)
+        if is_flagged is not None:
+            if is_flagged:
+                stmt = stmt.where(Ticket.chat_message_id.isnot(None))
+            else:
+                stmt = stmt.where(Ticket.chat_message_id.is_(None))
         result = await db.execute(stmt)
         return list(result.scalars().all())
         

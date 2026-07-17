@@ -147,6 +147,49 @@ class AdminService {
     a.remove();
     window.URL.revokeObjectURL(url);
   }
+
+  async getQualityAnalytics(): Promise<QualityAnalyticsResponse> {
+    const response = await apiClient.get<QualityAnalyticsResponse>("/admin/quality/analytics");
+    return response.data;
+  }
+}
+
+export interface ReportReasonStat {
+  reason: string;
+  count: number;
+}
+
+export interface StatusStat {
+  status: string;
+  count: number;
+}
+
+export interface RecentFlaggedResponse {
+  ticket_id: string;
+  ticket_number: string;
+  title: string;
+  reason: string | null;
+  created_at: string;
+  status: string;
+}
+
+export interface ReportedQuestionStat {
+  message_id: string;
+  customer_question: string;
+  ai_response: string;
+  report_count: number;
+}
+
+export interface QualityAnalyticsResponse {
+  total_flagged: number;
+  open_tickets: number;
+  resolved_tickets: number;
+  average_resolution_time_hours: number | null;
+  report_reasons: ReportReasonStat[];
+  status_distribution: StatusStat[];
+  recent_flags: RecentFlaggedResponse[];
+  most_reported_questions: ReportedQuestionStat[];
 }
 
 export const adminService = new AdminService();
+

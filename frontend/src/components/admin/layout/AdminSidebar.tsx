@@ -4,8 +4,8 @@ import {
   MessagesSquare,
   TriangleAlert,
   BarChart3,
-  Ticket,
   LogOut,
+  ShieldAlert,
 } from "lucide-react";
 
 interface Props {
@@ -131,19 +131,19 @@ function AdminSidebar({
         </NavLink>
 
         <NavLink
-          to="/admin/tickets"
-          className={menuClass}
-        >
-          <Ticket size={20} />
-          Tickets
-        </NavLink>
-
-        <NavLink
           to="/admin/flagged"
           className={menuClass}
         >
           <TriangleAlert size={20} />
           Flagged Questions
+        </NavLink>
+
+        <NavLink
+          to="/admin/quality"
+          className={menuClass}
+        >
+          <ShieldAlert size={20} />
+          AI Quality Center
         </NavLink>
 
         <NavLink

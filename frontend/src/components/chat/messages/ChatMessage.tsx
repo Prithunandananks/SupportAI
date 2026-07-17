@@ -31,9 +31,9 @@ function ChatMessage({ message, onFeedback, onFlag }: Props) {
       <div className="max-w-[85%] md:max-w-[80%]">
         {/* Sender & Timestamp */}
         <p
-          className={`text-[11px] tracking-wide md:text-sm mb-2 font-semibold flex items-center gap-2 ${isUser ? "justify-end text-cyan-400" : "text-cyan-400"}`}
+          className={`text-[11px] tracking-wide md:text-sm mb-2 font-semibold flex items-center gap-2 ${isUser ? "justify-end text-cyan-400" : message.isSupport ? "text-orange-400" : "text-cyan-400"}`}
         >
-          {isUser ? "You" : "SupportAI"}
+          {isUser ? "You" : message.isSupport ? "🛡 Support Agent" : "SupportAI"}
           {message.createdAt && (
             <span className="text-slate-500 font-normal text-[10px] md:text-xs">
               • {formatTimeAgo(message.createdAt)}
@@ -43,7 +43,7 @@ function ChatMessage({ message, onFeedback, onFlag }: Props) {
 
         {/* Bubble */}
         <div
-          className={`rounded-2xl md:rounded-3xl px-4 md:px-5 py-3 md:py-4 shadow-lg transition-all duration-300 relative ${isUser ? "bg-cyan-500 text-white hover:bg-cyan-400" : "bg-slate-800 text-white border border-slate-700 hover:border-cyan-500"}`}
+          className={`rounded-2xl md:rounded-3xl px-4 md:px-5 py-3 md:py-4 shadow-lg transition-all duration-300 relative ${isUser ? "bg-cyan-500 text-white hover:bg-cyan-400" : message.isSupport ? "bg-slate-800 text-white border border-orange-500/50 hover:border-orange-500 shadow-orange-500/10" : "bg-slate-800 text-white border border-slate-700 hover:border-cyan-500"}`}
         >
           <p className="text-sm md:text-base leading-6 md:leading-7 whitespace-pre-wrap">
             {message.text}

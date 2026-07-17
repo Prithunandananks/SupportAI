@@ -8,6 +8,7 @@ from app.api.v1 import (
     tickets,
     admin_tickets,
     notifications,
+    quality,
 )
 
 api_router = APIRouter()
@@ -19,3 +20,4 @@ api_router.include_router(admin_tickets.router, prefix="/admin/tickets", tags=["
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 api_router.include_router(chat.router, prefix="/chat", tags=["chat"])
 api_router.include_router(admin.router, prefix="/admin", tags=["admin"])
+api_router.include_router(quality.router, prefix="/admin/quality", tags=["quality"])

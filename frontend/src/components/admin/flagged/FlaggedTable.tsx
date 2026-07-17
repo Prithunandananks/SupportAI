@@ -1,205 +1,173 @@
-import { useMemo, useState } from "react";
-import { toast } from "sonner";
+import React, { useEffect, useState } from 'react';
+import { type Ticket, ticketService, TicketStatus, TicketPriority } from '../../../services/ticket.service';
+import { Link } from 'react-router-dom';
 
-import SearchBar from "../conversations/SearchBar";
-import FlaggedRow from "./FlaggedRow";
-import ReviewModal from "./ReviewModal";
+const FlaggedTable: React.FC = () => {
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<TicketStatus | 'ALL'>('ALL');
+  const [priorityFilter, setPriorityFilter] = useState<TicketPriority | 'ALL'>('ALL');
 
-export interface FlaggedQuestion {
-  question: string;
-  confidence: number;
-  status: "Pending" | "Resolved";
-}
-
-const initialQuestions: FlaggedQuestion[] = [];
-
-function FlaggedTable() {
-  const [questions, setQuestions] = useState(initialQuestions);
-  const [search, setSearch] = useState("");
-  const [selectedQuestion, setSelectedQuestion] = useState<typeof initialQuestions[0] | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  const filteredQuestions = useMemo(() => {
-    const query = search.toLowerCase();
-
-    return questions.filter((item) => {
-      return (
-        item.question.toLowerCase().includes(query) ||
-        item.status.toLowerCase().includes(query) ||
-        item.confidence.toString().includes(query)
+  const fetchTickets = async () => {
+    try {
+      setLoading(true);
+      const data = await ticketService.getAllTickets(
+        statusFilter !== 'ALL' ? statusFilter : undefined,
+        priorityFilter !== 'ALL' ? priorityFilter : undefined,
+        true // isFlagged
       );
-    });
-  }, [search, questions]);
+      setTickets(data);
+    } catch (error) {
+      console.error('Failed to fetch flagged tickets:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchTickets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, priorityFilter]);
+
+  const getStatusBadge = (status: TicketStatus) => {
+    const styles = {
+      [TicketStatus.OPEN]: 'bg-blue-100 text-blue-800 border-blue-200',
+      [TicketStatus.IN_PROGRESS]: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      [TicketStatus.WAITING_FOR_CUSTOMER]: 'bg-purple-100 text-purple-800 border-purple-200',
+      [TicketStatus.RESOLVED]: 'bg-green-100 text-green-800 border-green-200',
+      [TicketStatus.CLOSED]: 'bg-gray-100 text-gray-800 border-gray-200',
+    };
+    return (
+      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${styles[status]}`}>
+        {status.replace(/_/g, ' ')}
+      </span>
+    );
+  };
+
+  const getPriorityBadge = (priority: TicketPriority) => {
+    const styles = {
+      [TicketPriority.LOW]: 'bg-gray-100 text-gray-800',
+      [TicketPriority.MEDIUM]: 'bg-blue-100 text-blue-800',
+      [TicketPriority.HIGH]: 'bg-orange-100 text-orange-800',
+      [TicketPriority.URGENT]: 'bg-red-100 text-red-800',
+    };
+    return (
+      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${styles[priority]}`}>
+        {priority}
+      </span>
+    );
+  };
 
   return (
-    <div
-      className="
-        bg-slate-900
-        rounded-xl
-        md:rounded-2xl
-        border
-        border-slate-800
-        p-4
-        md:p-6
-      "
-    >
-      <h2 className="text-lg md:text-2xl font-semibold mb-5">
-        Flagged Questions
-      </h2>
-
-      <SearchBar
-        value={search}
-        onChange={setSearch}
-      />
-
-      {/* ================= Desktop ================= */}
-
-      <div className="hidden md:block overflow-x-auto">
-        {filteredQuestions.length === 0 ? (
-          <div className="py-12 text-center text-slate-400">
-            <p className="text-lg text-slate-300">
-              ✓ All Clear
-            </p>
-
-            <p className="text-sm mt-2">
-              There are currently no flagged questions. All conversations are operating within confidence thresholds.
-            </p>
-          </div>
-        ) : (
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-b border-slate-700">
-                <th className="pb-4">Question</th>
-                <th className="pb-4">Confidence</th>
-                <th className="pb-4">Status</th>
-                <th className="pb-4">Action</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {filteredQuestions.map((item) => (
-                <FlaggedRow
-                  key={item.question}
-                  {...item}
-                  onReview={() => {
-                    setSelectedQuestion(item);
-                    setIsModalOpen(true);
-                  }}
-                />
-              ))}
-            </tbody>
-          </table>
-        )}
+    <div className="bg-slate-900 rounded-xl md:rounded-2xl border border-slate-800 p-4 md:p-6">
+      <div className="sm:flex sm:items-center">
+        <div className="sm:flex-auto">
+          <h2 className="text-lg md:text-2xl font-semibold mb-2">Flagged Questions</h2>
+          <p className="text-sm text-slate-400">
+            Review and manage tickets created from customer flags on AI responses.
+          </p>
+        </div>
+      </div>
+      
+      <div className="mt-6 flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
+        <div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as TicketStatus | 'ALL')}
+            className="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-slate-800 border-slate-700 text-white focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm rounded-md"
+          >
+            <option value="ALL">All Statuses</option>
+            {Object.values(TicketStatus).map((status) => (
+              <option key={status} value={status}>{status.replace(/_/g, ' ')}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <select
+            value={priorityFilter}
+            onChange={(e) => setPriorityFilter(e.target.value as TicketPriority | 'ALL')}
+            className="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-slate-800 border-slate-700 text-white focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm rounded-md"
+          >
+            <option value="ALL">All Priorities</option>
+            {Object.values(TicketPriority).map((priority) => (
+              <option key={priority} value={priority}>{priority}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      {/* ================= Mobile ================= */}
-
-      <div className="space-y-4 md:hidden">
-        {filteredQuestions.length === 0 ? (
-          <div className="rounded-xl border border-slate-700 bg-slate-800 p-6 text-center">
-            <p className="text-slate-300 text-lg">
-              ✓ All Clear
-            </p>
-
-            <p className="text-slate-500 text-sm mt-2">
-              There are currently no flagged questions.
-            </p>
-          </div>
-        ) : (
-          filteredQuestions.map((item) => (
-            <div
-              key={item.question}
-              className="rounded-xl border border-slate-700 bg-slate-800 p-4"
-            >
-              <h3 className="font-semibold text-white">
-                ❓ {item.question}
-              </h3>
-
-              <div className="flex justify-between mt-4 text-sm">
-                <span className="text-slate-400">
-                  Confidence
-                </span>
-
-                <span
-                  className={`font-semibold ${
-                    item.confidence < 60
-                      ? "text-red-400"
-                      : "text-green-400"
-                  }`}
-                >
-                  {item.confidence}%
-                </span>
+      {loading ? (
+        <div className="mt-8 text-center text-slate-400">Loading flagged tickets...</div>
+      ) : (
+        <div className="mt-8 flex flex-col">
+          <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
+            <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
+              <div className="overflow-hidden border border-slate-800 md:rounded-lg">
+                <table className="min-w-full divide-y divide-slate-800">
+                  <thead className="bg-slate-900">
+                    <tr>
+                      <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-white sm:pl-6">
+                        Ticket ID
+                      </th>
+                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                        Title
+                      </th>
+                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                        Status
+                      </th>
+                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                        Priority
+                      </th>
+                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                        Created
+                      </th>
+                      <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
+                        <span className="sr-only">View</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800 bg-slate-900">
+                    {tickets.map((ticket) => (
+                      <tr key={ticket.id}>
+                        <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-white sm:pl-6">
+                          {ticket.ticket_number}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-400">
+                          {ticket.title}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-400">
+                          {getStatusBadge(ticket.status)}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-400">
+                          {getPriorityBadge(ticket.priority)}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-400">
+                          {new Date(ticket.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                          <Link to={`/admin/flagged/${ticket.id}`} className="text-cyan-500 hover:text-cyan-400">
+                            Review<span className="sr-only">, {ticket.ticket_number}</span>
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                    {tickets.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-slate-400">
+                          No flagged questions found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
-
-              <div className="flex justify-between mt-3 text-sm">
-                <span className="text-slate-400">
-                  Status
-                </span>
-
-                <span
-                  className={`px-2 py-1 rounded-full text-xs ${
-                    item.status === "Resolved"
-                      ? "bg-green-500/20 text-green-400"
-                      : "bg-yellow-500/20 text-yellow-400"
-                  }`}
-                >
-                  {item.status}
-                </span>
-              </div>
-
-              <button
-                onClick={() => {
-                  setSelectedQuestion(item);
-                  setIsModalOpen(true);
-                }}
-                className="
-                  mt-4
-                  w-full
-                  rounded-lg
-                  bg-cyan-500
-                  hover:bg-cyan-600
-                  py-2
-                  text-sm
-                  transition
-                  text-white
-                "
-              >
-                Review
-              </button>
             </div>
-          ))
-        )}
-      </div>
-
-      <ReviewModal 
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        data={selectedQuestion}
-        onResolve={() => {
-          if (selectedQuestion) {
-            setQuestions(prev => prev.map(q => 
-              q.question === selectedQuestion.question 
-                ? { ...q, status: "Resolved" } 
-                : q
-            ));
-            toast.success("Question marked as resolved");
-            setIsModalOpen(false);
-          }
-        }}
-        onReopen={() => {
-          if (selectedQuestion) {
-            setQuestions(prev => prev.map(q => 
-              q.question === selectedQuestion.question 
-                ? { ...q, status: "Pending" } 
-                : q
-            ));
-            toast.success("Question moved back to pending");
-            setIsModalOpen(false);
-          }
-        }}
-      />
+          </div>
+        </div>
+      )}
     </div>
   );
-}
+};
 
 export default FlaggedTable;

@@ -513,6 +513,7 @@ function CustomerChat() {
                         ? (m.feedback.toLowerCase() as "like" | "dislike")
                         : null,
                     flagged: m.flagged,
+                    isSupport: m.is_support,
                   })),
                   messagesLoaded: true,
                 };
