@@ -2,10 +2,10 @@
 
 ### Software Architecture & Design Document
 
-**Version:** 1.0  
-**Date:** June 2026  
-**Team Size:** 3 Developers  
-**Timeline:** 3 Weeks
+**Version:** 2.0
+**Release:** Production Ready Edition
+**Date:** July 2026
+**Team Size:** 3 Developers
 
 ---
 
@@ -32,221 +32,705 @@
 19. [Reliability & Resilience](#19-reliability--resilience)
 20. [Enterprise Security Architecture](#20-enterprise-security-architecture)
 21. [Risks & Mitigation](#21-risks--mitigation)
-22. [Implementation Plan & Team Responsibilities](#22-implementation-plan--team-responsibilities)
-23. [Development Roadmap](#23-development-roadmap)
-24. [Future Enhancements](#24-future-enhancements)
+22. [Product Roadmap & Future Enhancements](#22-product-roadmap--future-enhancements)
+23. [Future Architecture Evolution](#23-future-architecture-evolution)
+24. [Conclusion](#24-conclusion)
 
 ---
 
-## 1. Executive Summary
+# 1. Executive Summary
 
-SupportAI is an AI-powered customer support platform built for an internship competition. It combines a Retrieval-Augmented Generation (RAG) pipeline with a clean web interface to let businesses provide fast, accurate, source-backed answers to customer queries — without requiring a large human support team.
+SupportAI is a production-oriented AI-powered customer support platform that combines Retrieval-Augmented Generation (RAG), hybrid search, human-in-the-loop ticket escalation, knowledge management, and AI quality monitoring into a unified support ecosystem.
 
-Customers interact with a conversational chat interface. On the back end, their questions are answered using a hybrid search system (BM25 + vector search) over an admin-managed knowledge base, with responses generated through a configurable LLM provider **(reference implementation: Groq running Llama 3.1 8B Instruct)**. Admins get a dashboard for managing documents, reviewing flagged questions, and spotting knowledge gaps.
+The platform enables organizations to provide intelligent, scalable, and document-grounded customer support experiences. Customers interact through a conversational AI interface while administrators manage knowledge bases, resolve escalated issues, monitor support quality, and continuously improve AI performance through analytics and feedback.
 
-The project is scoped for a 3-week sprint by a 3-person team, with deployments on Railway (backend) and Vercel (frontend).
+SupportAI is built using a modular layered architecture centered around FastAPI, React, Qdrant, Redis, Groq-powered Large Language Models, and a relational database layer.
 
----
+Key capabilities include:
+
+- Hybrid Retrieval (BM25 + Dense Vector Search)
+- Retrieval-Augmented Generation (RAG)
+- Persistent Multi-Session Conversations
+- Human-in-the-Loop Ticket Escalation
+- Notification Management
+- AI Quality Center
+- Analytics Dashboard
+- Knowledge Base Management
+- Role-Based Access Control (RBAC)
+- Production Security Hardening
+- Automated Testing and Validation
+
+The architecture emphasizes:
+
+- Scalability
+- Maintainability
+- Reliability
+- Security
+- Extensibility
+
+through layered services, repository abstractions, provider-agnostic AI components, and modern cloud deployment practices.
+
+## SupportAI is designed not only to automate customer support interactions but also to provide organizations with visibility into AI performance, customer issues, and knowledge gaps, enabling continuous improvement of both support operations and AI answer quality.
 
 ## 2. Problem Statement
 
-Small to medium-sized businesses struggle to scale customer support. Common issues include:
+Customer support teams face increasing pressure to deliver fast, accurate, and consistent responses while managing growing volumes of customer inquiries.
 
-- **High support volume** — repetitive questions consume agent time.
-- **Slow response times** — customers wait hours for answers available in existing documentation.
-- **Inconsistent quality** — answers vary depending on which agent responds.
-- **No insight into gaps** — teams don't know which questions go unanswered or poorly answered.
+Common challenges include:
 
-Existing solutions are either too expensive (enterprise chatbots), too rigid (FAQ pages), or require large AI teams to build. SupportAI aims to bridge this gap with an accessible, intelligent, document-grounded support system.
+- **High support volume** — repetitive questions consume valuable agent time and reduce operational efficiency.
+- **Slow response times** — customers often wait for answers that already exist in documentation, FAQs, or internal knowledge bases.
+- **Inconsistent support quality** — responses vary depending on the experience and availability of individual support agents.
+- **Knowledge fragmentation** — critical information is spread across multiple documents, making it difficult to locate quickly.
+- **Limited visibility into AI failures** — organizations often lack mechanisms to identify poor responses, recurring customer issues, or knowledge gaps.
+- **Escalation bottlenecks** — unresolved questions require manual intervention, but many systems provide poor workflows for human review and resolution.
 
----
+Existing solutions are often expensive, difficult to customize, or focused solely on automation without providing adequate visibility, quality monitoring, or human support workflows.
 
-## 3. Project Objectives
+SupportAI addresses these challenges through a Retrieval-Augmented Generation (RAG) architecture that combines:
 
-| #   | Objective                                                                                |
-| --- | ---------------------------------------------------------------------------------------- |
-| 1   | Build a working RAG pipeline using hybrid search (BM25 + vector) over uploaded documents |
-| 2   | Deliver a clean customer-facing chat UI with source attribution and confidence scores    |
-| 3   | Provide an admin dashboard for knowledge base management and analytics                   |
-| 4   | Implement a feedback loop so users can rate responses                                    |
-| 5   | Flag unanswered or low-confidence questions for admin review                             |
-| 6   | Complete a deployable, demo-ready product within 3 weeks                                 |
-
----
-
-## 4. Functional Requirements
-
-### Customer Side
-
-- **Chat Interface** — Real-time conversational UI for submitting support queries
-- **User Authentication** — Customers can register and log in to access personalized support sessions.
-
-- **Conversation History** — Authenticated customers can view, resume, and manage their previous conversations across devices and sessions.
-- **Source Attribution** — Each response links back to the document chunk it was drawn from
-- **Confidence Scores** — A visual indicator of how confident the system is in the answer
-- **Feedback System** — Thumbs up/down to rate responses
-
-### Admin Side
-
-- **Dashboard** — Overview of query volume, average confidence, feedback scores
-- **Knowledge Base Management** — Upload, view, and delete documents
-- **Flagged Questions** — Review questions that scored low confidence or received negative feedback
-- **Analytics** — Charts showing query trends, top topics, satisfaction rates
-- **Knowledge Gap Detection** — Surface clusters of unanswered or low-scoring questions
+- AI-powered customer support
+- Document-grounded response generation
+- Persistent conversation management
+- Human-in-the-loop ticket escalation
+- Knowledge base administration
+- AI quality monitoring and analytics
 
 ---
 
-## 5. Non-Functional Requirements
+# 3. Project Objectives
 
-| Category            | Requirement                                                                     |
-| ------------------- | ------------------------------------------------------------------------------- |
-| **Performance**     | Chat responses returned within 5 seconds under normal load                      |
-| **Scalability**     | Architecture should support future horizontal scaling without redesign          |
-| **Reliability**     | API uptime target of 99% during the competition demo window                     |
-| **Security**        | JWT-based auth, password hashing, input sanitization, CORS protection           |
-| **Usability**       | Mobile-responsive UI; accessible to non-technical users                         |
-| **Maintainability** | Modular codebase with clear separation of concerns                              |
-| **Portability**     | Fully containerized via Docker for consistent local and production environments |
-
----
-
-## 6. Technology Stack
-
-### Frontend
-
-| Layer       | Technology         | Purpose                             |
-| ----------- | ------------------ | ----------------------------------- |
-| Framework   | React + TypeScript | Component-based UI with type safety |
-| Build Tool  | Vite               | Fast development server and bundler |
-| Styling     | Tailwind CSS       | Utility-first responsive design     |
-| Components  | shadcn/ui          | Accessible, pre-built UI components |
-| HTTP Client | Axios              | API communication with the backend  |
-
-### Backend
-
-| Layer      | Technology             | Purpose                               |
-| ---------- | ---------------------- | ------------------------------------- |
-| Framework  | FastAPI                | High-performance async REST API       |
-| ORM        | SQLAlchemy             | Database models and query abstraction |
-| Migrations | Alembic                | Schema versioning and migrations      |
-| Auth       | JWT (via PyJWT)        | Stateless authentication              |
-| Embeddings | BAAI/bge-small-en-v1.5 | Text-to-vector encoding               |
-
-### Data & AI
-
-| Component     | Technology                   | Purpose                                   |
-| ------------- | ---------------------------- | ----------------------------------------- |
-| Relational DB | PostgreSQL                   | Users, documents, conversations, messages |
-| Vector DB     | Qdrant                       | Storing and querying embedding vectors    |
-| LLM           | Llama 3.1 8B Instruct (Groq) | AI Response generation                    |
-| BM25          | rank_bm25 (Python)           | Keyword-based sparse retrieval            |
-| Hybrid Search | BM25 + Vector (RRF fusion)   | Combined retrieval for better accuracy    |
-
-### Deployment
-
-| Tool                                 | Purpose                                      |
-| ------------------------------------ | -------------------------------------------- |
-| Docker                               | Containerization for consistent environments |
-| Managed Container Platform (Railway) | Backend hosting                              |
-| Vercel                               | Frontend hosting (CDN-backed)                |
-| Qdrant Cloud                         | Managed vector database                      |
+| #   | Objective                                                                              |
+| --- | -------------------------------------------------------------------------------------- |
+| 1   | Deliver production-grade AI-powered customer support experiences                       |
+| 2   | Build a robust Retrieval-Augmented Generation (RAG) pipeline                           |
+| 3   | Enable persistent multi-session customer conversations                                 |
+| 4   | Provide administrators with effective knowledge base management tools                  |
+| 5   | Implement human-in-the-loop ticket escalation workflows                                |
+| 6   | Monitor and improve AI response quality through customer feedback and ticket analytics |
+| 7   | Ensure secure, reliable, and maintainable system operation                             |
+| 8   | Maintain high software quality through testing and automated validation                |
+| 9   | Support future scalability, extensibility, and enterprise adoption                     |
+| 10  | Establish a modular architecture that simplifies future enhancements                   |
 
 ---
 
-## 7. System Architecture
+# 4. Functional Requirements
 
-SupportAI follows a **client-server architecture** with a clear separation between the React frontend, FastAPI backend, relational database, and AI/search components.
+SupportAI provides AI-powered customer support through Retrieval-Augmented Generation (RAG), human-in-the-loop ticket escalation, knowledge base management, and administrative analytics.
 
-### 7.1 Context View
+---
 
-The Context View provides the highest-level perspective of the SupportAI platform. It illustrates how external users and third-party services interact with the system while intentionally hiding internal implementation details.
+## 4.1 Customer Features
 
-```mermaid
-flowchart LR
+### Authentication
 
-Customer["👤 Customer"]
-Admin["👨‍💼 Administrator"]
+- User Registration
+- User Login
+- Password Reset
+- JWT-Based Authentication
+- Protected Routes
 
-SupportAI["SupportAI Platform"]
+### Chat Experience
 
-Groq["🤖 Groq API"]
-Qdrant["🔎 Qdrant Cloud"]
+- AI-Powered Customer Support Chat
+- Persistent Chat Sessions
+- Session History
+- Session Rename
+- Session Delete
+- Session Search
+- Rich Markdown Rendering
+- Syntax Highlighted Code Blocks
+- Auto Scroll & Chat Persistence
 
-Customer -->|"Ask Questions"| SupportAI
-Admin -->|"Manage Knowledge Base"| SupportAI
+### Support Workflows
 
-SupportAI -->|"Generate Responses"| Groq
-SupportAI -->|"Semantic Search"| Qdrant
+- Flag AI Responses
+- Submit Report Reason
+- Add Customer Comments
+- Create Support Tickets
+- View Notifications
+- Receive Support Updates
+- View Support Responses
+
+### Conversation Management
+
+- Create New Conversations
+- Continue Existing Conversations
+- Retrieve Historical Sessions
+- Search Conversation History
+
+---
+
+## 4.2 Administrator Features
+
+### Dashboard
+
+- Platform Overview
+- Ticket Statistics
+- Customer Activity Monitoring
+- Knowledge Base Overview
+
+### Knowledge Base Management
+
+- Upload Documents
+- Delete Documents
+- Search Documents
+- View Document Metadata
+- Document Processing Validation
+
+### Conversation Management
+
+- View Customer Conversations
+- Inspect Chat Sessions
+- Review Message History
+
+### Flagged Questions Management
+
+- Review Reported Responses
+- Inspect Customer Context
+- View Report Reasons
+- View Customer Comments
+- Navigate to Ticket Details
+
+### Ticket Management
+
+- View Ticket Details
+- Update Ticket Status
+- Assign Tickets
+- Respond to Customers
+- Track Resolution Progress
+- View Ticket Timeline
+
+### AI Quality Center
+
+- Total Flagged Responses
+- Open Ticket Tracking
+- Resolved Ticket Tracking
+- Average Resolution Time
+- Report Reason Distribution
+- Ticket Status Distribution
+- Most Reported Questions
+- Recent Flagged Responses
+
+### Notifications
+
+- Ticket Update Notifications
+- Support Reply Notifications
+- Administrative Alerts
+
+---
+
+## 4.3 Retrieval-Augmented Generation (RAG)
+
+SupportAI uses a Retrieval-Augmented Generation workflow to produce grounded responses.
+
+### Retrieval Features
+
+- BM25 Retrieval
+- Dense Vector Retrieval
+- Reciprocal Rank Fusion (RRF)
+- Context Assembly
+- Prompt Construction
+
+### Response Generation
+
+- Context-Grounded Answers
+- Source-Aware Prompting
+- Session-Aware Conversations
+- AI Response Generation via Groq
+
+---
+
+## 4.4 Ticket Management Workflow
+
+SupportAI includes a human-in-the-loop escalation workflow for handling AI failures and customer-reported issues.
+
+```text
+Customer Question
+        ↓
+AI Response
+        ↓
+Customer Flags Response
+        ↓
+Ticket Created
+        ↓
+Admin Review
+        ↓
+Support Reply
+        ↓
+Customer Notification
+        ↓
+Resolution
 ```
 
-**Responsibilities**
+### Ticket Capabilities
 
-| Actor/System  | Responsibility                                                         |
-| ------------- | ---------------------------------------------------------------------- |
-| Customer      | Interacts with the AI assistant to receive support.                    |
-| Administrator | Manages documents, analytics, and flagged questions.                   |
-| SupportAI     | Coordinates authentication, retrieval, AI generation, and persistence. |
-| Groq API      | Generates grounded responses using the retrieved context.              |
-| Qdrant Cloud  | Stores and retrieves semantic document embeddings.                     |
+- Ticket Creation
+- Ticket Status Tracking
+- Support Agent Replies
+- Customer Notifications
+- Resolution Management
+- Escalation Tracking
 
-### 7.2 Container View
+### Benefits
 
-The Container View illustrates the major deployable units of the system and how they communicate. Each container represents an independently deployable application or infrastructure service.
+- Human fallback for complex issues
+- Better customer support experience
+- Improved visibility into AI failures
+- Continuous quality improvement
+
+---
+
+## 4.5 AI Quality Monitoring
+
+The AI Quality Center provides visibility into support quality using real ticket and conversation data.
+
+### Current Capabilities
+
+- Flagged Response Monitoring
+- Ticket Volume Analysis
+- Resolution Time Tracking
+- Report Reason Analysis
+- Most Reported Question Analysis
+- Open vs Resolved Ticket Analysis
+
+### Quality Improvement Goals
+
+- Identify recurring customer issues
+- Detect knowledge gaps
+- Improve support workflows
+- Improve AI response quality
+- Guide future knowledge base updates
+
+---
+
+## 4.6 Notifications System
+
+SupportAI includes an integrated notification system.
+
+### Customer Notifications
+
+- Ticket Updates
+- Support Replies
+- Resolution Notifications
+
+### Administrator Notifications
+
+- New Ticket Alerts
+- Flagged Response Alerts
+- Operational Updates
+
+---
+
+# 5. Non-Functional Requirements
+
+Non-functional requirements define the quality attributes that SupportAI must satisfy beyond its functional capabilities. These requirements guide architectural decisions related to performance, scalability, security, reliability, and maintainability.
+
+---
+
+## Quality Attribute Requirements
+
+| Category            | Requirement                                                                                                                               |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Performance**     | Typical chat responses should be generated within a few seconds under normal operating conditions.                                        |
+| **Scalability**     | The architecture should support increasing numbers of users, documents, conversations, and tickets without major redesign.                |
+| **Reliability**     | Critical customer support workflows must remain stable and recover gracefully from temporary failures.                                    |
+| **Availability**    | The platform should remain accessible through managed cloud infrastructure and automated deployment processes.                            |
+| **Security**        | Authentication, authorization, secure communication, and input validation must be enforced throughout the platform.                       |
+| **Maintainability** | The codebase should remain modular, testable, and easy to extend through layered architecture and service separation.                     |
+| **Usability**       | Customer and administrator interfaces should be responsive, intuitive, and accessible to both technical and non-technical users.          |
+| **Extensibility**   | New AI models, retrieval strategies, analytics modules, and support workflows should be introduced with minimal architectural disruption. |
+| **Portability**     | The platform should support local development and cloud deployment through containerized infrastructure.                                  |
+| **Observability**   | Errors, operational events, and system behavior should be traceable through structured logging and monitoring mechanisms.                 |
+| **Testability**     | Critical workflows should be verifiable through automated tests and manual end-to-end validation.                                         |
+
+---
+
+## Performance Requirements
+
+| Requirement           | Target                               |
+| --------------------- | ------------------------------------ |
+| Chat Response Time    | Few seconds under normal load        |
+| Knowledge Base Search | Near real-time retrieval             |
+| Ticket Operations     | Immediate user feedback              |
+| Dashboard Loading     | Responsive administrative experience |
+
+### Design Considerations
+
+- Redis caching reduces repeated retrieval costs.
+- Hybrid search balances accuracy and performance.
+- Repository abstraction simplifies optimization efforts.
+- Qdrant enables efficient vector similarity search.
+
+---
+
+## Scalability Requirements
+
+SupportAI should support growth in:
+
+- Users
+- Chat Sessions
+- Documents
+- Vector Embeddings
+- Tickets
+- Notifications
+
+### Architectural Enablers
+
+- Layered Architecture
+- Repository Pattern
+- Provider-Agnostic Components
+- External Vector Database
+- Managed Cloud Services
+
+---
+
+## Reliability Requirements
+
+SupportAI should continue operating safely during temporary failures.
+
+### Requirements
+
+- Prevent data corruption.
+- Preserve chat history.
+- Protect ticket workflows.
+- Maintain document integrity.
+- Recover gracefully from service interruptions.
+
+### Supporting Mechanisms
+
+- Transaction Rollbacks
+- Error Handling
+- Retry Logic
+- Controlled Failure Recovery
+
+---
+
+## Security Requirements
+
+SupportAI must protect customer, administrator, and system data.
+
+### Requirements
+
+- JWT Authentication
+- Role-Based Access Control (RBAC)
+- Password Hashing (bcrypt)
+- HTTPS/TLS Communication
+- Input Validation
+- Secure Secret Management
+
+---
+
+## Maintainability Requirements
+
+The platform should remain easy to evolve over time.
+
+### Requirements
+
+- Clear separation of concerns
+- Modular service design
+- Repository abstraction
+- Consistent API structure
+- Structured documentation
+
+---
+
+## Usability Requirements
+
+### Customer Experience
+
+- Simple chat interface
+- Persistent conversation history
+- Clear notifications
+- Responsive design
+
+### Administrator Experience
+
+- Centralized dashboards
+- Knowledge Base management
+- Ticket workflows
+- AI Quality monitoring
+
+---
+
+## Testability Requirements
+
+SupportAI must support continuous verification.
+
+### Validation Methods
+
+- Pytest
+- ESLint
+- TypeScript Build Verification
+- Manual End-to-End Testing
+
+### Current Validation Baseline
+
+```text
+Backend Tests: 45/45 Passed
+Frontend Lint: Passed
+Frontend Build: Passed
+```
+
+---
+
+## Extensibility Requirements
+
+The architecture should support future enhancements such as:
+
+- Retrieval Attribution
+- Knowledge Base Impact Analysis
+- SLA Management
+- Agent Assignment
+- Multi-Tenant Support
+- Enterprise Analytics
+
+without requiring significant architectural redesign.
+
+---
+
+# 6. Technology Stack
+
+SupportAI is built using a modern full-stack architecture designed for AI-powered customer support, retrieval-augmented generation (RAG), and scalable administrative operations.
+
+---
+
+## Frontend
+
+| Layer         | Technology         | Purpose                                          |
+| ------------- | ------------------ | ------------------------------------------------ |
+| Framework     | React + TypeScript | Component-based frontend development             |
+| Build Tool    | Vite               | Fast development and optimized production builds |
+| Styling       | Tailwind CSS       | Responsive and utility-first UI design           |
+| Routing       | React Router       | Client-side routing and navigation               |
+| Icons         | Lucide React       | Consistent iconography                           |
+| Notifications | Sonner             | Toast notifications and user feedback            |
+| HTTP Client   | Axios              | Communication with backend APIs                  |
+
+---
+
+## Backend
+
+| Layer          | Technology  | Purpose                                    |
+| -------------- | ----------- | ------------------------------------------ |
+| Framework      | FastAPI     | High-performance REST API                  |
+| ORM            | SQLAlchemy  | Database abstraction and ORM               |
+| Migrations     | Alembic     | Database schema versioning                 |
+| Authentication | JWT (PyJWT) | Stateless authentication and authorization |
+| Validation     | Pydantic    | Request and response validation            |
+| Testing        | Pytest      | Backend testing and verification           |
+
+---
+
+## AI & Retrieval
+
+| Component         | Technology                   | Purpose                            |
+| ----------------- | ---------------------------- | ---------------------------------- |
+| LLM Provider      | Groq                         | AI inference platform              |
+| Language Model    | Llama 3.1 8B Instruct        | Response generation                |
+| Vector Database   | Qdrant                       | Semantic search and vector storage |
+| Sparse Retrieval  | BM25                         | Keyword-based retrieval            |
+| Dense Retrieval   | Embedding Models             | Semantic retrieval                 |
+| Fusion Strategy   | Reciprocal Rank Fusion (RRF) | Hybrid retrieval ranking           |
+| Retrieval Pattern | RAG                          | Retrieval-Augmented Generation     |
+
+---
+
+## Data Layer
+
+| Component           | Technology   | Purpose                                         |
+| ------------------- | ------------ | ----------------------------------------------- |
+| Relational Database | PostgreSQL   | Users, chats, tickets, notifications, documents |
+| Cache Layer         | Redis        | Caching and performance optimization            |
+| Vector Store        | Qdrant Cloud | Embedding storage and retrieval                 |
+
+---
+
+## DevOps & Deployment
+
+| Tool           | Purpose                 |
+| -------------- | ----------------------- |
+| Git            | Version Control         |
+| GitHub         | Source Code Hosting     |
+| GitHub Actions | Continuous Integration  |
+| Docker         | Containerization        |
+| Railway        | Backend Hosting         |
+| Vercel         | Frontend Hosting        |
+| Qdrant Cloud   | Managed Vector Database |
+
+---
+
+## Architecture Patterns
+
+| Pattern              | Purpose                      |
+| -------------------- | ---------------------------- |
+| Layered Architecture | Separation of concerns       |
+| Repository Pattern   | Data access abstraction      |
+| Service Layer        | Business logic encapsulation |
+| RAG Architecture     | Grounded AI responses        |
+| Hybrid Search        | Improved retrieval quality   |
+| Provider Abstraction | Future AI model flexibility  |
+
+---
+
+# 7. System Architecture
+
+SupportAI follows a modular AI-native architecture built around Retrieval-Augmented Generation (RAG), hybrid search, conversation management, support ticketing, and AI quality monitoring.
+
+The system is composed of independently managed layers responsible for presentation, orchestration, retrieval, persistence, and AI generation.
+
+---
+
+## 7.1 Context View
+
+The Context View illustrates the highest-level interaction between users, administrators, external AI providers, and supporting infrastructure.
 
 ```mermaid
 flowchart LR
 
 Customer["👤 Customer"]
+
+Admin["👨‍💼 Administrator"]
+
+SupportAI["🤖 SupportAI Platform"]
+
+Groq["🧠 Groq LLM"]
+
+Qdrant["🔎 Qdrant Vector DB"]
+
+Customer -->|"Ask Questions"| SupportAI
+
+Customer -->|"Raise Tickets"| SupportAI
+
+Admin -->|"Manage Knowledge Base"| SupportAI
+
+Admin -->|"Monitor AI Quality"| SupportAI
+
+Admin -->|"Resolve Tickets"| SupportAI
+
+SupportAI -->|"Generate Responses"| Groq
+
+SupportAI -->|"Vector Search"| Qdrant
+```
+
+### Responsibilities
+
+| Actor/System  | Responsibility                                                 |
+| ------------- | -------------------------------------------------------------- |
+| Customer      | Interacts with the AI assistant and receives support           |
+| Administrator | Manages knowledge, tickets, analytics, and AI quality          |
+| SupportAI     | Orchestrates retrieval, generation, persistence, and workflows |
+| Groq          | Generates grounded responses                                   |
+| Qdrant        | Stores vector embeddings and semantic indexes                  |
+
+---
+
+## 7.2 Container View
+
+The Container View illustrates the deployable applications and infrastructure services used by SupportAI.
+
+```mermaid
+flowchart LR
+
+Customer["👤 Customer"]
+
 Admin["👨‍💼 Administrator"]
 
 subgraph Frontend["Frontend (Vercel)"]
-    React["React + TypeScript + Tailwind"]
+
+React["React + TypeScript + Tailwind"]
+
 end
 
 subgraph Backend["Backend (Railway)"]
-    API["FastAPI Application"]
+
+FastAPI["FastAPI Application"]
+
 end
 
-Redis["🟥 Redis Cache"]
+Redis["🟥 Redis"]
+
 Postgres[("🐘 PostgreSQL")]
+
 Qdrant[("🔎 Qdrant Cloud")]
-Groq["🤖 Groq API"]
+
+Groq["🧠 Groq"]
 
 Customer --> React
+
 Admin --> React
 
-React --> API
+React --> FastAPI
 
-API --> Redis
-API --> Postgres
-API --> Qdrant
-API --> Groq
+FastAPI --> Redis
+
+FastAPI --> Postgres
+
+FastAPI --> Qdrant
+
+FastAPI --> Groq
 ```
 
-### 7.3 Component View
+### Container Responsibilities
 
-The Component View shows the internal organization of the FastAPI backend. Each component has a single responsibility and communicates through well-defined interfaces.
+| Container       | Responsibility                                   |
+| --------------- | ------------------------------------------------ |
+| React Frontend  | Customer and administrator interfaces            |
+| FastAPI Backend | APIs, orchestration, retrieval, ticket workflows |
+| PostgreSQL      | Persistent relational storage                    |
+| Redis           | Caching and session acceleration                 |
+| Qdrant          | Semantic vector search                           |
+| Groq            | LLM inference                                    |
+
+---
+
+## 7.3 Component View
+
+The Component View illustrates the internal structure of the backend application.
 
 ```mermaid
 flowchart TB
 
 subgraph FastAPI["FastAPI Backend"]
 
-Auth["🔐 Authentication Router"]
+Auth["🔐 Authentication API"]
 
-Chat["💬 Chat Router"]
+Chat["💬 Chat API"]
 
-Upload["📤 Upload Router"]
+Documents["📄 Documents API"]
 
-Admin["⚙️ Admin Router"]
+Tickets["🎫 Ticket API"]
 
-UserService["User Service"]
+Notifications["🔔 Notification API"]
 
-RAG["🧠 RAG Service"]
+Quality["📊 AI Quality API"]
 
-Analytics["📊 Analytics Service"]
+Admin["⚙️ Admin API"]
 
-Background["⚡ Background Worker"]
+ChatOrchestrator["🧠 Chat Orchestrator"]
+
+RAGPipeline["🔍 RAG Pipeline"]
+
+TicketService["🎫 Ticket Service"]
+
+NotificationService["🔔 Notification Service"]
+
+AnalyticsService["📊 Analytics Service"]
+
+DocumentService["📄 Document Service"]
+
+end
+
+subgraph Retrieval["Retrieval Layer"]
+
+BM25["📖 BM25 Search"]
+
+Vector["🔎 Vector Search"]
+
+Fusion["⚡ RRF Fusion"]
+
+Prompt["📝 Prompt Builder"]
 
 end
 
@@ -256,95 +740,184 @@ Postgres[("🐘 PostgreSQL")]
 
 Qdrant[("🔎 Qdrant")]
 
-Groq["🤖 Groq API"]
+Groq["🧠 Groq"]
 
-Auth --> UserService
+Chat --> ChatOrchestrator
 
-Chat --> RAG
+ChatOrchestrator --> RAGPipeline
 
-Upload --> Background
+RAGPipeline --> BM25
 
-Admin --> Analytics
+RAGPipeline --> Vector
 
-UserService --> Postgres
+BM25 --> Fusion
 
-Analytics --> Postgres
+Vector --> Fusion
 
-RAG --> Redis
-RAG --> Postgres
-RAG --> Qdrant
-RAG --> Groq
+Fusion --> Prompt
 
-Background --> Postgres
-Background --> Qdrant
-```
+Prompt --> Groq
 
-### 7.4 Runtime View
+Documents --> DocumentService
 
-The Runtime View illustrates the end-to-end execution flow of a customer request through the SupportAI platform, showing how the frontend, backend services, cache, retrieval pipeline, and external AI services collaborate to generate a response.
+Tickets --> TicketService
 
-```mermaid
-flowchart LR
+Notifications --> NotificationService
 
-User["👤 Customer"]
+Quality --> AnalyticsService
 
-Frontend["⚛️ React Frontend"]
+Admin --> AnalyticsService
 
-API["🚀 FastAPI"]
+DocumentService --> Postgres
 
-Redis["🟥 Redis Cache"]
+TicketService --> Postgres
 
-Decision{"Cache Hit?"}
+NotificationService --> Postgres
 
-RAG["🧠 RAG Service"]
+AnalyticsService --> Postgres
 
-BM25["📖 BM25 Search"]
+RAGPipeline --> Redis
 
-Qdrant["🔎 Qdrant"]
-
-Groq["🤖 Groq API"]
-
-Postgres[("🐘 PostgreSQL")]
-
-Response["💬 AI Response"]
-
-User --> Frontend
-
-Frontend --> API
-
-API --> Redis
-
-Redis --> Decision
-
-Decision -- Yes --> Response
-
-Decision -- No --> RAG
-
-RAG --> BM25
-RAG --> Qdrant
-
-BM25 --> Groq
-Qdrant --> Groq
-
-Groq --> API
-
-API --> Postgres
-API --> Redis
-
-API --> Response
-
-Response --> User
+Vector --> Qdrant
 ```
 
 ---
 
-## 8. Frontend Architecture
+## 7.4 Runtime View
 
-The frontend is a single-page application (SPA) organized by feature, with shared components and a central API layer.
+The Runtime View demonstrates how a customer question flows through the system.
 
-### Frontend Component Architecture
+```mermaid
+sequenceDiagram
 
-The frontend follows a feature-oriented architecture with reusable UI components, centralized state management, and a shared API client.
+actor Customer
+
+participant Frontend
+
+participant API
+
+participant Orchestrator
+
+participant Pipeline
+
+participant BM25
+
+participant Qdrant
+
+participant Fusion
+
+participant PromptBuilder
+
+participant Groq
+
+participant PostgreSQL
+
+Customer->>Frontend: Ask Question
+
+Frontend->>API: POST /chat
+
+API->>Orchestrator: Process Request
+
+Orchestrator->>Pipeline: Retrieve Context
+
+Pipeline->>BM25: Sparse Search
+
+Pipeline->>Qdrant: Vector Search
+
+BM25-->>Fusion: Ranked Results
+
+Qdrant-->>Fusion: Ranked Results
+
+Fusion-->>Pipeline: Final Context
+
+Pipeline-->>PromptBuilder: Retrieved Context
+
+PromptBuilder-->>Groq: Construct Prompt
+
+Groq-->>Orchestrator: Generated Answer
+
+Orchestrator->>PostgreSQL: Save Session
+
+Orchestrator-->>API: Response
+
+API-->>Frontend: Response
+
+Frontend-->>Customer: Render Answer
+```
+
+---
+
+## 7.5 Support Ticket Workflow
+
+```mermaid
+flowchart TD
+
+Customer["Customer"]
+
+AI["AI Response"]
+
+Flag["Flag Response"]
+
+Ticket["Ticket Created"]
+
+Admin["Admin Review"]
+
+Reply["Support Reply"]
+
+Notification["Notification"]
+
+Resolved["Resolved"]
+
+Customer --> AI
+
+AI --> Flag
+
+Flag --> Ticket
+
+Ticket --> Admin
+
+Admin --> Reply
+
+Reply --> Notification
+
+Notification --> Customer
+
+Admin --> Resolved
+```
+
+---
+
+## 7.6 AI Quality Monitoring Flow
+
+```mermaid
+flowchart LR
+
+Chat["Chat Sessions"]
+
+Tickets["Flagged Tickets"]
+
+Reasons["Report Reasons"]
+
+Analytics["AI Quality Center"]
+
+Chat --> Analytics
+
+Tickets --> Analytics
+
+Reasons --> Analytics
+```
+
+The AI Quality Center continuously monitors customer escalations, report reasons, support trends, and AI performance indicators to help administrators improve answer quality and knowledge base effectiveness.
+
+# 8. Frontend Architecture
+
+The SupportAI frontend is built as a modern Single Page Application (SPA) using React, TypeScript, Vite, and Tailwind CSS.
+
+The architecture follows a feature-oriented design that separates pages, reusable components, routing, API services, and state management. This approach improves maintainability, scalability, and developer productivity as the platform evolves.
+
+---
+
+## Frontend Component Architecture
 
 ```mermaid
 flowchart LR
@@ -353,430 +926,1284 @@ User["👤 User"]
 
 subgraph Browser["React SPA"]
 
+Routes["Application Routes"]
+
 Pages["Pages"]
 
-Components["Feature Components"]
+Components["Reusable Components"]
 
-Hooks["Custom Hooks"]
+Services["API Services"]
 
-Store["Auth Store"]
-
-API["API Client"]
+Auth["Authentication State"]
 
 end
 
-Backend["FastAPI Backend"]
+Backend["🚀 FastAPI Backend"]
 
-User --> Pages
+User --> Routes
+
+Routes --> Pages
 
 Pages --> Components
 
-Components --> Hooks
+Pages --> Services
 
-Hooks --> Store
+Components --> Services
 
-Hooks --> API
+Services --> Auth
 
-API --> Backend
+Services --> Backend
 ```
-
-### Folder Structure
-
-```
-src/
-├── components/
-│   ├── ui/              # shadcn/ui base components (Button, Card, etc.)
-│   ├── chat/            # ChatWindow, MessageBubble, SuggestedQuestions
-│   ├── admin/           # DocumentTable, FlaggedList, AnalyticsChart
-│   └── shared/          # Navbar, Sidebar, ConfidenceBadge
-├── pages/
-│   ├── CustomerChat.tsx
-│   ├── ConversationHistory.tsx
-│   ├── AdminDashboard.tsx
-│   ├── KnowledgeBase.tsx
-│   └── Login.tsx
-├── hooks/
-│   ├── useChat.ts
-│   ├── useConversations.ts
-│   └── useAdmin.ts
-├── api/
-│   └── client.ts        # Axios instance with JWT interceptor
-├── store/
-│   └── authStore.ts     # Auth state (Zustand or Context)
-└── types/
-    └── index.ts         # Shared TypeScript interfaces
-```
-
-### Key Design Decisions
-
-- **Component co-location** — Each feature has its own folder with components, hooks, and local types grouped together.
-- **API abstraction** — All HTTP calls go through `api/client.ts`, which automatically attaches JWT tokens.
-- **Confidence badges** — Rendered as a color-coded component (green / yellow / red) based on score thresholds.
-- **Source cards** — Each AI message includes collapsible source attribution cards linking to document metadata.
 
 ---
 
-## 9. Backend Architecture
+## Frontend Module Architecture
 
-The FastAPI backend follows a **layered architecture** pattern: routers handle HTTP, services hold business logic, and repositories manage data access.
+```mermaid
+flowchart TB
 
-### Backend Component Architecture
+App["App"]
 
-The backend follows a layered architecture separating HTTP routing, business logic, persistence, and external integrations.
+Routes["App Routes"]
+
+Customer["Customer Portal"]
+
+Admin["Admin Portal"]
+
+Chat["Customer Chat"]
+
+History["Conversation History"]
+
+Notifications["Notifications"]
+
+Dashboard["Admin Dashboard"]
+
+KnowledgeBase["Knowledge Base"]
+
+Flagged["Flagged Questions"]
+
+Tickets["Ticket Details"]
+
+Quality["AI Quality Center"]
+
+App --> Routes
+
+Routes --> Customer
+
+Routes --> Admin
+
+Customer --> Chat
+
+Customer --> History
+
+Customer --> Notifications
+
+Admin --> Dashboard
+
+Admin --> KnowledgeBase
+
+Admin --> Flagged
+
+Admin --> Tickets
+
+Admin --> Quality
+```
+
+---
+
+## Frontend Folder Structure
+
+```text
+src/
+
+├── components/
+│   ├── admin/
+│   │   ├── dashboard/
+│   │   ├── flagged/
+│   │   ├── knowledge-base/
+│   │   └── layout/
+│   │
+│   ├── chat/
+│   │   ├── messages/
+│   │   ├── sidebar/
+│   │   └── input/
+│   │
+│   ├── notifications/
+│   │
+│   └── ui/
+│
+├── pages/
+│   ├── admin/
+│   │   ├── AdminDashboard.tsx
+│   │   ├── AdminTicketDetails.tsx
+│   │   ├── KnowledgeBase.tsx
+│   │   ├── Conversations.tsx
+│   │   ├── AIQuality.tsx
+│   │   └── FlaggedQuestions.tsx
+│   │
+│   ├── customer/
+│   │   ├── CustomerChat.tsx
+│   │   ├── ConversationHistory.tsx
+│   │   └── Notifications.tsx
+│   │
+│   └── auth/
+│       ├── Login.tsx
+│       └── Register.tsx
+│
+├── routes/
+│   └── AppRoutes.tsx
+│
+├── services/
+│   ├── auth.service.ts
+│   ├── chat.service.ts
+│   ├── ticket.service.ts
+│   ├── notification.service.ts
+│   ├── document.service.ts
+│   └── admin.service.ts
+│
+├── hooks/
+│
+├── store/
+│
+├── types/
+│
+└── main.tsx
+```
+
+---
+
+## Routing Architecture
+
+SupportAI uses client-side routing to separate customer and administrator workflows.
+
+### Customer Routes
+
+| Route            | Purpose                 |
+| ---------------- | ----------------------- |
+| `/chat`          | Customer Chat Interface |
+| `/history`       | Conversation History    |
+| `/notifications` | Customer Notifications  |
+
+### Authentication Routes
+
+| Route       | Purpose           |
+| ----------- | ----------------- |
+| `/login`    | User Login        |
+| `/register` | User Registration |
+
+### Administrator Routes
+
+| Route                      | Purpose                               |
+| -------------------------- | ------------------------------------- |
+| `/admin/dashboard`         | Dashboard Overview                    |
+| `/admin/knowledge-base`    | Knowledge Base Management             |
+| `/admin/conversations`     | Customer Conversations                |
+| `/admin/flagged`           | Flagged Questions & Ticket Management |
+| `/admin/flagged/:ticketId` | Ticket Details                        |
+| `/admin/quality`           | AI Quality Center                     |
+
+---
+
+## Service Layer
+
+All backend communication is centralized through dedicated service modules.
+
+### Services
+
+| Service                 | Responsibility                   |
+| ----------------------- | -------------------------------- |
+| auth.service.ts         | Authentication & JWT             |
+| chat.service.ts         | Chat Sessions & Messages         |
+| ticket.service.ts       | Ticket Operations                |
+| notification.service.ts | Customer Notifications           |
+| document.service.ts     | Knowledge Base Operations        |
+| admin.service.ts        | Dashboard & AI Quality Analytics |
+
+Benefits:
+
+- Centralized API logic
+- Better maintainability
+- Easier testing
+- Reduced code duplication
+
+---
+
+## State Management
+
+SupportAI uses lightweight frontend state management.
+
+### Managed State
+
+- Authentication State
+- User Information
+- Chat Sessions
+- Ticket Data
+- Notifications
+
+Benefits:
+
+- Simplified architecture
+- Predictable updates
+- Reduced complexity
+
+---
+
+## Key Frontend Features
+
+### Customer Portal
+
+- Persistent Chat Sessions
+- Conversation History
+- Message Flagging
+- Notifications
+- Authentication
+
+### Administrator Portal
+
+- Dashboard Analytics
+- Knowledge Base Management
+- Conversation Review
+- Flagged Question Management
+- Ticket Resolution
+- AI Quality Center
+
+### Shared Features
+
+- Protected Routes
+- Loading States
+- Error Handling
+- Toast Notifications
+- Responsive Design
+
+---
+
+## Architectural Improvements
+
+The frontend architecture has evolved significantly from the initial prototype.
+
+Key improvements include:
+
+- Feature-based organization
+- Dedicated service layer
+- Unified Ticket & Flagged Question workflow
+- AI Quality Center integration
+- Modular routing structure
+- Production-ready error handling
+- Reusable UI components
+- Scalable administrative tooling
+
+## This architecture enables SupportAI to support both customer-facing AI interactions and administrative support operations within a single cohesive application.
+
+# 9. Backend Architecture
+
+The SupportAI backend follows a modular layered architecture designed for scalability, maintainability, reliability, and AI extensibility.
+
+The architecture separates API routing, business logic, repositories, retrieval orchestration, external integrations, and infrastructure concerns.
+
+---
+
+## Backend Component Architecture
 
 ```mermaid
 flowchart TB
 
 subgraph API["API Layer"]
 
-Auth["Auth Router"]
-
-Chat["Chat Router"]
-
-Upload["Upload Router"]
-
-Admin["Admin Router"]
+Auth["🔐 Authentication API"]
+Chat["💬 Chat API"]
+Documents["📄 Documents API"]
+Tickets["🎫 Ticket API"]
+Admin["⚙️ Admin API"]
+Quality["📊 AI Quality API"]
+Notifications["🔔 Notification API"]
 
 end
 
 subgraph Services["Application Services"]
 
-UserService["User Service"]
+AuthService["Authentication Service"]
+ChatOrchestrator["Chat Orchestrator"]
+RAGPipeline["RAG Pipeline"]
+TicketService["Ticket Service"]
+NotificationService["Notification Service"]
+DocumentService["Document Service"]
+AnalyticsService["Analytics Service"]
 
-RAG["RAG Service"]
+end
 
-Analytics["Analytics Service"]
+subgraph Retrieval["Retrieval Layer"]
+
+BM25["BM25 Retriever"]
+Vector["Dense Vector Retriever"]
+Fusion["RRF Fusion Engine"]
+Prompt["Prompt Builder"]
+
+end
+
+subgraph Repositories["Repository Layer"]
+
+UserRepo["User Repository"]
+ChatRepo["Chat Repository"]
+TicketRepo["Ticket Repository"]
+DocumentRepo["Document Repository"]
+NotificationRepo["Notification Repository"]
 
 end
 
 subgraph Infrastructure["Infrastructure"]
 
 Redis["Redis"]
-
 Postgres["PostgreSQL"]
-
 Qdrant["Qdrant"]
-
 Groq["Groq API"]
-
-Background["Background Worker"]
 
 end
 
-Auth --> UserService
+Auth --> AuthService
 
-Chat --> RAG
+Chat --> ChatOrchestrator
 
-Upload --> Background
+Documents --> DocumentService
 
-Admin --> Analytics
+Tickets --> TicketService
 
-UserService --> Postgres
+Admin --> AnalyticsService
 
-Analytics --> Postgres
+Quality --> AnalyticsService
 
-RAG --> Redis
-RAG --> Postgres
-RAG --> Qdrant
-RAG --> Groq
+Notifications --> NotificationService
 
-Background --> Postgres
-Background --> Qdrant
+ChatOrchestrator --> RAGPipeline
+
+RAGPipeline --> BM25
+RAGPipeline --> Vector
+RAGPipeline --> Fusion
+RAGPipeline --> Prompt
+
+Fusion --> Qdrant
+Fusion --> Redis
+
+Prompt --> Groq
+
+AuthService --> UserRepo
+
+ChatOrchestrator --> ChatRepo
+
+TicketService --> TicketRepo
+
+DocumentService --> DocumentRepo
+
+NotificationService --> NotificationRepo
+
+UserRepo --> Postgres
+ChatRepo --> Postgres
+TicketRepo --> Postgres
+DocumentRepo --> Postgres
+NotificationRepo --> Postgres
 ```
 
-### Folder Structure
+---
 
-```
+## Backend Folder Structure
+
+```text
 app/
 ├── api/
 │   └── v1/
 │       ├── auth.py
 │       ├── chat.py
 │       ├── documents.py
-│       ├── admin.py
-│       └── feedback.py
+│       ├── tickets.py
+│       ├── notifications.py
+│       ├── quality.py
+│       └── admin.py
+│
 ├── services/
-│   ├── rag_service.py       # Orchestrates retrieval + generation
-│   ├── search_service.py    # BM25 + vector hybrid search
-│   ├── embed_service.py     # Embedding generation
-│   ├── llm_service.py       # Groq API interaction
-│   └── analytics_service.py
+│   ├── orchestrator.py
+│   ├── ticket_service.py
+│   ├── notification_service.py
+│   ├── analytics_service.py
+│   ├── ingestion.py
+│   │
+│   └── retrieval/
+│       ├── pipeline.py
+│       ├── bm25_service.py
+│       ├── fusion_service.py
+│       ├── prompt_builder.py
+│       └── query_rewriter.py
+│
+├── repositories/
+│   ├── user_repo.py
+│   ├── chat_repo.py
+│   ├── ticket_repo.py
+│   ├── document_repo.py
+│   └── notification_repo.py
+│
 ├── models/
-│   └── db_models.py         # SQLAlchemy ORM models
+│   ├── user.py
+│   ├── document.py
+│   ├── chat.py
+│   ├── ticket.py
+│   └── notification.py
+│
 ├── schemas/
-│   └── pydantic_schemas.py  # Request/response validation
+│   ├── auth.py
+│   ├── chat.py
+│   ├── document.py
+│   ├── ticket.py
+│   ├── notification.py
+│   └── quality.py
+│
 ├── db/
-│   ├── session.py           # DB engine and session factory
-│   └── vector_store.py      # Qdrant client wrapper
+│   ├── session.py
+│   ├── redis.py
+│   └── qdrant.py
+│
 ├── core/
-│   ├── config.py            # Environment settings
-│   ├── security.py          # JWT helpers, password hashing
-│   └── dependencies.py      # FastAPI dependency injection
+│   ├── config.py
+│   ├── security.py
+│   ├── dependencies.py
+│   └── logging.py
+│
 └── main.py
 ```
 
-### Request Flow (Chat Query)
+---
+
+## Chat Request Flow
 
 ```mermaid
 sequenceDiagram
 
 actor Customer
 
-participant React
-
-participant API
-
-participant Redis
-
-participant RAG
-
+participant Frontend
+participant ChatAPI
+participant Orchestrator
+participant Pipeline
+participant BM25
 participant Qdrant
-
+participant Fusion
+participant PromptBuilder
 participant Groq
-
 participant PostgreSQL
 
-Customer->>React: Send Message
+Customer->>Frontend: Send Message
 
-React->>API: POST /chat/message
+Frontend->>ChatAPI: POST /chat
 
-API->>Redis: Check Cache
+ChatAPI->>Orchestrator: Process Request
 
-alt Cache Hit
+Orchestrator->>Pipeline: Retrieve Context
 
-Redis-->>API: Cached Response
+Pipeline->>BM25: Sparse Search
 
-API-->>React: Response
+Pipeline->>Qdrant: Vector Search
 
-else Cache Miss
+BM25-->>Fusion: Ranked Results
 
-API->>RAG: Process Query
+Qdrant-->>Fusion: Ranked Results
 
-RAG->>Qdrant: Hybrid Search
+Fusion-->>Pipeline: Top Chunks
 
-Qdrant-->>RAG: Top Chunks
+Pipeline-->>PromptBuilder: Context
 
-RAG->>Groq: Generate Response
+PromptBuilder-->>Groq: Final Prompt
 
-Groq-->>RAG: AI Response
+Groq-->>Orchestrator: AI Response
 
-RAG->>PostgreSQL: Save Conversation
+Orchestrator->>PostgreSQL: Save Session
 
-RAG->>Redis: Cache Response
+Orchestrator-->>ChatAPI: Response
 
-API-->>React: Response
+ChatAPI-->>Frontend: AI Response
 
-end
+Frontend-->>Customer: Render Message
 ```
 
 ---
 
-## 10. Database Design
+## Ticket Workflow
 
-All relational data is stored in PostgreSQL, managed via SQLAlchemy ORM and Alembic migrations.
+```mermaid
+flowchart TD
+
+Customer["Customer"]
+
+AI["AI Response"]
+
+Flag["Flag Message"]
+
+Ticket["Ticket Created"]
+
+Admin["Admin Review"]
+
+Reply["Support Reply"]
+
+Notification["Customer Notification"]
+
+Resolved["Resolved"]
+
+Customer --> AI
+
+AI --> Flag
+
+Flag --> Ticket
+
+Ticket --> Admin
+
+Admin --> Reply
+
+Reply --> Notification
+
+Notification --> Customer
+
+Admin --> Resolved
+```
+
+---
+
+## AI Quality Monitoring Flow
+
+```mermaid
+flowchart LR
+
+Chat["Chat Sessions"]
+
+Tickets["Flagged Tickets"]
+
+Reports["Report Reasons"]
+
+Analytics["AI Quality Center"]
+
+Chat --> Analytics
+
+Tickets --> Analytics
+
+Reports --> Analytics
+```
+
+### Key Architectural Improvements
+
+- Chat Orchestrator introduced for centralized request handling.
+- Retrieval Pipeline separated from API logic.
+- Hybrid Search implemented using BM25 + Dense Retrieval + RRF Fusion.
+- Ticket Management integrated into core architecture.
+- Notification Service added.
+- AI Quality Center added for analytics and monitoring.
+- Repository Pattern adopted for database access.
+- Security and logging centralized.
+- Production hardening applied across ingestion and retrieval workflows.
+
+# 10. Database Design
+
+SupportAI uses PostgreSQL as the primary relational database and Qdrant as the vector database.
+
+The relational layer stores users, conversations, tickets, notifications, analytics, and application metadata, while Qdrant stores semantic embeddings used by the Retrieval-Augmented Generation (RAG) pipeline.
+
+---
+
+## 10.1 Users
 
 ### `users`
 
-| Column            | Type         | Notes               |
-| ----------------- | ------------ | ------------------- |
-| `id`              | UUID (PK)    | Auto-generated      |
-| `email`           | VARCHAR(255) | Unique, required    |
-| `hashed_password` | TEXT         | bcrypt hash         |
-| `role`            | ENUM         | `customer`, `admin` |
-| `created_at`      | TIMESTAMP    | Default: now()      |
-| `is_active`       | BOOLEAN      | Default: true       |
+| Column          | Type         | Description            |
+| --------------- | ------------ | ---------------------- |
+| id              | UUID (PK)    | Unique user identifier |
+| email           | VARCHAR(255) | Unique email address   |
+| hashed_password | TEXT         | Secure password hash   |
+| role            | ENUM         | customer, admin        |
+| is_active       | BOOLEAN      | Account status         |
+| created_at      | TIMESTAMP    | Account creation time  |
 
-- The users table stores both customer and administrator accounts. Role-based access control (RBAC) is enforced at the API layer.
+### Responsibilities
 
-### `documents`
-
-| Column        | Type              | Notes                     |
-| ------------- | ----------------- | ------------------------- |
-| `id`          | UUID (PK)         |                           |
-| `title`       | VARCHAR(255)      | Display name              |
-| `filename`    | TEXT              | Original upload filename  |
-| `Category`    | VARCHAR(100)      | billing,technical,general |
-| `file_type`   | VARCHAR(50)       | `pdf`, `txt`, `md`, etc.  |
-| `uploaded_by` | UUID (FK → users) | Admin who uploaded        |
-| `created_at`  | TIMESTAMP         |                           |
-| `is_active`   | BOOLEAN           | Soft delete flag          |
-
-- Each document is assigned a category during upload. Categories help organize the knowledge base and support future filtering, analytics, and search enhancements.
-
-### `document_chunks`
-
-| Column            | Type                  | Notes                         |
-| ----------------- | --------------------- | ----------------------------- |
-| `id`              | UUID (PK)             |                               |
-| `document_id`     | UUID (FK → documents) | Parent document               |
-| `chunk_index`     | INTEGER               | Position in document          |
-| `content`         | TEXT                  | Raw chunk text                |
-| `token_count`     | INTEGER               | Approx tokens in chunk        |
-| `page_number`     | INTEGER               |
-| `qdrant_point_id` | UUID                  | Reference to vector in Qdrant |
-| `created_at`      | TIMESTAMP             |                               |
-
-- The page_number field enables accurate source attribution by linking retrieved chunks back to their original document page.
-
-### `conversations`
-
-| Column       | Type              | Notes                                   |
-| ------------ | ----------------- | --------------------------------------- |
-| `id`         | UUID (PK)         |                                         |
-| `user_id`    | UUID (FK → users) | Customer who started it                 |
-| `title`      | VARCHAR(255)      | Auto-generated or first message snippet |
-| `created_at` | TIMESTAMP         |                                         |
-| `updated_at` | TIMESTAMP         | Updated on each new message             |
-
-### `messages`
-
-| Column             | Type                      | Notes                   |
-| ------------------ | ------------------------- | ----------------------- |
-| `id`               | UUID (PK)                 |                         |
-| `conversation_id`  | UUID (FK → conversations) |                         |
-| `role`             | ENUM                      | `user`, `assistant`     |
-| `content`          | TEXT                      | Message body            |
-| `source_chunks`    | JSONB                     | Array of chunk IDs used |
-| `confidence_score` | FLOAT                     | 0.0 – 1.0               |
-| `created_at`       | TIMESTAMP                 |                         |
-
-### `feedback`
-
-| Column       | Type                 | Notes                     |
-| ------------ | -------------------- | ------------------------- |
-| `id`         | UUID (PK)            |                           |
-| `message_id` | UUID (FK → messages) | Message being rated       |
-| `user_id`    | UUID (FK → users)    | Who gave feedback         |
-| `rating`     | ENUM                 | `positive`, `negative`    |
-| `comment`    | TEXT                 | Optional written feedback |
-| `created_at` | TIMESTAMP            |                           |
-
-### `flagged_questions`
-
-| Column        | Type                 | Notes                                           |
-| ------------- | -------------------- | ----------------------------------------------- |
-| `id`          | UUID (PK)            |                                                 |
-| `message_id`  | UUID (FK → messages) | The flagged message                             |
-| `reason`      | ENUM                 | `low_confidence`, `negative_feedback`, `manual` |
-| `status`      | ENUM                 | `open`, `reviewed`, `resolved`                  |
-| `admin_note`  | TEXT                 | Optional admin comment                          |
-| `created_at`  | TIMESTAMP            |                                                 |
-| `reviewed_at` | TIMESTAMP            | Nullable                                        |
+- Authentication
+- Authorization
+- Role-based access control
+- Ownership of conversations and tickets
 
 ---
 
-## 11. Search Architecture
+## 10.2 Knowledge Base
 
-SupportAI uses **Hybrid Search** — combining keyword-based BM25 retrieval with dense vector search — to improve answer quality over either approach alone.
+### `documents`
 
-### BM25 (Sparse Retrieval)
+| Column      | Type              | Description                |
+| ----------- | ----------------- | -------------------------- |
+| id          | UUID (PK)         | Unique document identifier |
+| title       | VARCHAR(255)      | Document title             |
+| filename    | TEXT              | Original filename          |
+| file_type   | VARCHAR(50)       | pdf, txt, md, etc          |
+| uploaded_by | UUID (FK → users) | Uploading administrator    |
+| category    | VARCHAR(100)      | Business category          |
+| created_at  | TIMESTAMP         | Upload timestamp           |
+| is_active   | BOOLEAN           | Soft delete flag           |
 
-BM25 (Best Match 25) is a traditional IR algorithm that scores documents based on term frequency and inverse document frequency.
+### Responsibilities
 
-- **Strengths:** Excellent for exact keyword matches, product names, IDs, and short queries
-- **Implementation:** `rank_bm25` Python library; BM25 index built in-memory at startup from all active chunks
-- **Refresh:** Re-indexed whenever documents are added or removed
+- Knowledge base management
+- Source document tracking
+- Administrative organization
 
-### Vector Search (Dense Retrieval)
+---
 
-Each document chunk is encoded into a high-dimensional embedding using `BAAI/bge-small-en-v1.5` and stored in Qdrant.
+## 10.3 Chat System
 
-- **Strengths:** Captures semantic similarity; handles paraphrases and concept-level queries
-- **Embedding dim:** 384 dimensions
-- **Distance metric:** Cosine similarity
-- **Qdrant:** Used for approximate nearest-neighbor (ANN) search at query time
+### `chat_sessions`
 
-### Hybrid Fusion (RRF)
+| Column     | Type              | Description             |
+| ---------- | ----------------- | ----------------------- |
+| id         | UUID (PK)         | Session identifier      |
+| user_id    | UUID (FK → users) | Session owner           |
+| title      | VARCHAR(255)      | Session title           |
+| created_at | TIMESTAMP         | Session creation        |
+| updated_at | TIMESTAMP         | Last activity timestamp |
 
-Both retrievers return ranked result lists. These are merged using **Reciprocal Rank Fusion (RRF)**:
+### `chat_messages`
 
+| Column           | Type                      | Description          |
+| ---------------- | ------------------------- | -------------------- |
+| id               | UUID (PK)                 | Message identifier   |
+| session_id       | UUID (FK → chat_sessions) | Parent session       |
+| role             | ENUM                      | user, assistant      |
+| content          | TEXT                      | Message body         |
+| confidence_score | FLOAT                     | Retrieval confidence |
+| created_at       | TIMESTAMP                 | Creation timestamp   |
+
+### Responsibilities
+
+- Persistent conversation history
+- Session management
+- AI response storage
+- Conversation analytics
+
+---
+
+## 10.4 Ticket Management System
+
+### `tickets`
+
+| Column           | Type                      | Description                                               |
+| ---------------- | ------------------------- | --------------------------------------------------------- |
+| id               | UUID (PK)                 | Ticket identifier                                         |
+| ticket_number    | VARCHAR(50)               | Human-readable ticket number                              |
+| title            | VARCHAR(255)              | Ticket title                                              |
+| description      | TEXT                      | Ticket description                                        |
+| category         | ENUM                      | REPORT, GENERAL, BUG, FEATURE                             |
+| priority         | ENUM                      | LOW, MEDIUM, HIGH, CRITICAL                               |
+| status           | ENUM                      | OPEN, IN_PROGRESS, WAITING_FOR_CUSTOMER, RESOLVED, CLOSED |
+| created_by       | UUID (FK → users)         | Customer                                                  |
+| assigned_to      | UUID (FK → users)         | Administrator                                             |
+| conversation_id  | UUID (FK → chat_sessions) | Related chat                                              |
+| chat_message_id  | UUID (FK → chat_messages) | Flagged AI response                                       |
+| report_reason    | VARCHAR(100)              | User-selected reason                                      |
+| customer_comment | TEXT                      | Additional context                                        |
+| created_at       | TIMESTAMP                 | Creation timestamp                                        |
+| updated_at       | TIMESTAMP                 | Last modification                                         |
+
+### Responsibilities
+
+- Human escalation workflow
+- AI response review
+- Support operations
+- Issue tracking
+
+---
+
+### `ticket_messages`
+
+| Column     | Type                | Description        |
+| ---------- | ------------------- | ------------------ |
+| id         | UUID (PK)           | Message identifier |
+| ticket_id  | UUID (FK → tickets) | Parent ticket      |
+| sender_id  | UUID (FK → users)   | Message author     |
+| content    | TEXT                | Reply content      |
+| created_at | TIMESTAMP           | Timestamp          |
+
+### Responsibilities
+
+- Customer-agent communication
+- Ticket discussion history
+- Resolution workflow
+
+---
+
+## 10.5 Notification System
+
+### `notifications`
+
+| Column     | Type              | Description             |
+| ---------- | ----------------- | ----------------------- |
+| id         | UUID (PK)         | Notification identifier |
+| user_id    | UUID (FK → users) | Recipient               |
+| title      | VARCHAR(255)      | Notification title      |
+| message    | TEXT              | Notification body       |
+| is_read    | BOOLEAN           | Read status             |
+| created_at | TIMESTAMP         | Creation timestamp      |
+
+### Responsibilities
+
+- Ticket updates
+- System alerts
+- Customer notifications
+- Administrative notifications
+
+---
+
+## 10.6 Password Recovery
+
+### `password_reset_tokens`
+
+| Column     | Type              | Description        |
+| ---------- | ----------------- | ------------------ |
+| id         | UUID (PK)         | Token identifier   |
+| user_id    | UUID (FK → users) | Associated user    |
+| token      | TEXT              | Secure reset token |
+| expires_at | TIMESTAMP         | Expiration time    |
+| created_at | TIMESTAMP         | Creation timestamp |
+
+### Responsibilities
+
+- Secure password reset workflow
+- Token validation
+- Account recovery
+
+---
+
+## 10.7 Database Relationships
+
+```mermaid
+erDiagram
+
+USERS ||--o{ CHAT_SESSIONS : owns
+
+CHAT_SESSIONS ||--o{ CHAT_MESSAGES : contains
+
+USERS ||--o{ TICKETS : creates
+
+USERS ||--o{ TICKETS : assigned_to
+
+TICKETS ||--o{ TICKET_MESSAGES : contains
+
+CHAT_SESSIONS ||--o{ TICKETS : related_to
+
+CHAT_MESSAGES ||--o| TICKETS : flagged_response
+
+USERS ||--o{ NOTIFICATIONS : receives
+
+USERS ||--o{ DOCUMENTS : uploads
+
+USERS ||--o{ PASSWORD_RESET_TOKENS : owns
 ```
-RRF_score(chunk) = Σ [ 1 / (k + rank_i) ]
-```
 
-Where `k = 60` (constant) and `rank_i` is each retriever's rank for that chunk. Higher fused score = higher priority in context window.
+---
+
+## 10.8 Vector Database Design (Qdrant)
+
+SupportAI uses Qdrant as the semantic search engine.
+
+Each stored vector contains:
+
+- Chunk Embedding
+- Document Metadata
+- Document ID
+- Filename
+- Chunk Index
+- File Type
+- Language
+- Version Metadata
+
+Qdrant is responsible for:
+
+- Dense Retrieval
+- Semantic Similarity Search
+- Hybrid Retrieval Support
+- Vector Ranking
+
+## The vector database works alongside PostgreSQL but is optimized for semantic retrieval rather than transactional workloads.
+
+# 11. Search & Retrieval Architecture
+
+SupportAI uses a Retrieval-Augmented Generation (RAG) architecture powered by Hybrid Search.
+
+The retrieval system combines:
+
+- Sparse Retrieval (BM25)
+- Dense Vector Retrieval
+- Reciprocal Rank Fusion (RRF)
+- Prompt Engineering
+- Large Language Model Generation
+
+This approach improves answer quality, retrieval coverage, and factual grounding compared to using either retrieval strategy independently.
+
+---
+
+## 11.1 Retrieval Pipeline Overview
 
 ```mermaid
 flowchart LR
 
 Q["❓ User Query"]
 
-BM25["📖 BM25 Retrieval<br/>(Keyword Search)"]
+Rewrite["✏️ Query Processing"]
 
-Vector["🔎 Vector Retrieval<br/>(Semantic Search)"]
+BM25["📖 BM25 Retrieval"]
 
-RRF["🔀 Reciprocal Rank Fusion"]
+Vector["🔎 Dense Vector Retrieval"]
 
-TopK["🏆 Top-K Ranked Chunks"]
+Fusion["⚡ RRF Fusion"]
 
-LLM["🤖 Groq Llama 3.1"]
+Context["📚 Context Selection"]
 
-Q --> BM25
-Q --> Vector
+Prompt["📝 Prompt Builder"]
 
-BM25 --> RRF
-Vector --> RRF
+LLM["🧠 Groq LLM"]
 
-RRF --> TopK
+Response["💬 AI Response"]
 
-TopK --> LLM
+Q --> Rewrite
+
+Rewrite --> BM25
+
+Rewrite --> Vector
+
+BM25 --> Fusion
+
+Vector --> Fusion
+
+Fusion --> Context
+
+Context --> Prompt
+
+Prompt --> LLM
+
+LLM --> Response
 ```
-
-### Why Hybrid?
-
-| Query Type             | BM25 | Vector | Hybrid |
-| ---------------------- | ---- | ------ | ------ |
-| "reset password"       | ✅   | ✅     | ✅     |
-| "I can't log in"       | ❌   | ✅     | ✅     |
-| "SKU-3847 specs"       | ✅   | ❌     | ✅     |
-| "tell me about refund" | ❌   | ✅     | ✅     |
-
-Hybrid search consistently outperforms either method alone, especially for a mixed real-world query set.
-
-### Knowledge Gap Detection
-
-SupportAI identifies knowledge gaps by analyzing questions that are repeatedly flagged due to low confidence scores or negative feedback.
-
-The system tracks the frequency of flagged questions and groups similar questions together based on semantic similarity. When a topic repeatedly appears without sufficient supporting documentation, it is surfaced to administrators as a potential knowledge gap.
-Administrators can use these insights to upload new documentation or add FAQ entries, improving future answer quality.
 
 ---
 
-## 12. RAG Workflow
+## 11.2 Sparse Retrieval (BM25)
 
-RAG (Retrieval-Augmented Generation) grounds LLM responses in real documents, reducing hallucinations and providing traceable answers.
+SupportAI uses BM25 for keyword-based retrieval alongside dense vector search as part of its Hybrid Search architecture.
 
-### Ingestion Pipeline
+BM25 is highly effective when users reference:
+
+- Product names
+- Account identifiers
+- Error codes
+- Exact phrases
+- Technical terminology
+
+### Characteristics
+
+- Lexical keyword retrieval
+- Built from active document chunks stored in PostgreSQL
+- Fast exact-match retrieval
+- Strong precision for structured queries
+- Complements dense vector retrieval
+
+### Current Implementation
+
+For the current deployment model, SupportAI maintains the BM25 index in memory within the backend application.
+
+The index is generated from all active document chunks and provides low-latency keyword retrieval without requiring an external search engine.
+
+### Refresh Strategy
+
+The BM25 index is automatically rebuilt whenever:
+
+- Documents are uploaded
+- Documents are replaced
+- Documents are deleted
+
+This ensures that newly ingested knowledge becomes immediately searchable.
+
+### Horizontal Scaling Considerations
+
+In a multi-instance deployment, each backend replica maintains its own local BM25 index.
+
+To ensure retrieval consistency across replicas, BM25 refresh events can be propagated through Redis Pub/Sub, allowing all application instances to rebuild their indexes whenever knowledge base changes occur.
+
+## This architecture preserves retrieval consistency while supporting future horizontal scaling requirements.
+
+## 11.3 Dense Vector Retrieval
+
+SupportAI uses semantic vector search through Qdrant.
+
+Each document chunk is converted into a vector embedding and stored inside Qdrant.
+
+### Characteristics
+
+- Semantic similarity search
+- Concept-level understanding
+- Handles paraphrased questions
+- Supports natural language queries
+
+### Embedding Architecture
+
+SupportAI uses a provider-agnostic embedding system.
+
+Benefits:
+
+- Model replacement without code changes
+- Dynamic embedding dimensions
+- Future provider flexibility
+
+### Vector Metadata
+
+Each vector contains metadata including:
+
+- document_id
+- filename
+- chunk_index
+- file_type
+- language
+- version
+- upload metadata
+
+---
+
+## 11.4 Hybrid Search
+
+Neither sparse retrieval nor dense retrieval is sufficient on its own.
+
+SupportAI combines both approaches to maximize recall and precision.
+
+### Sparse Retrieval Strengths
+
+- Exact keywords
+- Product identifiers
+- Error codes
+- Technical terms
+
+### Dense Retrieval Strengths
+
+- Semantic understanding
+- Synonyms
+- Natural language
+- Concept matching
+
+### Hybrid Benefits
+
+- Improved retrieval coverage
+- Reduced hallucinations
+- Better answer grounding
+- Improved customer satisfaction
+
+---
+
+## 11.5 Reciprocal Rank Fusion (RRF)
+
+SupportAI combines BM25 and Dense Retrieval results using Reciprocal Rank Fusion (RRF).
+
+### Formula
+
+```text
+RRF Score = Σ [1 / (k + rank)]
+```
+
+Where:
+
+- k = 60
+- rank = result position in each retrieval list
+
+### Benefits
+
+- Eliminates manual weighting
+- Robust ranking
+- Improved retrieval consistency
+- Better handling of diverse queries
+
+### Fusion Flow
+
+```mermaid
+flowchart LR
+
+BM25["BM25 Results"]
+
+Vector["Vector Results"]
+
+Fusion["RRF Fusion"]
+
+TopK["Top Ranked Chunks"]
+
+BM25 --> Fusion
+
+Vector --> Fusion
+
+Fusion --> TopK
+```
+
+---
+
+## 11.6 Context Selection
+
+After fusion, the highest-ranked chunks are selected.
+
+The retrieval pipeline:
+
+1. Removes duplicate chunks
+2. Preserves ranking order
+3. Enforces context limits
+4. Maximizes information density
+
+The resulting context becomes the foundation of the LLM prompt.
+
+---
+
+## 11.7 Prompt Construction
+
+SupportAI uses a dedicated Prompt Builder component.
+
+Responsibilities:
+
+- Context formatting
+- System instruction injection
+- User question formatting
+- Hallucination prevention guidance
+
+The Prompt Builder ensures the LLM receives structured, grounded context.
+
+---
+
+## 11.8 Response Generation
+
+SupportAI uses Groq-hosted LLMs for inference.
+
+### Responsibilities
+
+- Generate final answers
+- Follow system instructions
+- Ground responses in retrieved context
+- Avoid unsupported claims
+
+The model is instructed to:
+
+- Prefer retrieved information
+- Acknowledge missing information
+- Avoid hallucinating unsupported facts
+
+---
+
+## 11.9 Confidence Scoring
+
+SupportAI calculates a confidence score for generated responses.
+
+The confidence score is derived from retrieval quality signals such as:
+
+- BM25 ranking strength
+- Vector similarity strength
+- Fusion ranking quality
+- Context relevance
+
+### Usage
+
+Confidence scores are used by:
+
+- Ticket Escalation
+- Flagged Response Analysis
+- AI Quality Center
+- Knowledge Gap Detection
+
+Low-confidence responses are surfaced to administrators for review.
+
+---
+
+## 11.10 Knowledge Gap Detection
+
+SupportAI continuously monitors AI performance to identify gaps in the knowledge base.
+
+Signals include:
+
+- Flagged responses
+- Repeated ticket creation
+- Low-confidence answers
+- Frequently unresolved questions
+
+### Detection Workflow
+
+```mermaid
+flowchart TD
+
+Question["Customer Questions"]
+
+LowConfidence["Low Confidence"]
+
+Flags["Flagged Responses"]
+
+Tickets["Support Tickets"]
+
+Analytics["AI Quality Center"]
+
+KnowledgeGap["Knowledge Gap"]
+
+Question --> LowConfidence
+
+Question --> Flags
+
+Question --> Tickets
+
+LowConfidence --> Analytics
+
+Flags --> Analytics
+
+Tickets --> Analytics
+
+Analytics --> KnowledgeGap
+```
+
+### Benefits
+
+- Identify missing documentation
+- Improve answer quality
+- Reduce escalations
+- Guide knowledge base expansion
+
+---
+
+## 11.11 Current Limitation
+
+SupportAI currently does not persist document attribution data between retrieved chunks and generated responses.
+
+As a result:
+
+- Most Flagged Documents cannot be calculated
+- Document Health Scores cannot be calculated
+- Retrieval Attribution Analytics cannot be calculated
+
+### Planned Enhancement (v1.1)
+
+Introduce a Retrieval Attribution Layer:
+
+ChatMessage
+↔
+MessageSource
+↔
+Document
+↔
+Chunk
+
+## This will enable full Knowledge Base Impact Analysis within the AI Quality Center.
+
+# 12. Retrieval-Augmented Generation (RAG) Workflow
+
+SupportAI uses a Retrieval-Augmented Generation (RAG) architecture to ensure responses are grounded in verified knowledge base documents rather than relying solely on LLM memory.
+
+The RAG workflow consists of two major stages:
+
+1. Document Ingestion Pipeline
+2. Query Processing Pipeline
+
+This architecture significantly reduces hallucinations, improves factual accuracy, and enables scalable knowledge management.
+
+---
+
+## 12.1 Document Ingestion Pipeline
+
+The ingestion pipeline transforms uploaded knowledge base documents into searchable semantic vectors.
 
 ```mermaid
 flowchart TB
 
-Upload["📄 Admin Uploads Document"]
+Upload["📄 Document Upload"]
 
-Validate["✅ Validate File"]
+Validate["✅ File Validation"]
 
-Parse["📑 Parse & Clean Text"]
+Extract["📑 Text Extraction"]
 
-Chunk["✂️ Chunk Text<br/>(512 Tokens, 64 Overlap)"]
+Chunk["✂️ Intelligent Chunking"]
 
-Embed["🧠 Generate Embeddings<br/>(bge-small)"]
+Metadata["🏷️ Metadata Enrichment"]
 
-Postgres["🐘 Store Chunks<br/>PostgreSQL"]
+Embed["🧠 Embedding Generation"]
 
-Qdrant["🔎 Store Vectors<br/>Qdrant"]
+Qdrant["🔎 Qdrant Vector Storage"]
+
+Postgres["🐘 PostgreSQL Metadata"]
 
 Upload --> Validate
-Validate --> Parse
-Parse --> Chunk
 
-Chunk --> Embed
+Validate --> Extract
 
-Chunk --> Postgres
+Extract --> Chunk
+
+Chunk --> Metadata
+
+Metadata --> Embed
 
 Embed --> Qdrant
+
+Metadata --> Postgres
 ```
 
-### Query Pipeline
+### Processing Stages
+
+#### File Validation
+
+Before processing, uploaded files undergo:
+
+- MIME Type Validation
+- Extension Validation
+- File Size Validation
+- Filename Sanitization
+
+This prevents malicious uploads and invalid content.
+
+---
+
+#### Text Extraction
+
+SupportAI extracts text from:
+
+- PDF Documents
+- Markdown Files
+- Plain Text Files
+
+Extracted text is normalized and cleaned before chunking.
+
+---
+
+#### Intelligent Chunking
+
+SupportAI uses LangChain's Recursive Character Text Splitter.
+
+Benefits:
+
+- Preserves semantic meaning
+- Reduces context fragmentation
+- Improves retrieval accuracy
+
+Chunk metadata includes:
+
+- Document ID
+- Filename
+- Chunk Index
+- Language
+- Version
+- Upload Metadata
+
+---
+
+#### Embedding Generation
+
+Document chunks are converted into dense vector embeddings.
+
+SupportAI uses a provider-agnostic embedding architecture allowing future model replacement without changing application logic.
+
+---
+
+#### Storage
+
+Metadata and document information are stored in PostgreSQL.
+
+Vector embeddings are stored in Qdrant for semantic retrieval.
+
+---
+
+## 12.2 Query Processing Pipeline
+
+When a customer submits a question, SupportAI executes a hybrid retrieval workflow.
 
 ```mermaid
 sequenceDiagram
@@ -784,184 +2211,965 @@ sequenceDiagram
 actor Customer
 
 participant API
-
-participant Embedder
-
+participant Orchestrator
+participant Pipeline
 participant BM25
-
 participant Qdrant
-
-participant RRF
-
+participant Fusion
+participant PromptBuilder
 participant Groq
 
 Customer->>API: Ask Question
 
-API->>Embedder: Generate Embedding
+API->>Orchestrator: Process Query
 
-API->>BM25: Keyword Search
+Orchestrator->>Pipeline: Retrieve Context
 
-API->>Qdrant: Semantic Search
+Pipeline->>BM25: Sparse Search
 
-BM25-->>RRF: Ranked Results
+Pipeline->>Qdrant: Dense Search
 
-Qdrant-->>RRF: Ranked Results
+BM25-->>Fusion: Ranked Results
 
-RRF-->>API: Top 5 Chunks
+Qdrant-->>Fusion: Ranked Results
 
-API->>Groq: Build Prompt & Generate
+Fusion-->>Pipeline: Top Results
 
-Groq-->>API: Response
+Pipeline-->>PromptBuilder: Context
 
-API-->>Customer: Answer + Sources
+PromptBuilder-->>Groq: Construct Prompt
+
+Groq-->>Orchestrator: AI Response
+
+Orchestrator-->>Customer: Final Response
 ```
-
-### Confidence Scoring
-
-Confidence is a weighted heuristic based on:
-
-- **Top-chunk similarity score** (0–1, from Qdrant cosine distance)
-- **Number of supporting chunks** (more corroborating chunks → higher confidence)
-- **Keyword overlap** between answer and top chunks
-
-```python
-confidence = (0.6 * top_similarity) + (0.3 * chunk_corroboration) + (0.1 * keyword_overlap)
-```
-
-### Human-in-the-Loop Learning
-
-SupportAI incorporates a human-in-the-loop feedback mechanism to continuously improve answer quality.
-
-When a customer question receives a low confidence score or repeated negative feedback, it is added to the flagged questions queue. Administrators can review the question and provide a verified answer.
-
-The verified answer is stored as a knowledge base entry and processed through the standard ingestion pipeline:
-
-Admin Answer
-↓
-Knowledge Base Entry
-↓
-Chunking
-↓
-Embedding Generation
-↓
-Qdrant Indexing
-
-This enables the system to answer similar questions automatically in future interactions, reducing repeated escalations and continuously expanding the knowledge base.
 
 ---
 
-## 13. API Design
+## 12.3 Hybrid Retrieval
 
-All endpoints are prefixed with `/api/v1/`. Auth-protected routes require `Authorization: Bearer <token>`.
+SupportAI combines two retrieval strategies:
+
+### BM25 Retrieval
+
+Best for:
+
+- Exact keywords
+- Product names
+- Error codes
+- Technical identifiers
+
+### Dense Retrieval
+
+Best for:
+
+- Natural language questions
+- Synonyms
+- Semantic similarity
+- Concept matching
+
+### Reciprocal Rank Fusion (RRF)
+
+SupportAI combines both result sets using Reciprocal Rank Fusion.
+
+Formula:
+
+```text
+RRF Score = Σ [1 / (k + rank)]
+```
+
+Where:
+
+- k = 60
+- rank = result position
+
+Benefits:
+
+- Improved retrieval accuracy
+- Better ranking consistency
+- Reduced dependence on manual weighting
+
+---
+
+## 12.4 Prompt Construction
+
+Retrieved context is processed by the Prompt Builder.
+
+Responsibilities:
+
+- Context Formatting
+- System Instruction Injection
+- User Question Formatting
+- Hallucination Prevention
+
+The Prompt Builder ensures the LLM receives structured and grounded information.
+
+---
+
+## 12.5 Response Generation
+
+SupportAI uses Groq-hosted LLMs to generate responses.
+
+The model is instructed to:
+
+- Prefer retrieved context
+- Avoid unsupported claims
+- Acknowledge missing information
+- Remain grounded in available documents
+
+This reduces hallucinations and improves answer reliability.
+
+---
+
+## 12.6 Confidence Scoring
+
+SupportAI calculates a confidence score for each generated response.
+
+The confidence score is derived from retrieval quality indicators including:
+
+- BM25 Ranking Strength
+- Vector Similarity Strength
+- Fusion Ranking Quality
+- Context Relevance
+
+Confidence scores are used by:
+
+- AI Quality Center
+- Ticket Escalation
+- Flagged Response Monitoring
+- Knowledge Gap Detection
+
+Low-confidence responses can be surfaced for administrative review.
+
+---
+
+## 12.7 Human-in-the-Loop Support Workflow
+
+SupportAI incorporates human review through the Ticket Management System.
+
+```mermaid
+flowchart TD
+
+Question["Customer Question"]
+
+AI["AI Response"]
+
+Flag["Flag Response"]
+
+Ticket["Ticket Created"]
+
+Admin["Admin Review"]
+
+Resolution["Support Resolution"]
+
+Knowledge["Knowledge Improvement"]
+
+Question --> AI
+
+AI --> Flag
+
+Flag --> Ticket
+
+Ticket --> Admin
+
+Admin --> Resolution
+
+Resolution --> Knowledge
+```
+
+### Benefits
+
+- Human oversight of AI failures
+- Improved customer satisfaction
+- Continuous quality monitoring
+- Knowledge gap identification
+
+---
+
+## 12.8 Current Limitation
+
+SupportAI currently does not persist document attribution data between retrieved chunks and generated responses.
+
+Because document attribution is not persisted:
+
+- Most Flagged Documents cannot be calculated.
+- Document Health Scores cannot be calculated.
+- Retrieval Attribution Analytics cannot be calculated.
+
+### Planned Enhancement (v1.1)
+
+Introduce a Retrieval Attribution Layer:
+
+```text
+ChatMessage
+    ↕
+MessageSource
+    ↕
+Document
+    ↕
+Chunk
+```
+
+This enhancement will enable:
+
+- Knowledge Base Impact Analysis
+- Retrieval Attribution Analytics
+- Source Traceability
+- Document Health Scoring
+
+---
+
+# 13. API Design
+
+SupportAI exposes RESTful APIs under the `/api/v1` namespace.
+
+Protected endpoints require:
+
+```http
+Authorization: Bearer <JWT_TOKEN>
+```
+
+Role-based access control (RBAC) determines whether a user may access Customer or Administrator functionality.
+
+---
+
+## 13.1 Authentication APIs
 
 ### Authentication
 
-| Method | Endpoint         | Description             | Auth     |
-| ------ | ---------------- | ----------------------- | -------- |
-| POST   | `/auth/register` | Create new user account | Public   |
-| POST   | `/auth/login`    | Login, returns JWT      | Public   |
-| GET    | `/auth/me`       | Get current user info   | Required |
+| Method | Endpoint                | Description                  | Access        |
+| ------ | ----------------------- | ---------------------------- | ------------- |
+| POST   | `/auth/register`        | Register a new account       | Public        |
+| POST   | `/auth/login`           | Authenticate and receive JWT | Public        |
+| GET    | `/auth/me`              | Get current user profile     | Authenticated |
+| POST   | `/auth/forgot-password` | Request password reset       | Public        |
+| POST   | `/auth/reset-password`  | Reset password using token   | Public        |
 
-- Authentication endpoints support both customer and admin accounts. Role-based authorization determines access permissions within the platform.
+### Responsibilities
 
-### Chat
+- User registration
+- Authentication
+- JWT issuance
+- Password reset workflow
+- Role identification
 
-| Method | Endpoint                   | Description                   | Auth     |
-| ------ | -------------------------- | ----------------------------- | -------- |
-| POST   | `/chat/message`            | Send message, get AI response | Customer |
-| GET    | `/chat/conversations`      | List user's conversations     | Customer |
-| GET    | `/chat/conversations/{id}` | Get full conversation history | Customer |
-| POST   | `/chat/feedback`           | Submit rating on a message    | Customer |
+---
 
-### Documents (Admin)
+## 13.2 Chat APIs
 
-| Method | Endpoint                 | Description                | Auth  |
-| ------ | ------------------------ | -------------------------- | ----- |
-| GET    | `/documents`             | List all documents         | Admin |
-| POST   | `/documents/upload`      | Upload a new document      | Admin |
-| DELETE | `/documents/{id}`        | Soft-delete a document     | Admin |
-| GET    | `/documents/{id}/chunks` | List chunks for a document | Admin |
+### Chat Sessions
 
-### Admin
+| Method | Endpoint              | Description              | Access   |
+| ------ | --------------------- | ------------------------ | -------- |
+| GET    | `/chat/sessions`      | List user chat sessions  | Customer |
+| GET    | `/chat/sessions/{id}` | Retrieve session history | Customer |
+| PATCH  | `/chat/sessions/{id}` | Rename session           | Customer |
+| DELETE | `/chat/sessions/{id}` | Delete session           | Customer |
 
-| Method | Endpoint              | Description                    | Auth  |
-| ------ | --------------------- | ------------------------------ | ----- |
-| GET    | `/admin/dashboard`    | Overview stats                 | Admin |
-| GET    | `/admin/flagged`      | List flagged questions         | Admin |
-| PATCH  | `/admin/flagged/{id}` | Update flag status             | Admin |
-| GET    | `/admin/analytics`    | Query trends and feedback data | Admin |
-| GET    | `/admin/gaps`         | Knowledge gap detection        | Admin |
+### Messaging
 
-### Example Response — Chat Message
+| Method | Endpoint        | Description                          | Access   |
+| ------ | --------------- | ------------------------------------ | -------- |
+| POST   | `/chat/message` | Send message and receive AI response | Customer |
+
+### Ticket Escalation
+
+| Method | Endpoint     | Description                        | Access   |
+| ------ | ------------ | ---------------------------------- | -------- |
+| POST   | `/chat/flag` | Flag AI response and create ticket | Customer |
+
+---
+
+## 13.3 Document Management APIs
+
+### Knowledge Base Management
+
+| Method | Endpoint            | Description                | Access |
+| ------ | ------------------- | -------------------------- | ------ |
+| GET    | `/documents`        | List uploaded documents    | Admin  |
+| POST   | `/documents/upload` | Upload new document        | Admin  |
+| DELETE | `/documents/{id}`   | Delete document            | Admin  |
+| GET    | `/documents/search` | Search knowledge base      | Admin  |
+| GET    | `/documents/{id}`   | Retrieve document metadata | Admin  |
+
+### Responsibilities
+
+- Knowledge base administration
+- Document ingestion
+- Search validation
+- Metadata inspection
+
+---
+
+## 13.4 Ticket Management APIs
+
+### Ticket Operations
+
+| Method | Endpoint                 | Description             | Access |
+| ------ | ------------------------ | ----------------------- | ------ |
+| GET    | `/tickets`               | List tickets            | Admin  |
+| GET    | `/tickets/{id}`          | Retrieve ticket details | Admin  |
+| PATCH  | `/tickets/{id}`          | Update ticket           | Admin  |
+| POST   | `/tickets/{id}/messages` | Add ticket reply        | Admin  |
+| GET    | `/tickets/{id}/messages` | Retrieve ticket thread  | Admin  |
+
+### Responsibilities
+
+- Ticket review
+- Escalation handling
+- Customer support workflow
+- Ticket resolution
+
+---
+
+## 13.5 Notification APIs
+
+### Notifications
+
+| Method | Endpoint                   | Description               | Access        |
+| ------ | -------------------------- | ------------------------- | ------------- |
+| GET    | `/notifications`           | Retrieve notifications    | Authenticated |
+| PATCH  | `/notifications/{id}/read` | Mark notification as read | Authenticated |
+
+### Responsibilities
+
+- Ticket updates
+- Support responses
+- System alerts
+
+---
+
+## 13.6 Administrator APIs
+
+### Dashboard
+
+| Method | Endpoint           | Description          | Access |
+| ------ | ------------------ | -------------------- | ------ |
+| GET    | `/admin/dashboard` | Dashboard statistics | Admin  |
+
+### Analytics
+
+| Method | Endpoint           | Description        | Access |
+| ------ | ------------------ | ------------------ | ------ |
+| GET    | `/admin/analytics` | Platform analytics | Admin  |
+
+### AI Quality Center
+
+| Method | Endpoint             | Description        | Access |
+| ------ | -------------------- | ------------------ | ------ |
+| GET    | `/quality/analytics` | AI quality metrics | Admin  |
+
+### Responsibilities
+
+- Platform monitoring
+- Quality analysis
+- Operational visibility
+- Business reporting
+
+---
+
+## 13.7 Example Chat Response
 
 ```json
 {
-  "message_id": "uuid-abc123",
-  "answer": "To reset your password, go to the login page and click 'Forgot Password'...",
+  "session_id": "8f5b3d71-6ef8-4f1f-a50a-2c65c4f0d9aa",
+  "message_id": "f7b82d15-90f5-49db-bf8a-4a5f4f3db25a",
+  "role": "assistant",
+  "content": "The refund period is 30 days from the date of purchase.",
   "confidence_score": 0.87,
-  "sources": [
-    {
-      "chunk_id": "uuid-chunk1",
-      "document_title": "User Guide v2.pdf",
-      "excerpt": "...click Forgot Password on the login screen...",
-      "page": 4
-    }
-  ],
-  "flagged": false
+  "created_at": "2026-07-18T10:15:30Z"
 }
 ```
 
 ---
 
-## 14. Design Patterns
+## 13.8 Error Handling
 
-| Pattern                   | Where Used                         | Why                                                        |
-| ------------------------- | ---------------------------------- | ---------------------------------------------------------- |
-| **Service Layer**         | `rag_service`, `analytics_service` | Encapsulates business logic, keeps routers thin            |
-| **Dependency Injection**  | FastAPI `Depends()`                | Clean injection of DB sessions, auth, config               |
-| **Strategy Pattern**      | Search service                     | BM25 and vector search swappable behind a common interface |
-| **DTO / Schema**          | Pydantic request/response models   | Strict validation and serialization at API boundary        |
-| **Singleton**             | Embedding model, Qdrant client     | Load once, reuse across requests for efficiency            |
-| **Feature-Sliced Design** | React frontend structure           | Co-locate components, hooks, and types per feature         |
+SupportAI APIs follow consistent HTTP status codes.
 
----
+| Status Code | Meaning                 |
+| ----------- | ----------------------- |
+| 200         | Success                 |
+| 201         | Resource Created        |
+| 400         | Validation Error        |
+| 401         | Authentication Required |
+| 403         | Access Denied           |
+| 404         | Resource Not Found      |
+| 409         | Conflict                |
+| 500         | Internal Server Error   |
 
-## 15. Application Security
+Error responses follow a standardized JSON structure.
 
-### Authentication & Authorization
-
-- **JWT tokens** issued on login, short-lived (1 hour expiry)
-- Role-based access: `customer` and `admin` roles enforced via FastAPI dependencies
-- Passwords hashed with **bcrypt** (never stored in plaintext)
-- JWT access tokens are issued during login and used for authenticated requests. Users are required to log in again after token expiration.
-- Customers have access only to their own conversations, feedback, and account information. Administrators have elevated permissions to manage documents, analytics, and flagged questions.
-
-### API Security
-
-- **CORS** configured to allow only the Vercel frontend origin in production
-- **Input validation** via Pydantic schemas on all endpoints (type coercion + length limits)
-- **Rate limiting** on `/chat/message` endpoint (e.g., 20 requests/minute per user) using FastAPI middleware
-- **File upload validation** — MIME type check, max file size enforced before processing
-
-### Data Security
-
-- All secrets (DB URL, Groq API key, JWT secret) stored as **environment variables** — never in code
-- HTTPS enforced in production (Railway + Vercel handle TLS termination)
-- Admin routes protected by both JWT and role check — double-gated
-
-### Threat Model Summary
-
-| Threat                | Mitigation                                     |
-| --------------------- | ---------------------------------------------- |
-| Unauthorized access   | JWT + role enforcement                         |
-| Prompt injection      | Sanitize user input before embedding in prompt |
-| Data exfiltration     | CORS policy, no raw DB queries exposed         |
-| Credential theft      | bcrypt hashing, env vars, HTTPS only           |
-| Malicious file upload | MIME validation, server-side size limits       |
+```json
+{
+  "detail": "Ticket not found"
+}
+```
 
 ---
 
-## 16. Deployment Architecture
+## 13.9 API Design Principles
+
+SupportAI APIs follow:
+
+- RESTful resource design
+- JWT-based authentication
+- Role-based authorization
+- Consistent validation
+- Standardized error handling
+- OpenAPI documentation via FastAPI Swagger UI
+- Versioned API contracts (`/api/v1`)
+
+---
+
+# 14. Design Patterns
+
+SupportAI leverages multiple architectural and software design patterns to improve maintainability, scalability, extensibility, and reliability.
+
+| Pattern                                | Where Used                                                                        | Purpose                                                                          |
+| -------------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| **Layered Architecture**               | Entire backend                                                                    | Separates API, services, repositories, and infrastructure concerns               |
+| **Repository Pattern**                 | `chat_repo`, `ticket_repo`, `document_repo`, `notification_repo`                  | Encapsulates database access and persistence logic                               |
+| **Service Layer Pattern**              | `ticket_service`, `notification_service`, `analytics_service`, `document_service` | Centralizes business logic and keeps API routers thin                            |
+| **Dependency Injection**               | FastAPI `Depends()`                                                               | Injects repositories, services, authentication, and database sessions            |
+| **Orchestrator Pattern**               | `ChatOrchestrator`                                                                | Coordinates retrieval, prompt construction, response generation, and persistence |
+| **Pipeline Pattern**                   | RAG Retrieval Pipeline                                                            | Organizes retrieval into sequential processing stages                            |
+| **Strategy Pattern**                   | Hybrid Search                                                                     | Allows BM25 and Dense Retrieval to operate behind a common retrieval abstraction |
+| **Factory Pattern**                    | `EmbeddingProviderFactory`                                                        | Enables provider-agnostic embedding generation and future model replacement      |
+| **Adapter Pattern**                    | Qdrant, Groq, Embedding Providers                                                 | Provides consistent interfaces for external services                             |
+| **DTO / Schema Pattern**               | Pydantic Schemas                                                                  | Strong request/response validation and serialization                             |
+| **Singleton Pattern**                  | Qdrant Client, Redis Client, Embedding Models                                     | Prevents expensive repeated initialization                                       |
+| **Feature-Sliced Design**              | React Frontend                                                                    | Organizes frontend functionality by feature domain                               |
+| **Observer-Like Notification Pattern** | Ticket & Notification Workflow                                                    | Generates notifications when support events occur                                |
+| **Transaction Safety Pattern**         | Document Ingestion Pipeline                                                       | Prevents partial ingestion and orphaned vector records                           |
+| **Fail-Fast Validation Pattern**       | Upload Validation & Authentication                                                | Rejects invalid requests before business processing                              |
+
+---
+
+## 14.1 Layered Architecture
+
+SupportAI follows a layered architecture consisting of:
+
+```text
+API Layer
+    ↓
+Service Layer
+    ↓
+Repository Layer
+    ↓
+Database / Infrastructure
+```
+
+Benefits:
+
+- Clear separation of concerns
+- Improved maintainability
+- Easier testing
+- Simplified scaling
+
+---
+
+## 14.2 Repository Pattern
+
+Repositories abstract direct database operations.
+
+Examples:
+
+```text
+ChatRepository
+TicketRepository
+DocumentRepository
+NotificationRepository
+```
+
+Benefits:
+
+- Centralized data access
+- Reduced duplication
+- Easier mocking during testing
+- Database implementation independence
+
+---
+
+## 14.3 Orchestrator Pattern
+
+The Chat Orchestrator acts as the central coordinator for AI interactions.
+
+Responsibilities:
+
+- Conversation management
+- Retrieval execution
+- Prompt generation
+- Response persistence
+- Session updates
+
+Benefits:
+
+- Prevents router bloat
+- Centralizes AI workflow management
+- Simplifies future enhancements
+
+---
+
+## 14.4 Pipeline Pattern
+
+The Retrieval-Augmented Generation workflow is implemented as a processing pipeline.
+
+```text
+User Query
+    ↓
+BM25 Retrieval
+    ↓
+Dense Retrieval
+    ↓
+RRF Fusion
+    ↓
+Context Selection
+    ↓
+Prompt Builder
+    ↓
+LLM Generation
+```
+
+Benefits:
+
+- Modular processing stages
+- Easier debugging
+- Improved maintainability
+- Extensible retrieval architecture
+
+---
+
+## 14.5 Factory Pattern
+
+SupportAI uses an Embedding Provider Factory.
+
+```text
+EmbeddingProviderFactory
+    ├── Local Embeddings
+    ├── OpenAI Embeddings
+    └── Future Providers
+```
+
+Benefits:
+
+- Provider independence
+- Easier experimentation
+- Dynamic vector dimensions
+- Reduced coupling
+
+---
+
+## 14.6 Strategy Pattern
+
+Hybrid Search uses interchangeable retrieval strategies.
+
+Strategies:
+
+- BM25 Retrieval
+- Dense Vector Retrieval
+
+Benefits:
+
+- Retrieval flexibility
+- Improved testing
+- Future retrieval expansion
+
+---
+
+## 14.7 Adapter Pattern
+
+External services are wrapped through adapters.
+
+Examples:
+
+- Groq Adapter
+- Qdrant Adapter
+- Embedding Provider Adapter
+
+Benefits:
+
+- Simplified integrations
+- Consistent interfaces
+- Easier provider replacement
+
+---
+
+## 14.8 Feature-Sliced Frontend Architecture
+
+The React frontend follows Feature-Sliced Design.
+
+```text
+features/
+    ├── auth/
+    ├── chat/
+    ├── tickets/
+    ├── documents/
+    ├── notifications/
+    └── quality/
+```
+
+Benefits:
+
+- Better scalability
+- Reduced coupling
+- Easier onboarding
+- Improved maintainability
+
+---
+
+## 14.9 Transaction Safety Pattern
+
+SupportAI implements transaction-safe document ingestion.
+
+Workflow:
+
+```text
+Document Upload
+    ↓
+PostgreSQL Insert
+    ↓
+Qdrant Insert
+    ↓
+Commit
+
+Failure
+    ↓
+Rollback
+```
+
+Benefits:
+
+- Prevents orphaned vectors
+- Prevents partial ingestion
+- Improves reliability
+
+---
+
+## 14.10 Design Pattern Benefits
+
+The combination of these patterns enables:
+
+- High maintainability
+- Scalability
+- Extensibility
+- Reliability
+- Testability
+- Separation of concerns
+- Future AI provider flexibility
+
+---
+
+# 15. Application Security
+
+Security is a core design principle within SupportAI. The platform implements multiple layers of protection across authentication, authorization, API security, data protection, file processing, and infrastructure.
+
+---
+
+## 15.1 Authentication & Authorization
+
+SupportAI uses JWT-based authentication combined with Role-Based Access Control (RBAC).
+
+### Authentication Features
+
+- JWT Access Tokens
+- Secure Password Hashing
+- Password Reset Workflow
+- Protected API Endpoints
+- Session Validation
+
+### Password Security
+
+- Passwords are never stored in plaintext.
+- Passwords are hashed using bcrypt.
+- Password reset tokens are time-limited.
+- Reset tokens are validated before password changes.
+
+### Role-Based Access Control (RBAC)
+
+SupportAI defines two primary roles:
+
+| Role          | Permissions                                           |
+| ------------- | ----------------------------------------------------- |
+| Customer      | Chat, Tickets, Notifications                          |
+| Administrator | Knowledge Base, Analytics, Tickets, AI Quality Center |
+
+Role enforcement is implemented through FastAPI dependency injection and route-level authorization checks.
+
+### Security Flow
+
+```mermaid
+flowchart LR
+
+User["User"]
+
+JWT["JWT Authentication"]
+
+RBAC["Role Validation"]
+
+Endpoint["Protected Endpoint"]
+
+User --> JWT
+
+JWT --> RBAC
+
+RBAC --> Endpoint
+```
+
+---
+
+## 15.2 API Security
+
+All API endpoints undergo strict validation before business logic execution.
+
+### Protections
+
+- Request Validation
+- Schema Validation
+- Type Enforcement
+- Length Validation
+- Authentication Validation
+- Authorization Validation
+
+### CORS Protection
+
+Production deployments restrict requests to approved frontend origins.
+
+Examples:
+
+- Vercel Frontend
+- Internal Development Environments
+
+### Rate Limiting
+
+SupportAI implements request throttling on critical endpoints including:
+
+- Chat APIs
+- Authentication APIs
+- Password Reset APIs
+
+Benefits:
+
+- Prevents abuse
+- Mitigates brute-force attacks
+- Protects LLM resources
+
+---
+
+## 15.3 File Upload Security
+
+Knowledge Base uploads undergo multiple security checks before processing.
+
+### Validation Pipeline
+
+```mermaid
+flowchart LR
+
+Upload["Document Upload"]
+
+Mime["MIME Validation"]
+
+Extension["Extension Validation"]
+
+Size["File Size Validation"]
+
+Filename["Filename Sanitization"]
+
+Processing["Document Processing"]
+
+Upload --> Mime
+
+Mime --> Extension
+
+Extension --> Size
+
+Size --> Filename
+
+Filename --> Processing
+```
+
+### Protections
+
+- MIME Type Validation
+- Extension Validation
+- File Size Validation
+- Filename Sanitization
+- Invalid File Rejection
+
+Benefits:
+
+- Prevents malicious uploads
+- Protects ingestion pipeline
+- Reduces attack surface
+
+---
+
+## 15.4 Data Security
+
+SupportAI protects sensitive data throughout the application lifecycle.
+
+### Secrets Management
+
+Sensitive values are stored as environment variables:
+
+- Database URLs
+- JWT Secrets
+- Groq API Keys
+- Redis Credentials
+- Qdrant Credentials
+
+No secrets are stored in source code.
+
+### Encryption
+
+Transport security is enforced through HTTPS.
+
+Production deployments rely on:
+
+- Railway TLS
+- Vercel TLS
+
+### Database Security
+
+Access is restricted to authorized backend services only.
+
+Benefits:
+
+- Reduced attack surface
+- Controlled data access
+- Infrastructure isolation
+
+---
+
+## 15.5 Administrative Security
+
+Administrator functionality receives additional protection.
+
+### Protected Resources
+
+- Document Upload
+- Document Deletion
+- Ticket Management
+- AI Quality Center
+- Analytics Dashboard
+
+### Security Controls
+
+- JWT Validation
+- Role Verification
+- Route Protection
+- Authorization Dependencies
+
+This creates a double-gated security model.
+
+```text
+JWT Authentication
+        ↓
+Role Verification
+        ↓
+Admin Endpoint Access
+```
+
+---
+
+## 15.6 Prompt Security
+
+SupportAI implements safeguards to reduce prompt manipulation risks.
+
+### Protections
+
+- User Input Validation
+- Context Isolation
+- Prompt Construction Controls
+- Retrieval Grounding
+
+The Prompt Builder ensures that generated responses remain grounded in retrieved knowledge base content.
+
+### Goals
+
+- Reduce hallucinations
+- Reduce prompt injection risk
+- Improve answer reliability
+
+---
+
+## 15.7 Error Handling & Security Monitoring
+
+SupportAI implements centralized error handling.
+
+### Features
+
+- Global Exception Handler
+- Structured Logging
+- Request Tracking
+- Error Correlation
+
+Benefits:
+
+- Faster incident investigation
+- Improved observability
+- Better debugging
+
+---
+
+## 15.8 Dependency Security
+
+Dependencies are periodically audited.
+
+### Areas Reviewed
+
+- Python Packages
+- Node Packages
+- Authentication Libraries
+- Database Drivers
+
+Benefits:
+
+- Reduced supply-chain risk
+- Improved platform security
+- Faster vulnerability remediation
+
+---
+
+## 15.9 Threat Model
+
+| Threat               | Mitigation                         |
+| -------------------- | ---------------------------------- |
+| Unauthorized Access  | JWT Authentication + RBAC          |
+| Privilege Escalation | Route-Level Authorization          |
+| Credential Theft     | bcrypt + HTTPS                     |
+| Brute Force Attacks  | Rate Limiting                      |
+| Malicious Uploads    | File Validation Pipeline           |
+| Prompt Injection     | Prompt Builder + Grounding         |
+| Data Exfiltration    | CORS + Protected APIs              |
+| Secret Leakage       | Environment Variables              |
+| Orphaned Data        | Transaction Safety + Rollback      |
+| API Abuse            | Request Validation + Rate Limiting |
+
+---
+
+## 15.10 Security Principles
+
+SupportAI follows the following security principles:
+
+- Defense in Depth
+- Least Privilege
+- Fail Fast Validation
+- Secure Defaults
+- Separation of Concerns
+- Principle of Explicit Authorization
+
+## These principles guide the design of authentication, authorization, file handling, API access, and operational security across the platform.
+
+# 16. Deployment Architecture
+
+SupportAI follows a cloud-native deployment architecture with a clear separation between frontend, backend, databases, caching, vector search, and AI inference services.
+
+The platform is deployed using managed cloud services to simplify operations and reduce infrastructure overhead.
+
+---
+
+## 16.1 Production Deployment Overview
 
 ```mermaid
 flowchart TB
@@ -974,101 +3182,303 @@ Admin["👨‍💼 Administrator"]
 
 end
 
-subgraph Vercel
+subgraph Vercel["Vercel"]
 
-React["⚛️ React SPA"]
+Frontend["⚛️ React + TypeScript"]
 
 end
 
-subgraph Railway
+subgraph Railway["Railway"]
 
-FastAPI["🚀 FastAPI"]
+Backend["🚀 FastAPI Backend"]
 
 Redis["🟥 Redis"]
-
-Worker["⚡ Background Worker"]
 
 Postgres[("🐘 PostgreSQL")]
 
 end
 
-subgraph Cloud
+subgraph External["Managed Services"]
 
 Qdrant[("🔎 Qdrant Cloud")]
 
-Groq["🤖 Groq API"]
+Groq["🧠 Groq API"]
 
 end
 
-subgraph Observability
+Customer --> Frontend
 
-OTel["OpenTelemetry"]
+Admin --> Frontend
 
-Prom["Prometheus"]
+Frontend --> Backend
 
-Grafana["Grafana"]
+Backend --> Redis
 
-end
+Backend --> Postgres
 
-Customer --> React
-Admin --> React
+Backend --> Qdrant
 
-React --> FastAPI
-
-FastAPI --> Redis
-FastAPI --> Worker
-FastAPI --> Postgres
-FastAPI --> Qdrant
-FastAPI --> Groq
-
-FastAPI --> OTel
-
-OTel --> Prom
-
-Prom --> Grafana
+Backend --> Groq
 ```
 
-### Docker Setup
+---
+
+## 16.2 Deployment Components
+
+### Frontend (Vercel)
+
+Technology Stack:
+
+- React
+- TypeScript
+- Tailwind CSS
+- Vite
+
+Responsibilities:
+
+- Customer Portal
+- Admin Dashboard
+- Ticket Management
+- AI Quality Center
+- Authentication UI
+
+Benefits:
+
+- Global CDN
+- Automatic HTTPS
+- Continuous Deployment
+- Fast Edge Delivery
+
+---
+
+### Backend (Railway)
+
+Technology Stack:
+
+- FastAPI
+- SQLAlchemy
+- Alembic
+- Redis Client
+- Qdrant Client
+
+Responsibilities:
+
+- Authentication
+- Chat Orchestration
+- RAG Pipeline
+- Ticket Management
+- Notification Management
+- AI Quality Analytics
+
+Benefits:
+
+- Managed deployment
+- Automatic restarts
+- Environment management
+- Simplified scaling
+
+---
+
+### PostgreSQL
+
+Responsibilities:
+
+- Users
+- Chat Sessions
+- Chat Messages
+- Tickets
+- Ticket Messages
+- Notifications
+- Analytics Metadata
+
+Benefits:
+
+- ACID Transactions
+- Strong Consistency
+- Relational Integrity
+
+---
+
+### Redis
+
+Responsibilities:
+
+- Caching
+- Session Acceleration
+- Temporary Data Storage
+
+Benefits:
+
+- Low Latency
+- Reduced Database Load
+- Faster Response Times
+
+---
+
+### Qdrant Cloud
+
+Responsibilities:
+
+- Vector Storage
+- Semantic Search
+- Dense Retrieval
+
+Benefits:
+
+- High-Speed Vector Search
+- Similarity Search
+- Scalable Retrieval Infrastructure
+
+---
+
+### Groq
+
+Responsibilities:
+
+- Large Language Model Inference
+- Response Generation
+
+Benefits:
+
+- Low Latency
+- High Throughput
+- Production-Grade AI Inference
+
+---
+
+## 16.3 Deployment Flow
+
+```mermaid
+sequenceDiagram
+
+participant Developer
+
+participant GitHub
+
+participant Railway
+
+participant Vercel
+
+Developer->>GitHub: Push Code
+
+GitHub->>Railway: Backend Deployment
+
+GitHub->>Vercel: Frontend Deployment
+
+Railway-->>Developer: Backend Live
+
+Vercel-->>Developer: Frontend Live
+```
+
+### Backend Deployment
+
+1. Push code to GitHub.
+2. Railway automatically pulls latest changes.
+3. Build process executes.
+4. Environment variables are injected.
+5. Application starts.
+6. Health checks are performed.
+
+### Frontend Deployment
+
+1. Push code to GitHub.
+2. Vercel automatically builds the application.
+3. Static assets are optimized.
+4. Global CDN distribution occurs.
+5. Deployment becomes available.
+
+---
+
+## 16.4 Local Development Environment
+
+SupportAI supports local development using Docker.
 
 ```yaml
-# docker-compose.yml (local dev)
 services:
-  api:
+  backend:
     build: ./backend
     ports:
       - "8000:8000"
-    env_file: .env
-    depends_on:
-      - postgres
-      - qdrant
+    env_file:
+      - .env
 
   postgres:
     image: postgres:15
-    environment:
-      POSTGRES_DB: supportai
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: secret
 
   qdrant:
     image: qdrant/qdrant
     ports:
       - "6333:6333"
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
 ```
 
-### Deployment Steps
+### Local Services
 
-1. Push backend to GitHub → Railway auto-deploys Docker container
-2. Run Alembic migrations on first deploy: `alembic upgrade head`
-3. Push frontend to GitHub → Vercel auto-deploys on main branch merge
-4. Set environment variables in Railway and Vercel dashboards
+| Service    | Purpose              |
+| ---------- | -------------------- |
+| Backend    | FastAPI Application  |
+| PostgreSQL | Relational Database  |
+| Redis      | Cache Layer          |
+| Qdrant     | Vector Search Engine |
+
+---
+
+## 16.5 Environment Variables
+
+SupportAI relies on environment-based configuration.
+
+Examples:
+
+```text
+DATABASE_URL
+JWT_SECRET_KEY
+GROQ_API_KEY
+QDRANT_URL
+QDRANT_API_KEY
+REDIS_URL
+```
+
+Benefits:
+
+- Secure secret management
+- Environment separation
+- Simplified deployment
+
+---
+
+## 16.6 Scalability Considerations
+
+The architecture supports future scaling through:
+
+- Horizontal API scaling
+- Managed PostgreSQL scaling
+- Redis clustering
+- Qdrant scaling
+- Model replacement through provider abstraction
+
+This allows SupportAI to evolve from a prototype into a production-grade AI support platform without major architectural changes.
 
 ---
 
 # 17. CI/CD Architecture
 
-SupportAI follows a Continuous Integration and Continuous Deployment (CI/CD) pipeline to ensure every code change is automatically validated, tested, and safely deployed. The pipeline minimizes manual intervention while maintaining software quality and deployment reliability.
+SupportAI follows a Continuous Integration and Continuous Deployment (CI/CD) workflow to ensure that every code change is validated, tested, and deployed consistently.
 
-## CI/CD Pipeline
+The deployment process emphasizes:
+
+- Code Quality
+- Automated Validation
+- Deployment Reliability
+- Fast Iteration
+- Regression Prevention
+
+---
+
+## 17.1 CI/CD Pipeline
 
 ```mermaid
 flowchart LR
@@ -1077,33 +3487,27 @@ Developer["👨‍💻 Developer"]
 
 GitHub["GitHub Repository"]
 
-PR["Pull Request"]
-
-Review["Code Review"]
+Commit["Commit & Push"]
 
 Actions["GitHub Actions"]
 
-Lint["Static Analysis<br/>Linting"]
+Lint["Frontend Lint"]
 
-Tests["Unit & Integration Tests"]
+Tests["Backend Tests"]
 
-Build["Docker Image Build"]
+Build["Frontend Build"]
 
-Registry["Container Registry"]
+Railway["Railway Deployment"]
 
-Deploy["Deploy to Railway"]
-
-Health["Health & Readiness Checks"]
+Vercel["Vercel Deployment"]
 
 Production["Production Environment"]
 
-Developer --> GitHub
+Developer --> Commit
 
-GitHub --> PR
+Commit --> GitHub
 
-PR --> Review
-
-Review --> Actions
+GitHub --> Actions
 
 Actions --> Lint
 
@@ -1111,382 +3515,1600 @@ Lint --> Tests
 
 Tests --> Build
 
-Build --> Registry
+Build --> Railway
 
-Registry --> Deploy
+Build --> Vercel
 
-Deploy --> Health
+Railway --> Production
 
-Health --> Production
+Vercel --> Production
 ```
 
-## Deployment Workflow
+---
 
-| Stage             | Purpose                                                        |
-| ----------------- | -------------------------------------------------------------- |
-| Source Control    | Version-controlled development using GitHub                    |
-| Pull Request      | Peer review before merging changes                             |
-| Static Analysis   | Detect formatting, linting, and code quality issues            |
-| Automated Testing | Execute unit and integration tests                             |
-| Docker Build      | Produce a reproducible application image                       |
-| Deployment        | Deploy backend to Railway and frontend to Vercel               |
-| Health Validation | Verify `/health` and `/ready` endpoints before serving traffic |
+## 17.2 Continuous Integration
 
-## Rollback Strategy
+Every code change undergoes automated validation before deployment.
 
-In the event of a failed deployment:
+### Frontend Validation
 
-- The previous stable container image remains available for rollback.
-- Failed health or readiness checks automatically prevent the new version from receiving production traffic.
-- Database schema changes are applied through versioned migrations to ensure controlled rollbacks.
-- Configuration is managed through environment variables, allowing deployment without code modifications.
+```bash
+npm run lint
+npm run build
+```
 
-## Deployment Principles
+Purpose:
+
+- Code Quality Enforcement
+- Type Safety Validation
+- Build Verification
+
+### Backend Validation
+
+```bash
+pytest
+```
+
+Purpose:
+
+- Regression Detection
+- API Validation
+- Service Verification
+
+---
+
+## 17.3 Continuous Deployment
+
+### Frontend Deployment (Vercel)
+
+Deployment Flow:
+
+```text
+GitHub Push
+      ↓
+Vercel Build
+      ↓
+Production Deployment
+```
+
+Responsibilities:
+
+- Build React Application
+- Optimize Static Assets
+- Deploy to CDN
+- Serve Customer & Admin Interfaces
+
+---
+
+### Backend Deployment (Railway)
+
+Deployment Flow:
+
+```text
+GitHub Push
+      ↓
+Railway Build
+      ↓
+Application Startup
+      ↓
+Production Deployment
+```
+
+Responsibilities:
+
+- Build FastAPI Application
+- Inject Environment Variables
+- Start API Services
+- Connect Infrastructure Services
+
+---
+
+## 17.4 Validation Pipeline
+
+SupportAI validates changes before deployment using:
+
+| Validation              | Purpose                      |
+| ----------------------- | ---------------------------- |
+| ESLint                  | Frontend code quality        |
+| TypeScript Build        | Type safety verification     |
+| Pytest                  | Backend testing              |
+| Manual E2E Verification | Critical workflow validation |
+
+---
+
+## 17.5 Database Migration Strategy
+
+Database schema changes are managed using Alembic migrations.
+
+### Migration Workflow
+
+```text
+Create Migration
+        ↓
+Review Migration
+        ↓
+Apply Migration
+        ↓
+Validate Application
+```
+
+Benefits:
+
+- Controlled schema evolution
+- Version tracking
+- Reproducible deployments
+
+---
+
+## 17.6 Release Management
+
+SupportAI uses Git tags to identify stable releases.
+
+Examples:
+
+```text
+v0.9.1-pre-redis
+v0.9.2
+v1.0-quality-center
+```
+
+Benefits:
+
+- Release traceability
+- Easier rollback
+- Deployment auditing
+
+---
+
+## 17.7 Rollback Strategy
+
+If a deployment introduces issues:
+
+1. Identify the last stable Git tag.
+2. Revert to the stable version.
+3. Redeploy the application.
+4. Validate critical workflows.
+
+### Protected Areas
+
+Special attention is given to:
+
+- Authentication
+- Chat Sessions
+- Ticket Management
+- AI Quality Center
+- Knowledge Base Operations
+
+---
+
+## 17.8 Deployment Principles
+
+SupportAI follows the following deployment principles:
 
 - Every deployment must be reproducible.
+- Production code must pass automated validation.
 - Infrastructure configuration is externalized through environment variables.
-- Production deployments require successful automated validation.
-- All deployments are observable through centralized logging and monitoring.
+- Critical workflows require end-to-end verification.
+- Stable releases are versioned through Git tags.
+
+---
+
+## 17.9 Current State
+
+Current validation process includes:
+
+- Frontend Linting
+- Frontend Build Verification
+- Backend Automated Tests
+- Manual End-to-End Testing
+
+Recent validation results:
+
+```text
+Backend Tests: 45/45 Passed
+Frontend Lint: Passed
+Frontend Build: Passed
+```
+
+## These checks help ensure production stability while enabling rapid development and deployment.
+
+---
 
 # 18. Testing Strategy
 
-SupportAI adopts a multi-layered testing strategy to ensure application correctness, reliability, and maintainability. Different testing levels validate individual components, service interactions, APIs, and complete user workflows.
+SupportAI follows a layered testing strategy designed to ensure reliability, correctness, maintainability, and production stability.
 
-## Testing Pyramid
+Testing is performed across multiple levels including automated backend tests, frontend validation, integration verification, and manual end-to-end workflow testing.
+
+---
+
+## 18.1 Testing Pyramid
 
 ```mermaid
 flowchart TB
 
-E2E["🎭 End-to-End Tests"]
+E2E["🎭 End-to-End Testing"]
 
-Integration["🔗 Integration Tests"]
+Integration["🔗 Integration Testing"]
 
-Unit["🧩 Unit Tests"]
+Unit["🧩 Unit Testing"]
 
 Unit --> Integration
+
 Integration --> E2E
 ```
 
-## Testing Coverage
+Each layer validates a different aspect of the system.
 
-| Test Type           | Scope                             | Examples                                                  |
-| ------------------- | --------------------------------- | --------------------------------------------------------- |
-| Unit Testing        | Individual functions and services | Authentication service, RAG service, embedding generation |
-| Integration Testing | Component interaction             | PostgreSQL, Redis, Qdrant, Groq integration               |
-| API Testing         | REST endpoint validation          | Authentication, chat, document upload APIs                |
-| End-to-End Testing  | Complete user workflows           | Login → Chat → Response → Feedback                        |
-| Performance Testing | Response time and throughput      | Chat latency, search performance, concurrent requests     |
-| Security Testing    | Authentication and authorization  | JWT validation, RBAC enforcement, input validation        |
+---
 
-## Quality Gates
+## 18.2 Testing Coverage
 
-Every production deployment must satisfy the following quality requirements:
+| Test Type           | Scope                                | Examples                                         |
+| ------------------- | ------------------------------------ | ------------------------------------------------ |
+| Unit Testing        | Individual services and functions    | Authentication, Retrieval Logic, Ticket Service  |
+| Integration Testing | Interaction between components       | PostgreSQL, Redis, Qdrant, Groq                  |
+| API Testing         | Endpoint validation                  | Authentication, Chat, Tickets, Documents         |
+| End-to-End Testing  | Complete user workflows              | Login → Chat → Flag Response → Ticket Resolution |
+| Security Testing    | Authentication and authorization     | JWT Validation, RBAC Enforcement                 |
+| Regression Testing  | Existing functionality after changes | Chat, RAG, Tickets, AI Quality Center            |
 
-- All unit tests pass successfully.
-- Integration tests validate external service connectivity.
-- API contract validation completes successfully.
-- Static analysis reports no critical issues.
-- Docker image builds successfully.
-- Health and readiness endpoints respond correctly after deployment.
+---
 
-## Test Environment
+## 18.3 Backend Testing
 
-| Environment       | Purpose                                              |
-| ----------------- | ---------------------------------------------------- |
-| Local Development | Developer testing and debugging                      |
-| CI Pipeline       | Automated validation on every pull request           |
-| Staging           | Pre-production integration testing                   |
-| Production        | Health monitoring and smoke testing after deployment |
+SupportAI uses Pytest for backend validation.
 
-## Testing Principles
+### Areas Covered
 
-- Automated tests are executed on every pull request.
-- Business logic is validated primarily through unit tests.
-- Critical workflows are verified using end-to-end testing.
-- External dependencies are mocked where appropriate during unit testing.
-- Production deployments require successful completion of automated quality gates.
+- Authentication APIs
+- Chat APIs
+- Document Management
+- Ticket Management
+- Notification Workflows
+- AI Quality Analytics
+- Retrieval Pipeline Logic
+
+### Validation Command
+
+```bash
+pytest
+```
+
+Recent validation results:
+
+```text
+45/45 Tests Passed
+```
+
+Benefits:
+
+- Regression Prevention
+- Service Validation
+- API Verification
+
+---
+
+## 18.4 Frontend Testing
+
+Frontend validation focuses on static analysis and build verification.
+
+### Linting
+
+```bash
+npm run lint
+```
+
+Purpose:
+
+- Code Quality
+- Type Safety
+- Consistency Enforcement
+
+### Build Verification
+
+```bash
+npm run build
+```
+
+Purpose:
+
+- Production Build Validation
+- Dependency Verification
+- TypeScript Compilation
+
+Benefits:
+
+- Early Error Detection
+- Deployment Confidence
+
+---
+
+## 18.5 Integration Testing
+
+Integration testing validates interactions between major platform components.
+
+### Components Verified
+
+- FastAPI ↔ PostgreSQL
+- FastAPI ↔ Redis
+- FastAPI ↔ Qdrant
+- FastAPI ↔ Groq
+- Chat Orchestrator ↔ Retrieval Pipeline
+
+Benefits:
+
+- Detect configuration issues
+- Validate infrastructure connectivity
+- Prevent deployment failures
+
+---
+
+## 18.6 End-to-End Testing
+
+Critical customer and administrator workflows are manually verified before major releases.
+
+### Customer Workflows
+
+- Registration
+- Login
+- Chat Sessions
+- Session Persistence
+- Message Flagging
+- Notification Viewing
+
+### Administrator Workflows
+
+- Document Upload
+- Knowledge Base Search
+- Ticket Review
+- Ticket Resolution
+- AI Quality Center
+- Analytics Dashboard
+
+Benefits:
+
+- User Experience Validation
+- Workflow Verification
+- Production Readiness
+
+---
+
+## 18.7 Regression Testing
+
+SupportAI places strong emphasis on regression prevention.
+
+Critical areas verified after significant changes include:
+
+- Authentication
+- Chat System
+- Retrieval Pipeline
+- Ticket System
+- Notifications
+- AI Quality Center
+- Knowledge Base Management
+
+Regression testing became especially important during:
+
+- Session Persistence Fixes
+- Ticket Workflow Refactoring
+- AI Quality Center Implementation
+- Production Hardening Sprint
+
+---
+
+## 18.8 Quality Gates
+
+Every release should satisfy the following requirements:
+
+### Backend
+
+```bash
+pytest
+```
+
+Must pass successfully.
+
+### Frontend
+
+```bash
+npm run lint
+npm run build
+```
+
+Must complete without errors.
+
+### Manual Verification
+
+Critical workflows must be tested:
+
+- Chat Response Generation
+- Ticket Creation
+- Ticket Resolution
+- Document Upload
+- AI Quality Dashboard
+
+Only after these validations are complete should a release be considered production-ready.
+
+---
+
+## 18.9 Test Environments
+
+| Environment       | Purpose                       |
+| ----------------- | ----------------------------- |
+| Local Development | Development and debugging     |
+| CI Pipeline       | Automated validation          |
+| Production        | Final deployment verification |
+
+SupportAI currently relies on automated validation and production verification rather than maintaining a dedicated staging environment.
+
+---
+
+## 18.10 Testing Principles
+
+SupportAI follows the following testing principles:
+
+- Automate repetitive validation.
+- Prevent regressions before deployment.
+- Test critical workflows end-to-end.
+- Verify infrastructure integrations.
+- Keep production releases stable.
+- Validate every significant architectural change.
+
+These principles help ensure that SupportAI remains reliable while continuing to evolve into a production-grade AI customer support platform.
+
+---
 
 # 19. Reliability & Resilience
 
-SupportAI is designed to tolerate common infrastructure and third-party failures while maintaining service availability wherever possible. The architecture emphasizes graceful degradation, automated recovery, and operational observability rather than assuming every dependency is always available.
+SupportAI is designed to maintain stability and data integrity even when infrastructure components experience temporary failures.
+
+The platform emphasizes:
+
+- Fault Tolerance
+- Transaction Safety
+- Graceful Error Handling
+- Recovery Mechanisms
+- Operational Stability
+
+Rather than assuming every dependency is always available, SupportAI is designed to detect failures and prevent data corruption.
 
 ---
 
-## Failure Recovery Matrix
-
-| Component         | Possible Failure      | Detection               | Recovery Strategy                                           |
-| ----------------- | --------------------- | ----------------------- | ----------------------------------------------------------- |
-| Redis Cache       | Cache unavailable     | Connection timeout      | Bypass cache and continue using PostgreSQL and Qdrant       |
-| PostgreSQL        | Database unavailable  | Health/Readiness checks | Stop serving requests until connectivity is restored        |
-| Qdrant            | Vector search timeout | Request timeout         | Retry once, then return a friendly error if retrieval fails |
-| Groq API          | Rate limit or timeout | HTTP status codes       | Exponential backoff retry followed by graceful failure      |
-| Background Worker | Processing failure    | Job status monitoring   | Retry failed ingestion jobs with exponential backoff        |
-| Frontend          | Backend unavailable   | API request failure     | Display user-friendly error message and retry option        |
-
----
-
-## Resilience Patterns
-
-| Pattern                        | Purpose                                                     |
-| ------------------------------ | ----------------------------------------------------------- |
-| Retry with Exponential Backoff | Recover from temporary network or API failures              |
-| Circuit Breaker                | Prevent repeated calls to failing external services         |
-| Timeout Protection             | Prevent requests from blocking indefinitely                 |
-| Graceful Degradation           | Continue operating with reduced functionality when possible |
-| Health Checks                  | Detect unhealthy application instances                      |
-| Readiness Checks               | Ensure services receive traffic only when ready             |
-
----
-
-## Circuit Breaker Strategy
+## 19.1 Reliability Architecture
 
 ```mermaid
 flowchart LR
 
-Request["Incoming Request"]
+Customer["👤 Customer"]
 
-Groq["Groq API"]
+Frontend["⚛️ Frontend"]
 
-Success["Response"]
+Backend["🚀 FastAPI"]
 
-Failure["Failure"]
+Postgres["🐘 PostgreSQL"]
 
-Breaker{"Failure Threshold<br/>Exceeded?"}
+Redis["🟥 Redis"]
 
-Fallback["Return Friendly Error"]
+Qdrant["🔎 Qdrant"]
 
-Request --> Groq
+Groq["🧠 Groq"]
 
-Groq --> Success
+Customer --> Frontend
 
-Groq --> Failure
+Frontend --> Backend
 
-Failure --> Breaker
+Backend --> Postgres
 
-Breaker -- No --> Groq
+Backend --> Redis
 
-Breaker -- Yes --> Fallback
+Backend --> Qdrant
+
+Backend --> Groq
+```
+
+The architecture is designed so that failures in supporting services do not immediately corrupt application state.
+
+---
+
+## 19.2 Failure Recovery Matrix
+
+| Component       | Possible Failure     | Detection            | Recovery Strategy         |
+| --------------- | -------------------- | -------------------- | ------------------------- |
+| Redis           | Cache Unavailable    | Connection Error     | Continue without cache    |
+| PostgreSQL      | Database Unavailable | Connection Failure   | Reject requests safely    |
+| Qdrant          | Search Failure       | Retrieval Exception  | Return controlled error   |
+| Groq            | Timeout / API Error  | API Response Failure | Retry and return fallback |
+| Document Upload | Partial Ingestion    | Transaction Failure  | Automatic rollback        |
+| Frontend        | API Failure          | Request Error        | User-friendly error state |
+
+---
+
+## 19.3 Document Ingestion Reliability
+
+Document ingestion is one of the most critical workflows in SupportAI.
+
+A failure during ingestion must never leave the system in an inconsistent state.
+
+### Reliability Workflow
+
+```mermaid
+flowchart TD
+
+Upload["Document Upload"]
+
+Postgres["Store Metadata"]
+
+Qdrant["Store Vectors"]
+
+Success["Commit"]
+
+Failure["Rollback"]
+
+Upload --> Postgres
+
+Postgres --> Qdrant
+
+Qdrant --> Success
+
+Qdrant --> Failure
+
+Failure --> Upload
+```
+
+### Protections
+
+- Transaction-Safe Inserts
+- Rollback on Failure
+- Prevention of Orphaned Vectors
+- Consistent Metadata Storage
+
+Benefits:
+
+- Data Integrity
+- Reliable Knowledge Base Updates
+- Easier Recovery
+
+---
+
+## 19.4 Error Handling Strategy
+
+SupportAI implements centralized exception handling.
+
+### Features
+
+- Global Exception Handler
+- Structured Error Responses
+- Request Tracking
+- Error Logging
+
+Benefits:
+
+- Consistent API Behavior
+- Improved Debugging
+- Better User Experience
+
+### Example Error Response
+
+```json
+{
+  "detail": "Unable to process request at this time."
+}
 ```
 
 ---
 
-## Timeout Configuration
+## 19.5 Retry Strategy
 
-| Component  | Timeout    |
-| ---------- | ---------- |
-| Redis      | 500 ms     |
-| PostgreSQL | 2 seconds  |
-| Qdrant     | 3 seconds  |
-| Groq API   | 15 seconds |
+Certain external service failures may be temporary.
+
+SupportAI applies controlled retry behavior for:
+
+- Groq Requests
+- Qdrant Operations
+- Network Communication
+
+### Goals
+
+- Recover from transient failures
+- Reduce user-facing disruptions
+- Improve service stability
 
 ---
 
-## Reliability Principles
+## 19.6 Graceful Degradation
 
-- External services are accessed through retry and timeout policies.
-- Cached data is treated as an optimization rather than a requirement.
-- Failure of one component should not cascade through the system.
-- Critical failures are detected through health and readiness monitoring.
-- User-facing errors should always provide meaningful feedback instead of exposing internal implementation details.
+SupportAI attempts to remain functional when non-critical components fail.
+
+### Examples
+
+#### Redis Failure
+
+System Behavior:
+
+```text
+Redis Unavailable
+        ↓
+Bypass Cache
+        ↓
+Continue Processing
+```
+
+The application remains operational with reduced performance.
+
+#### Notification Failure
+
+System Behavior:
+
+```text
+Notification Failure
+        ↓
+Primary Workflow Continues
+```
+
+The customer workflow is not blocked by secondary services.
+
+---
+
+## 19.7 Data Consistency
+
+SupportAI prioritizes consistency for critical business data.
+
+Protected Areas:
+
+- User Accounts
+- Chat Sessions
+- Chat Messages
+- Tickets
+- Ticket Messages
+- Knowledge Base Documents
+
+### Consistency Mechanisms
+
+- Database Transactions
+- Rollback Protection
+- Foreign Key Relationships
+- Repository Layer Validation
+
+---
+
+## 19.8 Operational Stability
+
+Recent stabilization efforts focused on:
+
+### Chat Reliability
+
+- Session Persistence Fixes
+- Conversation Recovery
+- Retrieval Integrity
+
+### Ticket Reliability
+
+- Ticket Status Updates
+- Support Reply Synchronization
+- Flagged Question Unification
+
+### Retrieval Reliability
+
+- Hybrid Search Validation
+- RRF Fusion Consistency
+- Context Preservation
+
+### AI Quality Reliability
+
+- Analytics Validation
+- Real Data Aggregation
+- Removal of Mock Metrics
+
+---
+
+## 19.9 Reliability Principles
+
+SupportAI follows the following reliability principles:
+
+- Fail safely rather than corrupt data.
+- Prefer graceful degradation over crashes.
+- Protect critical workflows with transactions.
+- Validate operations before persistence.
+- Recover automatically where possible.
+- Surface meaningful errors to users.
+
+These principles help ensure that SupportAI remains stable, predictable, and maintainable as the platform evolves.
+
+---
 
 # 20. Enterprise Security Architecture
 
-SupportAI applies a defense-in-depth security strategy by combining authentication, authorization, secure communication, input validation, and threat mitigation mechanisms. Security controls are integrated throughout the application lifecycle rather than treated as isolated features.
+SupportAI adopts a Defense-in-Depth security model where multiple independent security controls work together to protect customer data, administrative functionality, AI services, and infrastructure components.
+
+Rather than relying on a single protection mechanism, security controls are applied at every architectural layer.
 
 ---
 
-## Security Layers
+## 20.1 Security Architecture Overview
 
 ```mermaid
 flowchart TB
 
 User["👤 User"]
 
-HTTPS["🔒 HTTPS / TLS"]
+TLS["🔒 TLS / HTTPS"]
 
-JWT["🔑 JWT Authentication"]
+Authentication["🔑 Authentication"]
 
-RBAC["🛡️ Role-Based Access Control"]
+Authorization["🛡️ Authorization"]
 
-Validation["✅ Input Validation"]
+Validation["✅ Validation Layer"]
 
-Business["⚙️ Business Logic"]
+Application["⚙️ Application Services"]
 
-Database["🐘 PostgreSQL"]
+Data["🐘 Data Layer"]
 
-User --> HTTPS
-HTTPS --> JWT
-JWT --> RBAC
-RBAC --> Validation
-Validation --> Business
-Business --> Database
+External["🌐 External Services"]
+
+User --> TLS
+
+TLS --> Authentication
+
+Authentication --> Authorization
+
+Authorization --> Validation
+
+Validation --> Application
+
+Application --> Data
+
+Application --> External
 ```
 
 ---
 
-## STRIDE Threat Model
+## 20.2 Defense-in-Depth Model
 
-| Threat                     | Example                                  | Mitigation                                                     |
-| -------------------------- | ---------------------------------------- | -------------------------------------------------------------- |
-| **Spoofing**               | Unauthorized user impersonation          | JWT authentication, strong password hashing (bcrypt)           |
-| **Tampering**              | Modified requests or uploaded files      | Input validation, request validation, file validation          |
-| **Repudiation**            | User denies performing an action         | Audit logging with timestamps and user identifiers             |
-| **Information Disclosure** | Unauthorized access to sensitive data    | RBAC, HTTPS, secure configuration, least-privilege access      |
-| **Denial of Service**      | Excessive API requests                   | API rate limiting, request timeouts, Redis caching             |
-| **Elevation of Privilege** | Customer attempts administrative actions | Role-based authorization and server-side permission validation |
+SupportAI implements security controls across multiple layers.
+
+| Layer          | Controls                  |
+| -------------- | ------------------------- |
+| Network        | HTTPS / TLS               |
+| Identity       | JWT Authentication        |
+| Authorization  | RBAC                      |
+| Application    | Input Validation          |
+| Data           | Database Access Controls  |
+| Infrastructure | Environment-Based Secrets |
+| Operations     | Logging & Monitoring      |
+
+Benefits:
+
+- Reduced attack surface
+- Multiple security barriers
+- Improved incident containment
+- Better operational resilience
 
 ---
 
-## Trust Boundaries
+## 20.3 STRIDE Threat Model
+
+SupportAI evaluates threats using Microsoft's STRIDE framework.
+
+| Threat                 | Example                       | Mitigation                  |
+| ---------------------- | ----------------------------- | --------------------------- |
+| Spoofing               | User impersonation            | JWT Authentication + bcrypt |
+| Tampering              | Modified requests             | Request Validation          |
+| Repudiation            | Action denial                 | Audit Trails & Logging      |
+| Information Disclosure | Unauthorized data access      | RBAC + HTTPS                |
+| Denial of Service      | Excessive requests            | Rate Limiting + Caching     |
+| Elevation of Privilege | Customer accessing admin APIs | Server-Side Authorization   |
+
+---
+
+## 20.4 Trust Boundaries
+
+The platform is separated into multiple trust zones.
 
 ```mermaid
 flowchart LR
 
 subgraph Internet
+
 Customer["👤 Customer"]
-Admin["👨‍💼 Administrator"]
+
+Administrator["👨‍💼 Administrator"]
+
 end
 
-subgraph Trusted_Application
-Frontend["React Frontend"]
-Backend["FastAPI Backend"]
-Redis["Redis Cache"]
-Postgres["PostgreSQL"]
+subgraph TrustedApplication
+
+Frontend["⚛️ Frontend"]
+
+Backend["🚀 FastAPI"]
+
+Redis["🟥 Redis"]
+
+PostgreSQL["🐘 PostgreSQL"]
+
 end
 
-subgraph External_Services
-Groq["Groq API"]
-Qdrant["Qdrant Cloud"]
+subgraph ExternalProviders
+
+Groq["🧠 Groq"]
+
+Qdrant["🔎 Qdrant"]
+
 end
 
 Customer --> Frontend
-Admin --> Frontend
+
+Administrator --> Frontend
 
 Frontend --> Backend
 
 Backend --> Redis
-Backend --> Postgres
+
+Backend --> PostgreSQL
+
 Backend --> Groq
+
 Backend --> Qdrant
+```
+
+### Trust Boundary Rules
+
+- Users never communicate directly with databases.
+- Users never access Qdrant directly.
+- Users never access Groq directly.
+- All requests pass through authenticated APIs.
+
+---
+
+## 20.5 Identity & Access Management
+
+SupportAI uses centralized identity management.
+
+### Authentication
+
+- JWT Access Tokens
+- Password Hashing (bcrypt)
+- Password Reset Tokens
+- Session Validation
+
+### Authorization
+
+RBAC Roles:
+
+| Role          | Access Level                                     |
+| ------------- | ------------------------------------------------ |
+| Customer      | Chat, Tickets, Notifications                     |
+| Administrator | Documents, Analytics, AI Quality Center, Tickets |
+
+Benefits:
+
+- Principle of Least Privilege
+- Controlled Access
+- Reduced Insider Risk
+
+---
+
+## 20.6 Data Protection
+
+SupportAI protects data both in transit and at rest.
+
+### Data In Transit
+
+Protected by:
+
+- HTTPS
+- TLS Encryption
+
+### Sensitive Data
+
+Protected through:
+
+- Password Hashing
+- Environment Variables
+- Database Access Controls
+
+Examples:
+
+```text
+DATABASE_URL
+JWT_SECRET_KEY
+GROQ_API_KEY
+QDRANT_API_KEY
+REDIS_URL
 ```
 
 ---
 
-## Secrets Management
+## 20.7 Secure AI Architecture
 
-Sensitive configuration is stored using environment variables and is never committed to source control.
+AI systems introduce unique security concerns.
 
-Examples include:
+SupportAI mitigates these risks through:
 
-- JWT Secret
-- Database Connection String
-- Groq API Key
-- Qdrant API Key
-- Redis Connection URL
+### Retrieval Grounding
 
----
+Responses are grounded using:
 
-## Security Principles
+- BM25 Retrieval
+- Dense Retrieval
+- RRF Fusion
 
-- Authentication is required before accessing protected resources.
-- Authorization is enforced using Role-Based Access Control (RBAC).
-- All communication uses HTTPS/TLS.
-- User input is validated on both client and server.
-- Sensitive secrets are externally managed through environment variables.
-- Security events are recorded through audit logging.
+### Prompt Construction Controls
 
-## 21. Risks & Mitigation
+Prompt Builder responsibilities:
 
-| Risk                              | Likelihood | Impact | Mitigation                                                                         |
-| --------------------------------- | ---------- | ------ | ---------------------------------------------------------------------------------- |
-| Groq API rate limits or downtime  | Medium     | High   | Implement retry logic + fallback error messages; cache common answers              |
-| LLM hallucination                 | Medium     | High   | Ground responses strictly in retrieved chunks; show sources; confidence thresholds |
-| Slow hybrid search at query time  | Low        | Medium | Limit BM25 corpus size; cap Qdrant top-k at 20 before re-ranking                   |
-| Scope creep within 3 weeks        | High       | High   | Lock requirements after Week 1; prioritize core RAG pipeline first                 |
-| Poor document chunking quality    | Medium     | Medium | Use overlap chunking (64 tokens); test on real docs early                          |
-| JWT secret exposure               | Low        | High   | Use env vars only; rotate key if compromised                                       |
-| Vercel / Railway free tier limits | Medium     | Low    | Monitor usage; optimize Docker image size; use lazy loading                        |
+- Context Isolation
+- Structured Prompt Assembly
+- Hallucination Reduction
+
+### Benefits
+
+- Reduced Prompt Injection Risk
+- Improved Response Reliability
+- Better Explainability
 
 ---
 
-## 22. Implementation Plan & Team Responsibilities
+## 20.8 Secure Knowledge Base Operations
 
-| Developer | Primary Role        | Responsibilities                                                                                     |
-| --------- | ------------------- | ---------------------------------------------------------------------------------------------------- |
-| **Dev 1** | Backend & AI Layer  | FastAPI setup, RAG pipeline, hybrid search, Groq integration, Qdrant, document ingestion             |
-| **Dev 2** | Frontend Lead       | React app, chat UI, admin dashboard, component library, API integration                              |
-| **Dev 3** | Full Stack & DevOps | Database schema, Alembic migrations, auth system, Docker setup, Railway/Vercel deployment, analytics |
+Document ingestion is protected through:
 
-All three developers participate in code review, testing, and demo preparation.
+```mermaid
+flowchart LR
 
----
+Upload["Upload"]
 
-## 23. Development Roadmap
+Validation["Validation"]
 
-### Week 1 — Foundation
+Extraction["Extraction"]
 
-**Goal:** Core infrastructure and RAG pipeline working end-to-end
+Embedding["Embedding"]
 
-| Tasks                                                                            |
-| -------------------------------------------------------------------------------- |
-| Project setup: repos, Docker, FastAPI skeleton, React + Vite scaffold            |
-| Database schema + Alembic migrations; JWT auth (register, login)                 |
-| Document ingestion pipeline: upload → chunk → embed → Qdrant                     |
-| Hybrid search (BM25 + vector + RRF), basic RAG query flow, test with sample docs |
+Storage["Storage"]
 
-**Deliverable:** A working CLI/Postman-tested RAG pipeline that takes a question and returns an answer with sources.
+Upload --> Validation
 
----
+Validation --> Extraction
 
-### Week 2 — Features & UI
+Extraction --> Embedding
 
-**Goal:** Full customer and admin UI connected to the backend
+Embedding --> Storage
+```
 
-| Tasks                                                                   |
-| ----------------------------------------------------------------------- |
-| Customer chat interface (message input, response display, source cards) |
-| Conversation history, suggested questions, confidence badge             |
-| Feedback system (thumbs up/down), auto-flagging low-confidence answers  |
-| Admin dashboard: document manager, flagged questions view               |
-| Analytics page (query trends, feedback stats, knowledge gap list)       |
+### Security Controls
 
-**Deliverable:** A fully connected app — customers can chat, admins can manage content.
+- MIME Validation
+- Extension Validation
+- File Size Validation
+- Filename Sanitization
+
+Benefits:
+
+- Reduced Malware Risk
+- Safer Processing Pipeline
+- Controlled Content Ingestion
 
 ---
 
-### Week 3 — Polish & Deployment
+## 20.9 Auditability & Monitoring
 
-**Goal:** Production deployment, testing, and demo-ready presentation
+SupportAI records operational events to improve traceability.
 
-| Tasks                                                               |
-| ------------------------------------------------------------------- |
-| Deploy backend to Railway, frontend to Vercel; connect Qdrant Cloud |
-| End-to-end testing with realistic documents and queries             |
-| UI polish: responsive design, loading states, error handling        |
-| Security review: CORS, env vars, input validation                   |
-| Demo preparation: seed data, sample knowledge base, test scenarios  |
-| Buffer day: bug fixes, final README, presentation slides            |
+Examples:
 
-**Deliverable:** A live, publicly accessible demo with a seeded knowledge base ready for judges.
+- Authentication Events
+- Ticket Actions
+- Administrative Changes
+- Document Uploads
+- Error Events
 
----
+Benefits:
 
-## 24. Future Enhancements
-
-These features are intentionally out of scope for the 3-week sprint but represent natural next steps:
-
-| Enhancement                  | Description                                                               |
-| ---------------------------- | ------------------------------------------------------------------------- |
-| **Multi-language support**   | Embed and respond in languages beyond English using multilingual models   |
-| **Live chat handoff**        | Escalate unresolved queries to a human agent in real time                 |
-| **Voice input**              | Allow customers to speak their questions (speech-to-text integration)     |
-| **Email digests for admins** | Weekly summary of flagged questions and knowledge gaps                    |
-| **Automated KB suggestions** | Suggest new documentation based on repeated unanswered questions          |
-| **SSO / OAuth**              | Allow login via Google or other identity providers                        |
-| **Streaming responses**      | Stream LLM output token-by-token for a faster perceived response time     |
-| **Fine-tuned model**         | Fine-tune a smaller model on domain-specific Q&A pairs from feedback data |
-| **Analytics export**         | Export conversation data and analytics as CSV for business reporting      |
+- Easier Incident Investigation
+- Accountability
+- Compliance Readiness
 
 ---
 
-_Document prepared by the SupportAI Team_
+## 20.10 Enterprise Security Principles
+
+SupportAI follows the following enterprise security principles:
+
+- Defense in Depth
+- Least Privilege
+- Zero Trust Mindset
+- Secure by Default
+- Fail Securely
+- Explicit Authorization
+- Separation of Duties
+- Continuous Validation
+
+---
+
+# 21. Risks & Mitigation
+
+As SupportAI evolves into a production-grade AI customer support platform, several technical, operational, and business risks must be continuously monitored and managed.
+
+---
+
+## 21.1 Risk Assessment Matrix
+
+| Risk                               | Likelihood | Impact | Mitigation                                                             |
+| ---------------------------------- | ---------- | ------ | ---------------------------------------------------------------------- |
+| Groq API Downtime or Rate Limiting | Medium     | High   | Retry strategy, graceful error handling, future multi-provider support |
+| AI Hallucinations                  | Medium     | High   | Retrieval grounding, hybrid search, confidence scoring                 |
+| Knowledge Base Gaps                | High       | Medium | AI Quality Center, ticket analytics, knowledge gap detection           |
+| Poor Retrieval Quality             | Medium     | High   | Hybrid search, RRF fusion, retrieval monitoring                        |
+| Document Ingestion Failures        | Low        | High   | Transaction rollback and ingestion validation                          |
+| Unauthorized Access                | Low        | High   | JWT, RBAC, password hashing                                            |
+| Malicious File Uploads             | Medium     | High   | MIME validation, file size validation, filename sanitization           |
+| Database Failures                  | Low        | High   | Managed PostgreSQL, backups, transaction protection                    |
+| Qdrant Availability Issues         | Low        | Medium | Controlled error handling and retrieval validation                     |
+| Redis Failures                     | Medium     | Low    | Graceful cache bypass                                                  |
+| Notification Delivery Failures     | Medium     | Low    | Non-blocking notification architecture                                 |
+| Frontend Deployment Failures       | Low        | Medium | Automated build validation                                             |
+| Backend Deployment Regressions     | Medium     | High   | Automated tests, regression verification                               |
+| Ticket Workflow Regressions        | Medium     | Medium | End-to-end testing and workflow validation                             |
+| AI Quality Analytics Inaccuracy    | Medium     | Medium | Real-data aggregation and validation                                   |
+| Future Scaling Challenges          | Medium     | Medium | Modular architecture and provider abstraction                          |
+
+---
+
+## 21.2 Technical Risks
+
+### AI Hallucinations
+
+Risk:
+
+The LLM may generate information not supported by the knowledge base.
+
+Mitigation:
+
+- Retrieval-Augmented Generation (RAG)
+- Hybrid Search
+- Confidence Scoring
+- Ticket Escalation Workflow
+- Human Review Process
+
+---
+
+### Retrieval Quality Degradation
+
+Risk:
+
+Relevant knowledge may not be retrieved.
+
+Mitigation:
+
+- BM25 Retrieval
+- Dense Vector Retrieval
+- Reciprocal Rank Fusion
+- AI Quality Center Monitoring
+
+---
+
+### Knowledge Base Gaps
+
+Risk:
+
+The platform may lack documentation for customer questions.
+
+Mitigation:
+
+- Ticket Analytics
+- Flagged Response Analysis
+- Knowledge Gap Detection
+- Continuous Knowledge Base Expansion
+
+---
+
+## 21.3 Infrastructure Risks
+
+### Groq Service Disruption
+
+Risk:
+
+LLM inference becomes unavailable.
+
+Mitigation:
+
+- Retry Strategy
+- Graceful Error Messages
+- Provider-Abstraction Architecture
+
+Future Roadmap:
+
+- Multi-Provider LLM Support
+
+---
+
+### Database Failures
+
+Risk:
+
+Loss of access to PostgreSQL.
+
+Mitigation:
+
+- Managed Database Services
+- Transaction Protection
+- Backup Strategies
+- Controlled Failure Handling
+
+---
+
+### Vector Database Failures
+
+Risk:
+
+Qdrant retrieval becomes unavailable.
+
+Mitigation:
+
+- Error Handling
+- Retrieval Validation
+- Controlled User Feedback
+
+---
+
+## 21.4 Security Risks
+
+### Credential Exposure
+
+Risk:
+
+Secrets become compromised.
+
+Mitigation:
+
+- Environment Variables
+- Secret Rotation
+- Restricted Access
+
+---
+
+### Privilege Escalation
+
+Risk:
+
+Customer gains administrative access.
+
+Mitigation:
+
+- JWT Authentication
+- RBAC Enforcement
+- Protected Admin Routes
+
+---
+
+### Malicious Uploads
+
+Risk:
+
+Dangerous files enter the ingestion pipeline.
+
+Mitigation:
+
+- MIME Validation
+- Extension Validation
+- Size Validation
+- Filename Sanitization
+
+---
+
+## 21.5 Operational Risks
+
+### Deployment Regressions
+
+Risk:
+
+New releases break existing functionality.
+
+Mitigation:
+
+- Pytest Validation
+- Frontend Linting
+- Build Verification
+- Regression Testing
+
+---
+
+### Ticket Workflow Failures
+
+Risk:
+
+Customer support workflows become inconsistent.
+
+Mitigation:
+
+- Unified Ticket Architecture
+- End-to-End Testing
+- Workflow Validation
+
+---
+
+### Analytics Integrity
+
+Risk:
+
+Administrative decisions are based on incorrect metrics.
+
+Mitigation:
+
+- Real Database Aggregations
+- Elimination of Mock Data
+- Verification Procedures
+
+---
+
+## 21.6 Future Risks
+
+### Scaling Challenges
+
+As adoption grows, future challenges may include:
+
+- Higher Chat Volume
+- Larger Knowledge Bases
+- Increased Ticket Volume
+- Multi-Tenant Requirements
+
+Current Mitigation:
+
+- Layered Architecture
+- Repository Pattern
+- Provider-Agnostic Components
+- Modular Service Design
+
+---
+
+## 21.7 Risk Management Principles
+
+SupportAI follows the following risk management principles:
+
+- Identify risks early.
+- Fail safely when possible.
+- Prefer graceful degradation over crashes.
+- Validate critical workflows continuously.
+- Protect data integrity above convenience.
+- Design for future scalability.
+
+---
+
+# 22. Product Roadmap & Future Enhancements
+
+SupportAI has evolved beyond its initial internship implementation into a scalable AI-powered customer support platform. The following roadmap outlines planned enhancements that will improve answer quality, operational efficiency, observability, and enterprise readiness.
+
+---
+
+## 22.1 Current Release (v1.0)
+
+### Core Features
+
+- Authentication & Authorization
+- Knowledge Base Management
+- Hybrid Search (BM25 + Dense Retrieval)
+- Retrieval-Augmented Generation (RAG)
+- Persistent Chat Sessions
+- Ticket Management System
+- Notifications
+- AI Quality Center
+- Analytics Dashboard
+- Password Reset Workflow
+- Production Hardening
+
+---
+
+## 22.2 Version 1.1 — Retrieval Attribution Layer
+
+### Objective
+
+Persist document attribution data between retrieved chunks and generated responses.
+
+### Planned Enhancements
+
+- MessageSource junction table
+- ChatMessage ↔ Document relationships
+- Retrieval traceability
+- Source attribution storage
+
+### Benefits
+
+- Explainable AI responses
+- Better analytics
+- Document-level quality monitoring
+
+---
+
+## 22.3 Version 1.2 — Knowledge Base Impact Analysis
+
+### Objective
+
+Measure how knowledge base documents influence customer outcomes.
+
+### Planned Metrics
+
+- Most Flagged Documents
+- Document Health Scores
+- Escalation Rate per Document
+- Resolution Contribution Analysis
+- Document Usage Analytics
+
+### Benefits
+
+- Data-driven KB improvements
+- Faster identification of weak documentation
+- Better AI response quality
+
+---
+
+## 22.4 Version 1.3 — Advanced Ticket Operations
+
+### Objective
+
+Transform ticket handling into a complete support operations platform.
+
+### Planned Features
+
+- SLA Management
+- Ticket Escalation Rules
+- Agent Assignment
+- Work Queues
+- Ticket Categories
+- Priority Automation
+
+### Benefits
+
+- Faster resolution times
+- Improved operational efficiency
+- Better customer support workflows
+
+---
+
+## 22.5 Version 1.4 — Customer Experience Enhancements
+
+### Planned Features
+
+- Real-Time Notifications
+- Live Ticket Updates
+- Enhanced Conversation Search
+- Customer Satisfaction Surveys
+- AI-Powered Suggested Responses
+
+### Benefits
+
+- Better customer engagement
+- Improved user experience
+- Reduced support friction
+
+---
+
+## 22.6 Version 1.5 — Advanced AI Quality Center
+
+### Planned Features
+
+- Retrieval Quality Monitoring
+- Confidence Trend Analysis
+- Hallucination Detection Metrics
+- Knowledge Gap Heatmaps
+- AI Performance Scorecards
+
+### Benefits
+
+- Continuous AI improvement
+- Better visibility into answer quality
+- Faster identification of problem areas
+
+---
+
+## 22.7 Version 2.0 — Enterprise Support Platform
+
+### Planned Features
+
+- Multi-Tenant Architecture
+- Team Management
+- Organization-Level Analytics
+- SSO Integration
+- Audit Reporting
+- Compliance Tooling
+
+### Benefits
+
+- Enterprise readiness
+- Organizational scalability
+- Improved governance
+
+---
+
+## 22.8 Long-Term Vision
+
+The long-term goal of SupportAI is to become an intelligent customer support platform that combines:
+
+- Retrieval-Augmented Generation
+- Human-in-the-Loop Support
+- AI Quality Monitoring
+- Knowledge Management
+- Support Operations
+
+into a unified system capable of continuously learning from customer interactions while maintaining transparency, reliability, and operational control.
+
+---
+
+# 23. Future Architecture Evolution
+
+SupportAI has been designed with extensibility and long-term scalability in mind. The architecture intentionally separates retrieval, orchestration, storage, and support operations so future capabilities can be introduced without major system redesign.
+
+---
+
+## 23.1 Retrieval Attribution Architecture
+
+### Current Limitation
+
+The platform currently does not persist document attribution between retrieved chunks and generated responses.
+
+As a result:
+
+- Most Flagged Documents cannot be calculated.
+- Document Health Scores cannot be calculated.
+- Source-level analytics cannot be generated.
+
+### Planned Architecture
+
+```text
+ChatMessage
+      ↓
+MessageSource
+      ↓
+Document
+      ↓
+Chunk
+```
+
+### Benefits
+
+- Full response traceability
+- Knowledge Base Impact Analysis
+- Explainable AI
+- Better AI Quality metrics
+
+---
+
+## 23.2 Knowledge Base Intelligence
+
+Future versions will transform the Knowledge Base into an actively monitored system.
+
+### Planned Features
+
+- Document Health Scores
+- Knowledge Gap Heatmaps
+- Content Freshness Tracking
+- Document Effectiveness Metrics
+- AI Usage Analytics
+
+### Expected Benefits
+
+- Faster knowledge improvements
+- Better retrieval quality
+- Reduced customer escalations
+
+---
+
+## 23.3 Advanced Support Operations
+
+The Ticket System will evolve into a complete support operations platform.
+
+### Planned Features
+
+- SLA Policies
+- Escalation Rules
+- Agent Assignment
+- Work Queues
+- Team Dashboards
+- Ticket Automation
+
+### Expected Benefits
+
+- Faster resolutions
+- Better support visibility
+- Improved customer experience
+
+---
+
+## 23.4 AI Quality Center Expansion
+
+The AI Quality Center will become the central intelligence hub for monitoring platform performance.
+
+### Planned Features
+
+- Retrieval Score Analytics
+- Hallucination Tracking
+- Confidence Trend Monitoring
+- AI Health Dashboards
+- Automated Quality Alerts
+
+### Expected Benefits
+
+- Continuous AI improvement
+- Faster issue detection
+- Improved answer quality
+
+---
+
+## 23.5 Enterprise Readiness
+
+Future enterprise-focused enhancements include:
+
+### Planned Features
+
+- Multi-Tenant Architecture
+- Single Sign-On (SSO)
+- Team Management
+- Audit Reporting
+- Compliance Controls
+- Organization-Level Analytics
+
+### Expected Benefits
+
+- Enterprise scalability
+- Governance support
+- Improved operational control
+
+---
+
+## 23.6 Long-Term Vision
+
+The long-term vision of SupportAI is to become an intelligent customer support ecosystem that combines:
+
+- AI-Powered Assistance
+- Human Support Operations
+- Knowledge Management
+- Quality Monitoring
+- Business Analytics
+
+into a unified platform capable of continuously improving customer support experiences while maintaining transparency, reliability, and operational control.
+
+The architecture has been intentionally designed to support this evolution without requiring major foundational changes.
+
+# 24. Conclusion
+
+SupportAI demonstrates the practical application of Retrieval-Augmented Generation (RAG), hybrid search, AI-assisted customer support, and human-in-the-loop quality management within a modern cloud-native architecture.
+
+The platform combines:
+
+- FastAPI Backend Services
+- React Frontend Applications
+- Hybrid Retrieval (BM25 + Dense Search)
+- Qdrant Vector Database
+- PostgreSQL Relational Storage
+- Groq LLM Inference
+- Ticket Management Workflows
+- AI Quality Monitoring
+
+into a unified system designed to improve customer support experiences while maintaining transparency, reliability, and operational control.
+
+The architecture emphasizes:
+
+- Scalability
+- Maintainability
+- Security
+- Reliability
+- Extensibility
+
+through layered architecture, repository patterns, orchestration services, provider abstraction, and structured operational workflows.
+
+Future evolution will focus on:
+
+- Retrieval Attribution
+- Knowledge Base Intelligence
+- Advanced Support Operations
+- Enterprise Readiness
+- AI Quality Automation
+
+allowing SupportAI to evolve from an AI-powered support assistant into a comprehensive intelligent customer support platform.
+
+---
+
+**SupportAI Architecture Document**
+
+Version: v1.0 Quality Center Edition
+
+Last Updated: July 2026
