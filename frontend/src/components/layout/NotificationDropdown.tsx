@@ -19,12 +19,9 @@ export default function NotificationDropdown() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleNotificationClick = async (id: string, related_ticket_id: string | null) => {
+  const handleNotificationClick = async (id: string) => {
     await markAsRead(id);
     setIsOpen(false);
-    if (related_ticket_id) {
-      navigate(`/customer/tickets/${related_ticket_id}`);
-    }
   };
 
   const handleArchive = async (e: React.MouseEvent, id: string) => {
@@ -58,7 +55,7 @@ export default function NotificationDropdown() {
               notifications.slice(0, 5).map(n => (
                 <div 
                   key={n.id} 
-                  onClick={() => handleNotificationClick(n.id, n.related_ticket_id)}
+                  onClick={() => handleNotificationClick(n.id)}
                   className={`p-3 border-b border-slate-800 hover:bg-slate-800 cursor-pointer transition-colors relative group ${!n.is_read ? 'bg-cyan-900/10' : ''}`}
                 >
                   <div className="flex justify-between items-start gap-2">

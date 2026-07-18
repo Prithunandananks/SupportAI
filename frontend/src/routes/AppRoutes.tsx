@@ -19,8 +19,7 @@ import CustomerSettings from "../pages/customer/Settings";
 import AdminSettings from "../pages/admin/Settings";
 import NotFound from "../pages/shared/NotFound";
 
-import MyTickets from "../pages/customer/MyTickets";
-import TicketDetails from "@/pages/customer/TicketDetails";
+
 import Notifications from "@/pages/customer/Notifications";
 import AdminTicketDetails from "../pages/admin/AdminTicketDetails";
 import AIQuality from "../pages/admin/AIQuality";
@@ -59,8 +58,6 @@ function AppRoutes() {
       <Route path="/admin/analytics" element={<AdminRoute><Analytics /></AdminRoute>} />
       <Route path="/admin/flagged/:id" element={<AdminRoute><AdminTicketDetails /></AdminRoute>} />
       <Route path="/profile" element={<CustomerRoute><CustomerProfile /></CustomerRoute>} />
-      <Route path="/customer/tickets" element={<CustomerRoute><MyTickets /></CustomerRoute>} />
-      <Route path="/customer/tickets/:id" element={<CustomerRoute><TicketDetails /></CustomerRoute>} />
       <Route path="/notifications" element={<CustomerRoute><Notifications /></CustomerRoute>} />
 
       <Route

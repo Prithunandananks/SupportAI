@@ -1,17 +1,14 @@
 import { useNotifications } from '@/hooks/useNotifications';
-import { useNavigate } from 'react-router-dom';
+
 import { Trash, CheckCircle2 } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 
 export default function Notifications() {
   const { notifications, markAsRead, markAllAsRead, archiveNotification } = useNotifications();
-  const navigate = useNavigate();
 
-  const handleNotificationClick = async (id: string, related_ticket_id: string | null) => {
+
+  const handleNotificationClick = async (id: string) => {
     await markAsRead(id);
-    if (related_ticket_id) {
-      navigate(`/customer/tickets/${related_ticket_id}`);
-    }
   };
 
   return (
@@ -38,7 +35,7 @@ export default function Notifications() {
               {notifications.map(n => (
                 <div 
                   key={n.id} 
-                  onClick={() => handleNotificationClick(n.id, n.related_ticket_id)}
+                  onClick={() => handleNotificationClick(n.id)}
                   className={`p-4 hover:bg-slate-800 cursor-pointer transition-colors flex gap-4 ${!n.is_read ? 'bg-cyan-950/20 border-l-2 border-l-cyan-500' : 'pl-[18px]'}`}
                 >
                   <div className="flex-1">
