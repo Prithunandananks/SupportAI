@@ -1,424 +1,1079 @@
 # Software Architecture Specification
 
 **Project Name:** SupportAI – AI-Powered Customer Support Platform  
-**Document Version:** 1.0.0  
-**Date:** June 24, 2026  
-**Status:** Approved for Technical Review  
-**Target Audience:** Technical Review Board, Engineering Team, Security Auditors  
+**Document Version:** 3.0.0  
+**Date:** July 2026  
+**Status:** Production Architecture Specification  
+**Target Audience:** Engineering Team, Technical Review Board, Architects, Security Auditors
 
 ---
 
 ## Executive Summary
 
-SupportAI is an enterprise-grade, AI-powered customer support platform designed to automate and streamline customer service operations. By utilizing Retrieval-Augmented Generation (RAG), the platform enables organizations to ingest proprietary documentation (FAQs, User Guides, Product Manuals, Policies, and Knowledge Base Articles) and serve accurate, grounded, and context-aware responses to customer queries via a ChatGPT-style interface. 
+SupportAI is a production-oriented AI-powered customer support platform that combines Retrieval-Augmented Generation (RAG), hybrid search, conversation management, ticket escalation workflows, notification management, and AI quality monitoring into a unified customer support experience.
 
-The primary business objective of SupportAI is to achieve high deflection rates of routine support tickets while maintaining a strict safety net: queries with low-confidence responses are seamlessly flagged and escalated to administrators for manual review. Administrators are equipped with dashboards to manage knowledge bases, review flagged questions, identify knowledge gaps, and audit system analytics.
+The platform enables organizations to deploy intelligent support systems powered by enterprise knowledge retrieval. Customers interact through a modern conversational interface while administrators manage knowledge bases, monitor AI performance, analyze support trends, resolve escalated tickets, and continuously improve answer quality.
 
-To ensure production-readiness while keeping execution feasible for a small engineering team, the architecture relies on a decoupled, service-oriented structure. The tech stack utilizes React/TypeScript on the frontend, FastAPI on the backend, PostgreSQL for transactional state, Qdrant for vector search, and Llama 3.1 8B Instruct hosted on Groq for low-latency inference. This document details the architectural decisions, database schemas, data flows, security controls, and deployment strategies required to build and scale SupportAI.
+SupportAI uses a modular layered architecture built with React, FastAPI, PostgreSQL, Redis, Qdrant, and Groq-hosted Large Language Models.
+
+Key platform capabilities include:
+
+- Hybrid Search (BM25 + Dense Vector Retrieval + RRF Fusion)
+- Retrieval-Augmented Generation (RAG)
+- Persistent Multi-Session Conversations
+- Ticket Management System
+- Notification Management
+- AI Quality Center
+- Analytics Dashboard
+- Knowledge Base Management
+- Role-Based Access Control (RBAC)
+- Production Security Hardening
+- Automated Testing and Validation
+
+The architecture emphasizes scalability, maintainability, observability, reliability, security, and future SaaS extensibility.
+
+Unlike traditional chatbot implementations, SupportAI incorporates a human-in-the-loop support workflow. Customer-reported AI failures are escalated into tickets that can be reviewed, resolved, and tracked through administrative workflows while simultaneously providing insight into AI quality and knowledge base effectiveness.
+
+This document describes the technical architecture, database design, retrieval pipeline, security controls, deployment model, and future evolution strategy of the SupportAI platform.
 
 ---
 
 ## Table of Contents
 
 1. [Architectural Decisions & Technical Justifications](#1-architectural-decisions--technical-justifications)
-   - [1.1 Relational Database: PostgreSQL](#11-relational-database-postgresql)
-   - [1.2 Vector Database: Qdrant](#12-vector-database-qdrant)
-   - [1.3 Large Language Model: Llama 3.1 8B Instruct via Groq](#13-large-language-model-llama-31-8b-instruct-via-groq)
-   - [1.4 Embedding Model: BGE Embeddings (bge-small-en-v1.5)](#14-embedding-model-bge-embeddings-bge-small-en-v15)
-   - [1.5 Retrieval Strategy: Hybrid Search vs. Pure Vector Search](#15-retrieval-strategy-hybrid-search-vs-pure-vector-search)
-   - [1.6 Backend Framework: FastAPI](#16-backend-framework-fastapi)
+   - [1.1 Relational Database](#11-relational-database)
+   - [1.2 Vector Database](#12-vector-database)
+   - [1.3 Large Language Model](#13-large-language-model)
+   - [1.4 Embedding Model](#14-embedding-model)
+   - [1.5 Retrieval Strategy](#15-retrieval-strategy)
+   - [1.6 Backend Framework](#16-backend-framework)
+
 2. [Database Schema & Design](#2-database-schema--design)
-   - [2.1 Database Schema Definition (DDL)](#21-database-schema-definition-ddl)
-   - [2.2 Entity-Relationship (ER) Diagram](#22-entity-relationship-er-diagram)
-3. [RAG Pipeline & Architecture](#3-rag-pipeline--architecture)
-   - [3.1 Data Flow Pipeline](#31-data-flow-pipeline)
-   - [3.2 System Sequence Diagram](#32-system-sequence-diagram)
-4. [Search Retrieval & Analytics Engine](#4-search-retrieval--analytics-engine)
-   - [4.1 BM25 Keyword Matching](#41-bm25-keyword-matching)
-   - [4.2 Dense Vector Search](#42-dense-vector-search)
-   - [4.3 Reciprocal Rank Fusion (RRF)](#43-reciprocal-rank-fusion-rrf)
-   - [4.4 Confidence Scoring Mechanics](#44-confidence-scoring-mechanics)
-   - [4.5 Knowledge Gap Detection & Clustering](#45-knowledge-gap-detection--clustering)
-5. [Security Architecture](#5-security-architecture)
-   - [5.1 Authentication & Authorization](#51-authentication--authorization)
-   - [5.2 Data Protection & Encryption](#52-data-protection--encryption)
-   - [5.3 File Ingestion Validation](#53-file-ingestion-validation)
-   - [5.4 Network & API Security](#54-network--api-security)
-6. [Deployment Architecture](#6-deployment-architecture)
-   - [6.1 Topology Diagram](#61-topology-diagram)
-   - [6.2 Component Details & Hosting Strategy](#62-component-details--hosting-strategy)
-7. [Design Patterns](#7-design-patterns)
-   - [7.1 Repository Pattern](#71-repository-pattern)
-   - [7.2 Service Layer Pattern](#72-service-layer-pattern)
-   - [7.3 Dependency Injection](#73-dependency-injection)
-   - [7.4 Strategy Pattern](#74-strategy-pattern)
-8. [Future Roadmap](#8-future-roadmap)
+   - [2.1 Database Schema Definition](#21-database-schema-definition)
+   - [2.2 Entity Relationship Diagram](#22-entity-relationship-diagram)
+
+3. [RAG Pipeline & Architecture]
+   - [3.1 Document Ingestion Pipeline]
+   - [3.2 Retrieval & Generation Pipeline]
+   - [3.3 Sequence Diagram]
+   - [3.4 AI Failure Escalation Workflow]
+   - [3.5 Architectural Limitations]
+
+4. [Search Retrieval & Analytics Engine]
+   - [4.1 BM25 Keyword Matching]
+   - [4.2 Dense Vector Search]
+   - [4.3 Reciprocal Rank Fusion]
+   - [4.4 AI Quality Monitoring]
+   - [4.5 Human-in-the-Loop Escalation]
+   - [4.6 Current Retrieval Limitations]
+   - [4.7 Future Retrieval Analytics Architecture]
+
+5. [Security Architecture]
+
+6. [Deployment Architecture]
+
+7. [Design Patterns]
+
+8. [Future Roadmap]
 
 ---
 
-## 1. Architectural Decisions & Technical Justifications
+---
 
-### 1.1 Relational Database: PostgreSQL
+# 1. Architectural Decisions & Technical Justifications
 
-The platform requires a transactional database to store core application state, user accounts, conversation threads, message logs, user feedback, and metadata about ingested documents. 
-
-| Database Checked | Selected | Justification / Alternatives Analysis |
-| :--- | :--- | :--- |
-| **PostgreSQL** | **Yes** | **Chosen.** Offers strict ACID compliance, robust support for relational schemas, powerful indexing, and advanced JSONB types for semi-structured log archiving. It is highly mature, works seamlessly with SQLAlchemy/Alembic, and scales vertically to handle millions of records easily. |
-| **MySQL / MariaDB** | No | Lacks equivalent JSONB query efficiency and advanced window functions required for complex analytics query generation (e.g., query trends and rolling satisfaction rates). |
-| **MongoDB** | No | Document store. Inadequate for highly relational structures (such as cascading deletions of conversation history, user authentication mappings, and audit trails of flagged questions). Risk of data inconsistency without rigid schemas. |
-| **SQLite** | No | Embedded database. Unsuitable for multi-user production workloads due to database-level write-locking constraints, lack of concurrent write scaling, and missing advanced analytical features. |
-
-### 1.2 Vector Database: Qdrant
-
-Ingested document chunks must be transformed into high-dimensional vectors and stored in a specialized index for low-latency similarity queries.
-
-| Vector DB Checked | Selected | Justification / Alternatives Analysis |
-| :--- | :--- | :--- |
-| **Qdrant** | **Yes** | **Chosen.** Written in Rust, Qdrant provides exceptional search throughput, low latency, and efficient memory usage. It features robust filtering on payloads (metadata properties like category, upload timestamp, or status), has a clean REST/gRPC API, offers an official Python client, and can be run locally in Docker or hosted in Qdrant Cloud. |
-| **Pinecone** | No | Proprietary SaaS-only. Introduces vendor lock-in, lacks self-hosting/local development options, and can incur higher operational costs at scale compared to open-source self-hosted or managed container alternatives. |
-| **Milvus** | No | Architecturally complex. Milvus requires ZooKeeper, MinIO, Pulsar, and multiple microservice components, making it over-engineered and difficult for a small engineering team to deploy and maintain. |
-| **pgvector (Postgres)** | No | Performance bottlenecks. While pgvector simplifies operations by keeping vectors in PostgreSQL, running HNSW indexes on a shared transactional DB introduces resource contention during heavy indexing workloads, impacting the responsiveness of the web app. |
-
-### 1.3 Large Language Model: Llama 3.1 8B Instruct via Groq
-
-Selecting the core Large Language Model requires balancing intelligence, cost, speed, and deployment effort.
-
-| LLM Option Checked | Selected | Justification / Alternatives Analysis |
-| :--- | :--- | :--- |
-| **Llama 3.1 8B Instruct (via Groq)** | **Yes** | **Chosen.** Llama 3.1 8B is a state-of-the-art open-weights model optimized for instruction following and dialogue. Accessing it via Groq's LPU (Language Processing Unit) inference engine provides ultra-fast token-generation rates (typically >200 tokens/sec). This yields near-instant responses, matching proprietary models at a fraction of the cost, while keeping deployment trivial. |
-| **GPT-4o / Claude 3.5 Sonnet** | No | Highly intelligent but significantly more expensive per token. For scoped RAG tasks restricted to uploaded documentation, an 8B parameters model is highly sufficient, making the cost-efficiency of GPT-4o unnecessary. |
-| **Self-Hosted Llama 3.1 8B on AWS/GCP** | No | High infrastructure overhead. Running an 8B model requires expensive GPU instances (e.g., NVIDIA A10G or V100), cold-start latency management, autoscaling configuration, and dedicated ML engineer maintenance, which is impractical for a small team. |
-| **Local CPU Hosting (Ollama/llama.cpp)** | No | Extremely slow response times under concurrent production workloads. Unreliable throughput and high latency. |
-
-### 1.4 Embedding Model: BGE Embeddings (bge-small-en-v1.5)
-
-The embedding model transforms parsed text chunks into vector embeddings. 
-
-| Embedding Checked | Selected | Justification / Alternatives Analysis |
-| :--- | :--- | :--- |
-| **BAAI/bge-small-en-v1.5** | **Yes** | **Chosen.** A top-performing model on the MTEB (Massive Text Embedding Benchmark) leaderboard. It yields a compact 384-dimensional dense vector space. This small dimensionality minimizes index size and maximizes search speed in Qdrant, while the model is lightweight enough to run locally on the FastAPI backend CPU without causing GPU dependency. |
-| **OpenAI text-embedding-3-small** | No | Network call latency. Generating embeddings via external API adds network latency and external cost for every query and chunk generation. BGE runs locally, ensuring zero dependency on external network speeds during indexing. |
-| **bge-large-en-v1.5** | No | Generates 1024-dimensional vectors. This triples the storage requirement in the vector index and significantly slows down similarity searches while providing only negligible improvements in retrieval accuracy for standard English text. |
-
-### 1.5 Retrieval Strategy: Hybrid Search vs. Pure Vector Search
-
-| Retrieval Strategy | Selected | Justification / Alternatives Analysis |
-| :--- | :--- | :--- |
-| **Hybrid Search (Vector + BM25 + RRF)** | **Yes** | **Chosen.** Support documentation contains domain-specific terminology, part numbers, exact error codes, and unique feature names. Pure semantic search often misses these exact keyword matches, returning irrelevant context. Hybrid search executes BM25 keyword matching alongside vector similarity, merging the lists using Reciprocal Rank Fusion (RRF). This delivers optimal search precision. |
-| **Pure Vector Search** | No | Prone to "hallucinatory" matching when synonyms overlap, and fails on exact alphanumeric queries (e.g., retrieving manual section for model "X-900" might return model "X-800" if they share similar surrounding text structure). |
-| **Pure Keyword Search (BM25/Elastic)** | No | Lacks semantic understanding. Fails when customers phrase questions using different vocabulary from the official documentation (e.g., asking "how do I change my password" vs. the document title "Resetting User Credentials"). |
-
-### 1.6 Backend Framework: FastAPI
-
-The backend must serve APIs to both the React frontend and process heavy document upload streams.
-
-| Backend Checked | Selected | Justification / Alternatives Analysis |
-| :--- | :--- | :--- |
-| **FastAPI** | **Yes** | **Chosen.** FastAPI is a modern, high-performance web framework for Python. Built on ASGI and Starlette, it natively supports async programming, essential for handling concurrent I/O operations (like database queries, vector DB lookups, and streaming LLM tokens). It also features built-in input validation via Pydantic and automatically generates interactive OpenAPI/Swagger documentation. |
-| **Django** | No | Heavy and opinionated. Django is structured primarily around synchronous operations, and its built-in ORM lacks native async support. It introduces excessive boilerplate and component locking that is counterproductive for a decoupled API-only microservice stack. |
-| **Flask** | No | Lacks built-in support for asynchronous request handling, type hinting, and automatic OpenAPI schema generation. Implementing these requires stacking third-party extensions, leading to a fragmented codebase. |
-| **Node.js (Express)** | No | While highly performant for async, Node.js lacks mature, built-in numerical computing and AI integration ecosystems. Implementing chunking, embeddings parsing, and BM25 local calculation is far more complex in JS/TS than in Python. |
+This section documents the major architectural decisions made during the design and implementation of SupportAI. Each technology was selected after evaluating alternatives against performance, scalability, maintainability, developer productivity, operational complexity, and long-term extensibility.
 
 ---
 
-## 2. Database Schema & Design
+## 1.1 Relational Database Layer
 
-The relational database acts as the single source of truth for administrative and application state. Below is the technical specification of the tables.
+SupportAI requires a transactional database for storing users, chat sessions, chat messages, documents, tickets, notifications, and administrative data.
 
-### 2.1 Database Schema Definition (DDL)
+| Database Evaluated | Selected    | Justification                                                                                                                                                                      |
+| ------------------ | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PostgreSQL         | Yes         | Preferred production database due to ACID compliance, indexing capabilities, JSON support, analytics features, and scalability. Integrates seamlessly with SQLAlchemy and Alembic. |
+| MySQL / MariaDB    | No          | Less flexibility for analytical workloads and advanced JSON operations.                                                                                                            |
+| MongoDB            | No          | Document-oriented storage is less suitable for SupportAI's highly relational entities and workflows.                                                                               |
+| SQLite             | Development | Used during development and rapid prototyping. Not ideal for large-scale production workloads.                                                                                     |
 
-#### 2.1.1 Table: `users`
-Stores user credentials and roles.
-* **id:** `UUID` (Primary Key, Default: `gen_random_uuid()`)
-* **email:** `VARCHAR(255)` (Unique, Indexed, Not Null)
-* **hashed_password:** `VARCHAR(255)` (Not Null)
-* **first_name:** `VARCHAR(100)` (Nullable)
-* **last_name:** `VARCHAR(100)` (Nullable)
-* **role:** `VARCHAR(50)` (Not Null, Checked constraint: `role IN ('Admin', 'Support_Agent', 'Customer')`)
-* **created_at:** `TIMESTAMP WITH TIME ZONE` (Default: `CURRENT_TIMESTAMP`, Not Null)
-* **updated_at:** `TIMESTAMP WITH TIME ZONE` (Default: `CURRENT_TIMESTAMP`, On Update: `CURRENT_TIMESTAMP`)
+### Decision
 
-#### 2.1.2 Table: `documents`
-Stores metadata of uploaded files. 
-* **id:** `UUID` (Primary Key, Default: `gen_random_uuid()`)
-* **filename:** `VARCHAR(255)` (Not Null)
-* **file_path:** `VARCHAR(512)` (Not Null - points to storage bucket or local path)
-* **file_size_bytes:** `BIGINT` (Not Null)
-* **mime_type:** `VARCHAR(100)` (Not Null)
-* **category:** `VARCHAR(100)` (Indexed, Default: 'General', Not Null)
-* **uploaded_by_id:** `UUID` (Foreign Key -> `users(id)`, On Delete: `SET NULL`, Nullable)
-* **created_at:** `TIMESTAMP WITH TIME ZONE` (Default: `CURRENT_TIMESTAMP`, Not Null)
-* **updated_at:** `TIMESTAMP WITH TIME ZONE` (Default: `CURRENT_TIMESTAMP`)
+SupportAI is designed around a relational data model because customer support workflows contain highly connected entities:
 
-#### 2.1.3 Table: `document_chunks`
-Stores text chunks extracted from documents.
-* **id:** `UUID` (Primary Key, Default: `gen_random_uuid()`)
-* **document_id:** `UUID` (Foreign Key -> `documents(id)`, On Delete: `CASCADE`, Not Null)
-* **chunk_index:** `INTEGER` (Not Null)
-* **content:** `TEXT` (Not Null)
-* **vector_id:** `UUID` (Not Null - Maps to the unique point ID stored in Qdrant index)
-* **created_at:** `TIMESTAMP WITH TIME ZONE` (Default: `CURRENT_TIMESTAMP`, Not Null)
+- Users
+- Chat Sessions
+- Chat Messages
+- Documents
+- Tickets
+- Ticket Messages
+- Notifications
 
-#### 2.1.4 Table: `conversations`
-Maintains conversational sessions.
-* **id:** `UUID` (Primary Key, Default: `gen_random_uuid()`)
-* **user_id:** `UUID` (Foreign Key -> `users(id)`, On Delete: `CASCADE`, Nullable - allows anonymous guest chat if needed)
-* **title:** `VARCHAR(255)` (Default: 'New Chat', Not Null)
-* **created_at:** `TIMESTAMP WITH TIME ZONE` (Default: `CURRENT_TIMESTAMP`, Not Null)
-* **updated_at:** `TIMESTAMP WITH TIME ZONE` (Default: `CURRENT_TIMESTAMP`)
-
-#### 2.1.5 Table: `messages`
-Stores individual conversation logs.
-* **id:** `UUID` (Primary Key, Default: `gen_random_uuid()`)
-* **conversation_id:** `UUID` (Foreign Key -> `conversations(id)`, On Delete: `CASCADE`, Not Null)
-* **sender_role:** `VARCHAR(50)` (Not Null, Checked constraint: `sender_role IN ('User', 'Assistant')`)
-* **content:** `TEXT` (Not Null)
-* **confidence_score:** `NUMERIC(4, 3)` (Nullable - populated only for 'Assistant' messages)
-* **sources_used:** `JSONB` (Nullable - stores arrays of referenced document chunk IDs and names)
-* **created_at:** `TIMESTAMP WITH TIME ZONE` (Default: `CURRENT_TIMESTAMP`, Not Null)
-
-#### 2.1.6 Table: `feedback`
-Logs user interactions with AI responses.
-* **id:** `UUID` (Primary Key, Default: `gen_random_uuid()`)
-* **message_id:** `UUID` (Foreign Key -> `messages(id)`, On Delete: `CASCADE`, Unique, Not Null)
-* **is_positive:** `BOOLEAN` (Not Null - True for Thumbs Up, False for Thumbs Down)
-* **comment:** `TEXT` (Nullable - optional text feedback)
-* **created_at:** `TIMESTAMP WITH TIME ZONE` (Default: `CURRENT_TIMESTAMP`, Not Null)
-
-#### 2.1.7 Table: `flagged_questions`
-Escalates queries to administrators.
-* **id:** `UUID` (Primary Key, Default: `gen_random_uuid()`)
-* **message_id:** `UUID` (Foreign Key -> `messages(id)`, On Delete: `SET NULL`, Nullable)
-* **question_text:** `TEXT` (Not Null)
-* **reason_flagged:** `VARCHAR(100)` (Not Null, e.g., 'LOW_CONFIDENCE', 'USER_DISLIKE', 'UNANSWERED')
-* **status:** `VARCHAR(50)` (Default: 'Pending', Not Null, Checked constraint: `status IN ('Pending', 'Reviewed', 'Resolved')`)
-* **assigned_to_id:** `UUID` (Foreign Key -> `users(id)`, On Delete: `SET NULL`, Nullable)
-* **resolution_note:** `TEXT` (Nullable)
-* **created_at:** `TIMESTAMP WITH TIME ZONE` (Default: `CURRENT_TIMESTAMP`, Not Null)
-* **updated_at:** `TIMESTAMP WITH TIME ZONE` (Default: `CURRENT_TIMESTAMP`)
+Relational databases provide strong consistency guarantees and simplify auditing, analytics, and reporting.
 
 ---
 
-### 2.2 Entity-Relationship (ER) Diagram
+## 1.2 Vector Database: Qdrant
+
+SupportAI uses semantic search as part of its Retrieval-Augmented Generation (RAG) architecture.
+
+| Vector Database Evaluated | Selected | Justification                                                                                                                 |
+| ------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Qdrant                    | Yes      | High-performance vector search, metadata filtering, cloud-hosted options, open-source availability, excellent Python support. |
+| Pinecone                  | No       | Vendor lock-in and higher operational cost.                                                                                   |
+| Milvus                    | No       | Operational complexity exceeds project requirements.                                                                          |
+| pgvector                  | No       | Increases resource contention on the primary transactional database.                                                          |
+
+### Decision
+
+Qdrant was selected because it provides:
+
+- Fast vector similarity search
+- Metadata filtering
+- Cloud and self-hosted deployment options
+- Efficient memory usage
+- Native support for dense vector retrieval
+
+Qdrant stores document chunk embeddings and serves as the semantic retrieval engine for the RAG pipeline.
+
+---
+
+## 1.3 Large Language Model: Llama 3.1 8B Instruct via Groq
+
+SupportAI requires a fast, cost-effective language model capable of generating grounded customer support responses.
+
+| Model Option Evaluated       | Selected | Justification                                                                         |
+| ---------------------------- | -------- | ------------------------------------------------------------------------------------- |
+| Llama 3.1 8B Instruct (Groq) | Yes      | Excellent balance of performance, speed, quality, and cost.                           |
+| GPT-4o                       | No       | Higher operational cost for comparable RAG use cases.                                 |
+| Claude Sonnet                | No       | Strong quality but unnecessary cost overhead for document-grounded support workflows. |
+| Self-Hosted Models           | No       | Increased infrastructure complexity and operational burden.                           |
+| Local CPU Inference          | No       | Insufficient throughput for production workloads.                                     |
+
+### Decision
+
+SupportAI uses:
+
+- Groq Inference Platform
+- Llama 3.1 8B Instruct
+
+Benefits:
+
+- Low latency
+- High throughput
+- Reduced infrastructure costs
+- Strong instruction-following capabilities
+- Excellent performance for retrieval-grounded conversations
+
+---
+
+## 1.4 Embedding Architecture
+
+SupportAI uses a provider-agnostic embedding architecture rather than tightly coupling the system to a single embedding model.
+
+### Current Production Provider
+
+- BAAI/bge-small-en-v1.5
+- 384-dimensional embeddings
+
+### Architectural Improvements
+
+SupportAI implements:
+
+- EmbeddingProviderFactory
+- Provider abstraction layer
+- Dynamic vector dimension discovery
+- Runtime collection configuration
+
+### Benefits
+
+- Future migration flexibility
+- Reduced vendor lock-in
+- Simplified testing
+- Easier model upgrades
+- Support for multiple embedding providers
+
+### Future Supported Providers
+
+Potential future providers include:
+
+- OpenAI Embeddings
+- Voyage AI
+- Cohere Embeddings
+- Enterprise-hosted models
+
+The retrieval layer remains unchanged regardless of embedding provider.
+
+---
+
+## 1.5 Retrieval Strategy: Hybrid Search
+
+SupportAI uses Hybrid Search to maximize retrieval accuracy.
+
+| Retrieval Strategy                  | Selected | Justification                                    |
+| ----------------------------------- | -------- | ------------------------------------------------ |
+| Hybrid Search (BM25 + Vector + RRF) | Yes      | Best overall retrieval quality.                  |
+| Pure Vector Search                  | No       | Can miss exact keywords and product identifiers. |
+| Pure BM25 Search                    | No       | Lacks semantic understanding.                    |
+
+### Hybrid Search Components
+
+#### Sparse Retrieval
+
+BM25 handles:
+
+- Exact keywords
+- Product names
+- Error codes
+- Technical identifiers
+
+#### Dense Retrieval
+
+Vector search handles:
+
+- Semantic similarity
+- Natural language queries
+- Paraphrased questions
+- Concept matching
+
+#### Reciprocal Rank Fusion (RRF)
+
+Results from both retrievers are merged using RRF to create a single ranked list.
+
+Benefits:
+
+- Better recall
+- Better precision
+- Improved grounding quality
+- Reduced retrieval failures
+
+---
+
+## 1.6 Backend Framework: FastAPI
+
+SupportAI requires a modern, high-performance backend framework capable of serving both AI workflows and standard application APIs.
+
+| Framework Evaluated | Selected | Justification                                                    |
+| ------------------- | -------- | ---------------------------------------------------------------- |
+| FastAPI             | Yes      | Async support, validation, OpenAPI generation, high performance. |
+| Django              | No       | Excessive framework overhead for API-first architecture.         |
+| Flask               | No       | Requires multiple extensions to reach comparable functionality.  |
+| Express.js          | No       | Less mature ecosystem for AI and retrieval workloads.            |
+
+### Decision
+
+FastAPI provides:
+
+- Asynchronous request handling
+- Pydantic validation
+- Automatic API documentation
+- High throughput
+- Clean dependency injection
+
+FastAPI acts as the central application layer connecting customers, administrators, AI services, databases, and analytics systems.
+
+---
+
+## 1.7 Ticket Management Architecture
+
+SupportAI implements a human-in-the-loop support workflow to handle situations where AI responses are insufficient or require human review.
+
+### Workflow
+
+```text
+Customer Question
+        ↓
+AI Response
+        ↓
+Customer Flags Response
+        ↓
+Ticket Created
+        ↓
+Admin Review
+        ↓
+Support Reply
+        ↓
+Customer Notification
+        ↓
+Resolution
+```
+
+### Benefits
+
+- Human fallback support
+- Improved customer satisfaction
+- Visibility into AI failures
+- Continuous support quality improvement
+- Better issue tracking and auditing
+
+### Architectural Decision
+
+Rather than creating a separate escalation platform, SupportAI integrates ticket management directly into the customer support workflow.
+
+---
+
+## 1.8 AI Quality Center
+
+SupportAI includes an AI Quality Center for monitoring support quality and identifying improvement opportunities.
+
+### Analytics Provided
+
+- Total Flagged Responses
+- Open Tickets
+- Resolved Tickets
+- Resolution Time Analysis
+- Report Reason Distribution
+- Ticket Status Distribution
+- Most Reported Questions
+- Recent Flagged Responses
+
+### Benefits
+
+- Visibility into AI performance
+- Faster issue detection
+- Better administrative decision-making
+- Data-driven knowledge base improvements
+
+### Architectural Decision
+
+Quality monitoring is built directly into the platform using ticket and conversation data rather than relying on external analytics tools.
+
+---
+
+## 1.9 Notification Architecture
+
+SupportAI includes an integrated notification subsystem.
+
+### Workflow
+
+```text
+Ticket Updated
+        ↓
+Notification Created
+        ↓
+Customer Notification Center
+        ↓
+Read / Unread Tracking
+```
+
+### Notification Types
+
+- Ticket Updates
+- Support Replies
+- Resolution Notifications
+- Administrative Alerts
+
+### Benefits
+
+- Improved customer communication
+- Faster response awareness
+- Reduced support friction
+- Better user engagement
+
+---
+
+## 1.10 Architectural Principles
+
+The following principles guide all technical decisions within SupportAI:
+
+### Scalability
+
+Support future growth without major redesign.
+
+### Maintainability
+
+Keep services modular and easy to extend.
+
+### Reliability
+
+Ensure graceful handling of failures.
+
+### Security
+
+Protect customer and administrative data.
+
+### Observability
+
+Enable monitoring, analytics, and auditing.
+
+### Extensibility
+
+Support future AI providers, retrieval strategies, and enterprise features.
+
+## These principles ensure SupportAI remains adaptable as the platform evolves from an AI support assistant into a comprehensive customer support ecosystem.
+
+# 2. Database Schema & Design
+
+The relational database serves as the system of record for authentication, knowledge management, conversations, ticket workflows, notifications, and administrative operations.
+
+The schema is designed around strongly-related entities and follows normalized relational modeling principles.
+
+---
+
+## 2.1 Core Entities
+
+### 2.1.1 Table: `users`
+
+Stores platform users and administrators.
+
+| Column          | Type         | Description                 |
+| --------------- | ------------ | --------------------------- |
+| id              | UUID (PK)    | Unique user identifier      |
+| email           | VARCHAR(255) | Unique email address        |
+| hashed_password | VARCHAR(255) | bcrypt password hash        |
+| role            | ENUM         | Admin, Customer             |
+| is_active       | BOOLEAN      | Account status              |
+| created_at      | TIMESTAMP    | Creation timestamp          |
+| updated_at      | TIMESTAMP    | Last modification timestamp |
+
+---
+
+### 2.1.2 Table: `documents`
+
+Stores uploaded knowledge base documents.
+
+| Column      | Type                 | Description                |
+| ----------- | -------------------- | -------------------------- |
+| id          | UUID (PK)            | Unique document identifier |
+| filename    | VARCHAR(255)         | Original filename          |
+| mime_type   | VARCHAR(100)         | File type                  |
+| file_size   | BIGINT               | File size in bytes         |
+| uploaded_by | UUID (FK → users.id) | Uploading administrator    |
+| category    | VARCHAR(100)         | Document category          |
+| created_at  | TIMESTAMP            | Upload timestamp           |
+| updated_at  | TIMESTAMP            | Last update timestamp      |
+
+---
+
+### 2.1.3 Table: `chat_sessions`
+
+Stores customer conversations.
+
+| Column     | Type                 | Description             |
+| ---------- | -------------------- | ----------------------- |
+| id         | UUID (PK)            | Session identifier      |
+| user_id    | UUID (FK → users.id) | Session owner           |
+| title      | VARCHAR(255)         | Session title           |
+| created_at | TIMESTAMP            | Creation timestamp      |
+| updated_at | TIMESTAMP            | Last activity timestamp |
+
+---
+
+### 2.1.4 Table: `chat_messages`
+
+Stores messages belonging to chat sessions.
+
+| Column     | Type                         | Description        |
+| ---------- | ---------------------------- | ------------------ |
+| id         | UUID (PK)                    | Message identifier |
+| session_id | UUID (FK → chat_sessions.id) | Parent session     |
+| role       | ENUM                         | user, assistant    |
+| content    | TEXT                         | Message content    |
+| created_at | TIMESTAMP                    | Creation timestamp |
+
+### Design Note
+
+SupportAI intentionally does not persist retrieval metadata or document attribution with chat messages.
+
+This design simplifies conversation persistence while keeping retrieval infrastructure independent of chat storage.
+
+---
+
+### 2.1.5 Table: `tickets`
+
+Represents escalated support requests and flagged AI responses.
+
+| Column           | Type                         | Description                         |
+| ---------------- | ---------------------------- | ----------------------------------- |
+| id               | UUID (PK)                    | Ticket identifier                   |
+| ticket_number    | VARCHAR(50)                  | Human-readable ticket number        |
+| title            | VARCHAR(255)                 | Ticket title                        |
+| description      | TEXT                         | Ticket details                      |
+| category         | ENUM                         | REPORT, GENERAL, BUG, FEATURE       |
+| status           | ENUM                         | OPEN, IN_PROGRESS, RESOLVED, CLOSED |
+| priority         | ENUM                         | LOW, MEDIUM, HIGH, CRITICAL         |
+| created_by       | UUID (FK → users.id)         | Customer                            |
+| assigned_to      | UUID (FK → users.id)         | Administrator                       |
+| conversation_id  | UUID (FK → chat_sessions.id) | Related chat session                |
+| chat_message_id  | UUID (FK → chat_messages.id) | Related AI message                  |
+| report_reason    | VARCHAR(100)                 | Flag reason                         |
+| customer_comment | TEXT                         | Additional context                  |
+| created_at       | TIMESTAMP                    | Creation timestamp                  |
+| updated_at       | TIMESTAMP                    | Last update timestamp               |
+| closed_at        | TIMESTAMP                    | Resolution timestamp                |
+
+### Design Note
+
+Flagged Questions are implemented as Ticket records where `chat_message_id` is populated.
+
+There is no separate flagged_questions table in the current architecture.
+
+---
+
+### 2.1.6 Table: `ticket_messages`
+
+Stores communication within tickets.
+
+| Column     | Type                   | Description        |
+| ---------- | ---------------------- | ------------------ |
+| id         | UUID (PK)              | Message identifier |
+| ticket_id  | UUID (FK → tickets.id) | Parent ticket      |
+| sender_id  | UUID (FK → users.id)   | Message author     |
+| content    | TEXT                   | Reply content      |
+| created_at | TIMESTAMP              | Creation timestamp |
+
+### Design Note
+
+Ticket replies are stored independently from chat messages.
+
+Customer chat views dynamically interleave ticket replies at read time without duplicating records.
+
+---
+
+### 2.1.7 Table: `notifications`
+
+Stores customer and administrative notifications.
+
+| Column     | Type                 | Description             |
+| ---------- | -------------------- | ----------------------- |
+| id         | UUID (PK)            | Notification identifier |
+| user_id    | UUID (FK → users.id) | Notification recipient  |
+| title      | VARCHAR(255)         | Notification title      |
+| message    | TEXT                 | Notification body       |
+| is_read    | BOOLEAN              | Read status             |
+| created_at | TIMESTAMP            | Creation timestamp      |
+
+---
+
+## 2.2 Entity Relationship Diagram
 
 ```mermaid
 erDiagram
+
     users {
         uuid id PK
-        varchar email UK
+        varchar email
         varchar hashed_password
-        varchar first_name
-        varchar last_name
         varchar role
-        timestamp created_at
-        timestamp updated_at
+        boolean is_active
     }
 
     documents {
         uuid id PK
         varchar filename
-        varchar file_path
-        bigint file_size_bytes
         varchar mime_type
-        varchar category
-        uuid uploaded_by_id FK
-        timestamp created_at
-        timestamp updated_at
+        bigint file_size
+        uuid uploaded_by FK
     }
 
-    document_chunks {
-        uuid id PK
-        uuid document_id FK
-        integer chunk_index
-        text content
-        uuid vector_id
-        timestamp created_at
-    }
-
-    conversations {
+    chat_sessions {
         uuid id PK
         uuid user_id FK
         varchar title
-        timestamp created_at
-        timestamp updated_at
     }
 
-    messages {
+    chat_messages {
         uuid id PK
-        uuid conversation_id FK
-        varchar sender_role
+        uuid session_id FK
+        varchar role
         text content
-        numeric confidence_score
-        jsonb sources_used
-        timestamp created_at
     }
 
-    feedback {
+    tickets {
         uuid id PK
-        uuid message_id FK "Unique"
-        boolean is_positive
-        text comment
-        timestamp created_at
-    }
-
-    flagged_questions {
-        uuid id PK
-        uuid message_id FK
-        text question_text
-        varchar reason_flagged
+        varchar ticket_number
+        varchar title
+        varchar category
         varchar status
-        uuid assigned_to_id FK
-        text resolution_note
-        timestamp created_at
-        timestamp updated_at
+        varchar priority
+        uuid created_by FK
+        uuid assigned_to FK
+        uuid conversation_id FK
+        uuid chat_message_id FK
     }
 
-    users ||--o{ documents : "uploads"
-    users ||--o{ conversations : "initiates"
-    users ||--o{ flagged_questions : "resolves"
-    documents ||--o{ document_chunks : "contains"
-    conversations ||--o{ messages : "composed_of"
-    messages ||--o| feedback : "receives"
-    messages ||--o| flagged_questions : "triggers"
+    ticket_messages {
+        uuid id PK
+        uuid ticket_id FK
+        uuid sender_id FK
+        text content
+    }
+
+    notifications {
+        uuid id PK
+        uuid user_id FK
+        varchar title
+        text message
+        boolean is_read
+    }
+
+    users ||--o{ chat_sessions : owns
+    users ||--o{ documents : uploads
+    users ||--o{ tickets : creates
+    users ||--o{ ticket_messages : writes
+    users ||--o{ notifications : receives
+
+    chat_sessions ||--o{ chat_messages : contains
+
+    chat_sessions ||--o{ tickets : related_to
+
+    chat_messages ||--o| tickets : flagged_as
+
+    tickets ||--o{ ticket_messages : contains
 ```
 
 ---
 
-## 3. RAG Pipeline & Architecture
+## 2.3 Architectural Decisions
 
-### 3.1 Data Flow Pipeline
+### Why Tickets Instead of Flagged Questions?
 
-The RAG architecture is split into two primary pipelines: the **Ingestion Pipeline** (executed when administrators upload knowledge documents) and the **Retrieval & Generation Pipeline** (executed when users ask questions).
+Earlier designs used a dedicated `flagged_questions` table.
 
-#### Ingestion Pipeline
-1. **Document Upload:** The Admin uploads a PDF or TXT file through the admin interface.
-2. **Validation:** The backend validates file format, size, and MIME-type.
-3. **Parsing:** A text extractor (e.g., PyPDF2 or custom text parser) extracts raw characters and cleans white spaces.
-4. **Chunking:** The parsed text is split using a `RecursiveCharacterTextSplitter`. Text is chunked with a target chunk size of 500 characters and a 10% overlap (50 characters) to ensure contextual continuity at boundaries.
-5. **Embedding Generation:** Each text chunk is passed through the local `BGE-small` model instance, creating a 384-dimensional dense vector representing the semantic content.
-6. **Relational Storage:** The metadata is logged in PostgreSQL (`documents` and `document_chunks` tables).
-7. **Vector Indexing:** The generated embeddings are upserted into Qdrant alongside a payload containing the `chunk_id`, `document_id`, `category`, and the raw text string.
+This was replaced with a unified Ticket architecture because:
 
-#### Retrieval & Generation Pipeline
-1. **Query Ingestion:** The customer submits a question through the chat interface.
-2. **Parallel Retrieval:**
-   - **BM25 Search:** The FastAPI backend executes a local BM25 keyword search across all `document_chunks` related to the specified category scope.
-   - **Dense Vector Search:** The query is embedded via `BGE-small`, and Qdrant is queried to retrieve the top 10 most semantically similar vectors.
-3. **Reranking (Reciprocal Rank Fusion - RRF):** The rankings from BM25 and Vector Search are unified. Chunks are sorted by their RRF score.
-4. **Context Construction:** The top $K$ chunks (typically 3 to 5) that exceed a minimum confidence threshold are retrieved.
-5. **Prompt Synthesis:** A structured system prompt is built, embedding the retrieved document chunks as grounded context alongside the user's query:
-   ```text
-   System: You are SupportAI, an assistant that answers questions using ONLY the provided contexts.
-   If the context does not contain the answer, reply: "I am sorry, but I do not have enough information to answer that question."
-   Context:
-   ---
-   [Context 1]
-   ---
-   [Context 2]
-   
-   User: [User Query]
-   ```
-6. **LLM Generation:** The context and query are transmitted to the Llama 3.1 8B model via Groq's high-speed API.
-7. **Post-processing & Confidence Scoring:** The API response is parsed. A final confidence score is generated based on retrieval metrics. If the confidence falls below a configured threshold (e.g., 0.65), the question is escalated to `flagged_questions` in PostgreSQL, while the assistant returns a graceful response.
-8. **Client Rendering:** The answer, confidence score, source attributions, and feedback toggles are returned to the React frontend.
+- Single source of truth
+- Better workflow management
+- Support replies
+- Status tracking
+- Assignment support
+- Resolution history
+- Analytics integration
+
+### Why Ticket Messages Are Separate?
+
+Support replies are not stored inside chat_messages.
+
+Benefits:
+
+- Preserves AI conversation integrity
+- Prevents message duplication
+- Simplifies orchestration
+- Supports independent ticket workflows
+
+### Why Retrieval Metadata Is Not Persisted?
+
+The current architecture prioritizes retrieval performance and chat simplicity.
+
+As a result:
+
+- document attribution is not stored
+- retrieval scores are not stored
+- source coverage analytics are unavailable
+
+Future versions may introduce a MessageSource junction table to support Knowledge Base Impact Analysis.
 
 ---
 
-### 3.2 System Sequence Diagram
+# 3. RAG Pipeline & Architecture
+
+SupportAI implements a Retrieval-Augmented Generation (RAG) architecture that combines document retrieval, semantic search, hybrid ranking, and LLM inference to generate grounded customer support responses.
+
+The architecture is divided into two major workflows:
+
+1. Document Ingestion Pipeline
+2. Retrieval & Generation Pipeline
+
+---
+
+## 3.1 Document Ingestion Pipeline
+
+The ingestion pipeline transforms uploaded knowledge base documents into searchable vector representations.
+
+### Workflow
+
+```text
+Document Upload
+        ↓
+Validation
+        ↓
+Text Extraction
+        ↓
+Chunking
+        ↓
+Embedding Generation
+        ↓
+Metadata Persistence
+        ↓
+Vector Indexing
+```
+
+### Step 1 — Document Upload
+
+Administrators upload documents through the Knowledge Base Management interface.
+
+Supported document types include:
+
+- PDF
+- TXT
+- Markdown
+- Other supported text formats
+
+---
+
+### Step 2 — Validation
+
+The backend validates:
+
+- MIME type
+- File extension
+- File size limits
+- Filename safety
+
+Invalid files are rejected before processing.
+
+---
+
+### Step 3 — Text Extraction
+
+Document content is extracted using local parsers.
+
+Responsibilities:
+
+- Raw text extraction
+- Encoding normalization
+- Content cleanup
+- Structural preservation where possible
+
+---
+
+### Step 4 — Chunking
+
+SupportAI uses recursive document chunking.
+
+Current implementation:
+
+- RecursiveCharacterTextSplitter
+- Configurable chunk size
+- Configurable overlap
+
+Benefits:
+
+- Better retrieval quality
+- Reduced context fragmentation
+- Improved semantic continuity
+
+---
+
+### Step 5 — Embedding Generation
+
+Chunk embeddings are generated through the EmbeddingProviderFactory.
+
+Current provider:
+
+- BAAI/bge-small-en-v1.5
+- 384 dimensions
+
+Architecture benefits:
+
+- Provider abstraction
+- Future model replacement
+- Runtime dimension discovery
+
+---
+
+### Step 6 — Metadata Persistence
+
+Document metadata is stored in PostgreSQL.
+
+Stored information includes:
+
+- Document metadata
+- Ownership
+- Upload timestamps
+- File information
+- Version metadata
+
+---
+
+### Step 7 — Vector Indexing
+
+Embeddings are stored in Qdrant.
+
+Payload metadata includes:
+
+- document_id
+- chunk_id
+- tenant_id
+- mime_type
+- file_size
+- language
+- version
+
+Qdrant collections are configured dynamically based on discovered embedding dimensions.
+
+---
+
+## 3.2 Retrieval & Generation Pipeline
+
+The retrieval pipeline executes whenever a customer sends a message.
+
+### Workflow
+
+```text
+Customer Query
+        ↓
+Chat API
+        ↓
+Chat Orchestrator
+        ↓
+Hybrid Retrieval
+        ↓
+Context Assembly
+        ↓
+Prompt Construction
+        ↓
+Groq LLM
+        ↓
+Response Generation
+        ↓
+Conversation Persistence
+```
+
+---
+
+### Step 1 — Query Submission
+
+The customer submits a message through the chat interface.
+
+The message is forwarded to the Chat API.
+
+---
+
+### Step 2 — Chat Orchestrator
+
+The Chat Orchestrator coordinates:
+
+- Session retrieval
+- Conversation history
+- Retrieval pipeline execution
+- Prompt construction
+- LLM invocation
+- Response persistence
+
+The orchestrator acts as the central control layer for all chat operations.
+
+---
+
+### Step 3 — Hybrid Retrieval
+
+SupportAI uses Hybrid Search.
+
+#### BM25 Retrieval
+
+Handles:
+
+- Keywords
+- Product identifiers
+- Error codes
+- Exact phrase matching
+
+#### Dense Retrieval
+
+Handles:
+
+- Semantic similarity
+- Natural language understanding
+- Concept matching
+
+#### Reciprocal Rank Fusion (RRF)
+
+Results from BM25 and Dense Retrieval are merged using Reciprocal Rank Fusion.
+
+Benefits:
+
+- Improved recall
+- Improved precision
+- Better grounding quality
+
+---
+
+### Step 4 — Context Assembly
+
+The highest-ranked chunks are selected and assembled into a context window.
+
+Responsibilities:
+
+- Duplicate removal
+- Ranking preservation
+- Context size management
+
+---
+
+### Step 5 — Prompt Construction
+
+The Prompt Builder generates a structured prompt.
+
+Example:
+
+```text
+You are SupportAI.
+
+Use only the provided context to answer.
+
+If the answer cannot be determined from the context, state that you do not have enough information.
+
+Context:
+[Retrieved Chunks]
+
+Question:
+[Customer Question]
+```
+
+---
+
+### Step 6 — LLM Inference
+
+The final prompt is sent to:
+
+- Groq Inference Platform
+- Llama 3.1 8B Instruct
+
+Responsibilities:
+
+- Grounded answer generation
+- Instruction following
+- Context utilization
+
+---
+
+### Step 7 — Persistence
+
+After generation:
+
+- User message is stored
+- Assistant response is stored
+- Session timestamps are updated
+
+Current architecture intentionally does NOT persist:
+
+- Retrieval scores
+- Source attribution
+- Document-level impact mappings
+
+These may be introduced in future releases.
+
+---
+
+## 3.3 Sequence Diagram
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    actor Customer as Customer / Admin
-    participant FE as React Frontend
-    participant BE as FastAPI Backend
-    database DB as PostgreSQL DB
-    database VDB as Qdrant Vector DB
-    participant Groq as Groq (Llama 3.1)
 
-    %% INGESTION WORKFLOW
-    Note over Customer, VDB: Administrative Ingestion Pipeline
-    Customer->>FE: Upload Document (PDF/TXT)
-    FE->>BE: POST /api/v1/admin/documents
-    activate BE
-    BE->>BE: Validate File & Parse Text
-    BE->>BE: Chunk Text (Recursive Splitter)
-    BE->>BE: Generate Vector Embeddings (BGE-small)
-    BE->>DB: INSERT into documents & document_chunks
-    BE->>VDB: Upsert Vectors & Chunk Payload
-    BE-->>FE: Return Upload Success Status
-    deactivate BE
-    FE-->>Customer: Display Ingestion Status
+    actor Customer
 
-    %% QUERY WORKFLOW
-    Note over Customer, Groq: Customer Query & RAG Pipeline
-    Customer->>FE: Input Query "How do I..."
-    FE->>BE: POST /api/v1/chat/message
-    activate BE
-    BE->>DB: Record User Message
-    
-    par Keyword Search
-        BE->>DB: Fetch Candidate Chunks for BM25
-        DB-->>BE: Return BM25 Scores
-    and Semantic Search
-        BE->>BE: Embed Query with BGE-small
-        BE->>VDB: Query Vector Similarity
-        VDB-->>BE: Return Similar Vectors + Scores
+    participant Frontend
+    participant ChatAPI
+    participant Orchestrator
+    participant Pipeline
+    participant BM25
+    participant Qdrant
+    participant Fusion
+    participant PromptBuilder
+    participant Groq
+    participant PostgreSQL
+
+    Customer->>Frontend: Send Message
+
+    Frontend->>ChatAPI: POST /chat
+
+    ChatAPI->>Orchestrator: Process Message
+
+    Orchestrator->>Pipeline: Retrieve Context
+
+    par Sparse Retrieval
+        Pipeline->>BM25: Search
+        BM25-->>Fusion: Ranked Results
+    and Dense Retrieval
+        Pipeline->>Qdrant: Search
+        Qdrant-->>Fusion: Ranked Results
     end
 
-    BE->>BE: Execute Reciprocal Rank Fusion (RRF)
-    BE->>BE: Filter Chunks & Synthesize Prompt
-    BE->>Groq: Request LLM Completion (Context + Prompt)
-    activate Groq
-    Groq-->>BE: Return Grounded Response Text
-    deactivate Groq
+    Fusion-->>Pipeline: Fused Ranking
 
-    BE->>BE: Calculate Final Confidence Score
-    alt Confidence < Threshold (0.65)
-        BE->>DB: INSERT into flagged_questions
-    end
+    Pipeline-->>PromptBuilder: Top Chunks
 
-    BE->>DB: Record Assistant Message & Attributions
-    BE-->>FE: Return AI Response, Confidence, and Sources
-    deactivate BE
-    FE-->>Customer: Render Message & Feedback UI
+    PromptBuilder-->>Groq: Final Prompt
+
+    Groq-->>Orchestrator: Response
+
+    Orchestrator->>PostgreSQL: Save Messages
+
+    Orchestrator-->>ChatAPI: Response
+
+    ChatAPI-->>Frontend: Return Response
+
+    Frontend-->>Customer: Render Response
 ```
 
 ---
 
-## 4. Search Retrieval & Analytics Engine
+## 3.4 AI Failure Escalation Workflow
 
-The retrieval process sits at the core of SupportAI. In order to handle both structured product specifications and unstructured natural language queries, the system implements a production-grade Hybrid Search engine.
+SupportAI provides a human-in-the-loop fallback mechanism.
 
-### 4.1 BM25 Keyword Matching
+### Workflow
 
-BM25 (Best Matching 25) is a probabilistic retrieval function that ranks document chunks based on the query terms appearing in each chunk, regardless of their semantic similarity.
+```text
+Customer Question
+        ↓
+AI Response
+        ↓
+Customer Flags Response
+        ↓
+Ticket Created
+        ↓
+Admin Review
+        ↓
+Support Reply
+        ↓
+Customer Notification
+        ↓
+Resolution
+```
 
-The score for a document chunk $D$ given a query $Q$ (containing terms $q_1, q_2, \dots, q_n$) is calculated as:
+### Benefits
 
-$$\text{score}(D, Q) = \sum_{i=1}^{n} \text{IDF}(q_i) \cdot \frac{f(q_i, D) \cdot (k_1 + 1)}{f(q_i, D) + k_1 \cdot \left(1 - b + b \cdot \frac{|D|}{\text{avgdl}}\right)}$$
+- Human fallback support
+- Improved customer experience
+- Better issue tracking
+- AI quality monitoring
+- Continuous improvement feedback loop
 
-Where:
-* $f(q_i, D)$ is the term frequency of $q_i$ in chunk $D$.
-* $|D|$ is the length of the chunk in words.
-* $\text{avgdl}$ is the average chunk length across the entire database.
-* $k_1$ is a tuning parameter controlling term frequency scaling (configured to $1.2$).
-* $b$ is a tuning parameter controlling document length normalization (configured to $0.75$).
+---
 
-The Inverse Document Frequency $\text{IDF}(q_i)$ is defined as:
+## 3.5 Architectural Limitations
 
-$$\text{IDF}(q_i) = \ln \left( \frac{N - n(q_i) + 0.5}{n(q_i) + 0.5} + 1 \right)$$
+Current limitations include:
 
-Where $N$ is the total number of document chunks in the system, and $n(q_i)$ is the number of chunks containing term $q_i$.
+### Retrieval Attribution
 
-*Implementation Note:** BM25 calculations run locally in the FastAPI service using an in-memory index built dynamically (or periodically cached) for the active documents. This avoids the cost of deploying a full Elasticsearch cluster.
+Document attribution is not currently persisted.
+
+As a result:
+
+- Most Flagged Documents cannot be calculated
+- Source Coverage metrics are unavailable
+- Knowledge Base Impact Analysis is unavailable
+
+### Future Enhancement
+
+A future release may introduce:
+
+```text
+chat_message
+        ↓
+message_source
+        ↓
+document
+```
 
 ---
 
 ### 4.2 Dense Vector Search
 
 Dense vector search measures the conceptual similarity between the query and the document chunks.
+
 1. The user's query $Q$ is converted into a 384-dimensional dense vector $\mathbf{v}_Q$ using BGE-small.
 2. Qdrant performs an approximate nearest neighbor (ANN) search using the HNSW (Hierarchical Navigable Small World) index.
 3. The similarity metric is **Cosine Similarity**, defined as:
@@ -436,9 +1091,10 @@ The RRF score for a chunk $d$ is:
 $$\text{RRF\_Score}(d \in D) = \sum_{m \in M} \frac{1}{k + r_m(d)}$$
 
 Where:
-* $M$ is the set of retrieval methods (in our case, $M = \{\text{BM25}, \text{Vector}\}$).
-* $r_m(d)$ is the rank of chunk $d$ in the output of retrieval method $m$ (1-indexed). If a chunk does not appear in a method's top results, $r_m(d) \to \infty$, contributing $0$ to the sum.
-* $k$ is a constant smoothing parameter (configured to $60$), which prevents high-ranking items from disproportionately dominating the fused results.
+
+- $M$ is the set of retrieval methods (in our case, $M = \{\text{BM25}, \text{Vector}\}$).
+- $r_m(d)$ is the rank of chunk $d$ in the output of retrieval method $m$ (1-indexed). If a chunk does not appear in a method's top results, $r_m(d) \to \infty$, contributing $0$ to the sum.
+- $k$ is a constant smoothing parameter (configured to $60$), which prevents high-ranking items from disproportionately dominating the fused results.
 
 ```text
 Example RRF Aggregation:
@@ -455,269 +1111,1029 @@ Calculating RRF scores (with k = 60):
 
 ---
 
-### 4.4 Confidence Scoring Mechanics
+### 4.4 AI Quality Monitoring
 
-To prevent the LLM from hallucinating answers when no relevant information is present in the database, the system computes a **Message Confidence Score** ($CS$).
+SupportAI monitors AI quality using ticket activity and customer-reported feedback rather than retrieval-level confidence scoring.
 
-$$CS = w_{\text{sim}} \cdot \bar{S}_{\text{top}} + w_{\text{RRF}} \cdot \left( \frac{\text{RRF}(d_1)}{\text{RRF}_{\text{max}}} \right)$$
+Current quality metrics include:
 
-Where:
-* $\bar{S}_{\text{top}}$ is the average cosine similarity of the top 3 chunks returned by Qdrant.
-* $\text{RRF}(d_1)$ is the rank-fusion score of the top-ranked chunk.
-* $\text{RRF}_{\text{max}}$ is the maximum possible RRF score ($2 / (k+1) \approx 0.0327$ for two methods).
-* $w_{\text{sim}}$ and $w_{\text{RRF}}$ are weights balancing the two metrics (configured to $w_{\text{sim}} = 0.70$ and $w_{\text{RRF}} = 0.30$).
+- Total Flagged Responses
+- Open Tickets
+- Resolved Tickets
+- Average Resolution Time
+- Report Reason Distribution
+- Ticket Status Distribution
+- Most Reported Questions
+- Recent Flagged Responses
 
-**Escalation Logic:**
-* **$CS \ge 0.65$:** System proceeds with generating the RAG response.
-* **$0.50 \le CS < 0.65$:** System responds using the LLM but flags the message as `LOW_CONFIDENCE`, automatically adding it to the administrator queue for validation.
-* **$CS < 0.50$:** The system bypasses LLM generation to prevent hallucinations, responds with a generic fallback message ("*I'm sorry, I cannot find relevant information in the documentation. I have escalated this query to our support team.*"), and writes an entry into the `flagged_questions` table with `reason_flagged = 'UNANSWERED'`.
+These metrics are exposed through the AI Quality Center and are derived directly from persisted ticket and conversation data.
 
 ---
 
-### 4.5 Knowledge Gap Detection & Clustering
+### 4.5 Human-in-the-Loop Escalation
 
-To assist administrators in continuously improving the knowledge base, the platform runs a nightly **Knowledge Gap Detection** pipeline:
+SupportAI implements a human-in-the-loop support workflow to handle situations where AI-generated responses require review or correction.
 
-```mermaid
-graph TD
-    A[Fetch Flagged Questions] --> B[Generate BGE Embeddings for Queries]
-    B --> C[Execute DBSCAN Clustering]
-    C --> D{Cluster Size > Limit?}
-    D -- Yes --> E[Label Cluster & Generate Summary]
-    D -- No --> F[Ignore Outliers]
-    E --> G[Display Knowledge Gap on Admin Dashboard]
+```text
+Customer Question
+        ↓
+AI Response
+        ↓
+Customer Flags Response
+        ↓
+Ticket Creation
+        ↓
+Admin Review
+        ↓
+Support Reply
+        ↓
+Customer Notification
+        ↓
+Resolution
 ```
 
-1. **Extraction:** The system fetches all queries logged in the `flagged_questions` table with status `Pending` within the last 30 days.
-2. **Embedding:** The raw questions are converted to embeddings.
-3. **Clustering:** A DBSCAN (Density-Based Spatial Clustering of Applications with Noise) algorithm is executed on the vectors. Cosine distance is used as the metric, with parameters:
-   - $\epsilon = 0.15$ (maximum distance between two points to be considered neighbors).
-   - $\text{MinPoints} = 5$ (minimum cluster size).
-4. **Knowledge Gap Synthesis:** For each generated cluster, the system identifies the centroid (the most representative customer question) and calls Llama 3.1 via Groq to summarize the shared topic of the cluster. This summary is logged as a "Knowledge Gap Topic" on the administrator dashboard, pointing to the exact documentation category that needs to be updated.
+Unlike earlier designs, escalation is initiated through customer reporting rather than confidence-score thresholds.
+
+Benefits include:
+
+- Improved customer trust
+- Better support coverage
+- Direct visibility into AI failures
+- Actionable feedback for administrators
+- Continuous quality improvement
 
 ---
 
-## 5. Security Architecture
+### 4.6 Current Retrieval Limitations
 
-SupportAI implements a zero-trust model at the API layer to protect proprietary corporate data and customer information.
+The retrieval system intentionally prioritizes simplicity and performance.
 
-### 5.1 Authentication & Authorization
+The following information is currently not persisted:
 
-* **JWT Authentication:** The system uses standard JSON Web Tokens (JWT) for session management.
-  - Algorithms: `HS256` for signing.
-  - Expiration: Access tokens expire in 15 minutes; Refresh tokens are securely stored in HTTP-only, SameSite cookies with a 7-day expiration.
-* **Password Hashing:** Passwords stored in `users` are hashed using the `bcrypt` algorithm with a work factor of 12 rounds.
-* **Role-Based Access Control (RBAC):** Every API endpoint is decorated with dependency-based role requirements.
+- Retrieval scores
+- Document attribution mappings
+- Source-document relationships
+- Retrieval confidence metrics
 
-| API Endpoint | Category | Customer Permission | Support Agent Permission | Admin Permission |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET /api/v1/chat/*` | Chat | Read/Write (Self) | Read/Write (Self) | Read/Write (All) |
-| `POST /api/v1/feedback` | Chat | Write (Self) | Write (Self) | Read/Write (All) |
-| `GET /api/v1/admin/dashboard` | Admin | Denied | Read-Only | Read/Write |
-| `POST /api/v1/admin/documents` | Admin | Denied | Denied | Read/Write |
-| `DELETE /api/v1/admin/documents/*`| Admin | Denied | Denied | Read/Write |
-| `PATCH /api/v1/admin/flagged/*` | Admin | Denied | Read/Write | Read/Write |
+As a result, the platform cannot currently provide:
+
+- Most Flagged Documents
+- Source Attribution Coverage
+- Retrieval Effectiveness Analytics
+- Knowledge Base Impact Analysis
 
 ---
 
-### 5.2 Data Protection & Encryption
+### 4.7 Future Retrieval Analytics Architecture
 
-* **Encryption in Transit:** All traffic is forced over HTTPS using TLS 1.3.
-* **Encryption at Rest:**
-  - PostgreSQL database storage is encrypted at rest using AES-256.
-  - Qdrant Cloud indexes are stored on encrypted block volumes.
-* **Database Isolation:** PostgreSQL row-level security (RLS) policies restrict users to reading only their own conversations, preventing horizontal privilege escalation.
+A future release may introduce document attribution persistence through a dedicated mapping layer.
 
-### 5.3 File Ingestion Validation
+```text
+chat_message
+        ↓
+message_source
+        ↓
+document
+```
 
-Admin file uploads represent a major attack vector (e.g., malware or denial of service through oversized files).
-* **MIME-Type Whitelisting:** The server inspects the magic byte signature of files (not just the extension) to ensure that only `application/pdf` and `text/plain` are accepted.
-* **Size Limitations:** File size is strictly capped at **10MB** per upload.
-* **Sanitization:** To prevent PDF exploits, parsing libraries are executed within isolated sandbox environments (Docker container runtimes with restricted system privileges).
-* **Filename Cleansing:** All uploaded filenames are stripped of non-alphanumeric characters and renamed using UUIDs on disk to prevent path traversal attacks (e.g., `../../etc/passwd`).
+This architecture would enable:
 
-### 5.4 Network & API Security
-
-* **Rate Limiting:** Protects endpoints from brute-force attacks and abuse.
-  - Chat endpoint: Max 30 requests per minute per IP.
-  - Upload endpoint: Max 10 requests per minute per Admin.
-* **Input Validation:** Every endpoint uses Pydantic models to strictly enforce type constraints, preventing buffer overflows and SQL injection. SQLAlchemy's parameterized queries are strictly used, neutralizing SQL-i vulnerabilities.
-* **CORS Policies:** Configured with strict origin constraints, allowing API requests only from verified domain names. Wildcard origins (`*`) are disallowed.
+- Document impact analysis
+- Retrieval effectiveness measurement
+- Knowledge base coverage reporting
+- Source attribution analytics
+- Advanced AI Quality Center metrics
 
 ---
 
-## 6. Deployment Architecture
+# 5. Security Architecture
 
-To support a small engineering team, the deployment architecture leverages fully managed PaaS and SaaS offerings that scale horizontally while minimizing maintenance overhead.
+SupportAI applies a defense-in-depth security strategy to protect customer data, administrative functions, and knowledge base assets.
 
-### 6.1 Topology Diagram
+---
+
+## 5.1 Authentication & Authorization
+
+### JWT Authentication
+
+SupportAI uses JSON Web Tokens (JWT) for authentication.
+
+- Algorithm: HS256
+- Stateless authentication
+- Protected API routes
+- Token validation on every authenticated request
+
+### Password Security
+
+User passwords are:
+
+- Hashed using bcrypt
+- Never stored in plaintext
+- Verified using secure password comparison
+
+### Role-Based Access Control (RBAC)
+
+SupportAI enforces authorization through dependency-based role validation.
+
+Current Roles:
+
+- Customer
+- Admin
+
+Administrative endpoints require explicit role verification before access is granted.
+
+### Route Protection
+
+| Endpoint Category        | Customer  | Admin       |
+| ------------------------ | --------- | ----------- |
+| Chat APIs                | Self Only | Full Access |
+| Conversation History     | Self Only | Full Access |
+| Knowledge Base           | Denied    | Full Access |
+| Ticket Management        | Limited   | Full Access |
+| AI Quality Center        | Denied    | Full Access |
+| Administrative Dashboard | Denied    | Full Access |
+
+---
+
+## 5.2 Data Protection
+
+### Encryption in Transit
+
+All production traffic is secured using HTTPS/TLS.
+
+### Secrets Management
+
+Sensitive configuration is stored in environment variables:
+
+- JWT Secret
+- Database Credentials
+- Groq API Key
+- Qdrant API Key
+- Redis Connection URL
+
+Secrets are never committed to source control.
+
+### Access Isolation
+
+Customer access is restricted to:
+
+- Their own conversations
+- Their own tickets
+- Their own notifications
+
+Administrative operations require authenticated administrator accounts.
+
+---
+
+## 5.3 File Upload Security
+
+Knowledge Base uploads undergo multiple validation steps.
+
+### Validation Controls
+
+- MIME Type Validation
+- Extension Validation
+- File Size Validation
+- Filename Sanitization
+
+### Supported Protections
+
+- Invalid file rejection
+- Oversized file rejection
+- Path traversal prevention
+- Filename normalization
+
+### Security Goal
+
+Prevent malicious uploads from entering the ingestion pipeline.
+
+---
+
+## 5.4 API Security
+
+### Input Validation
+
+All API requests are validated using Pydantic schemas.
+
+Benefits:
+
+- Type validation
+- Request sanitization
+- Schema enforcement
+- Reduced attack surface
+
+### SQL Injection Protection
+
+SupportAI uses:
+
+- SQLAlchemy ORM
+- Parameterized queries
+
+Direct SQL string concatenation is avoided.
+
+### CORS Protection
+
+Production deployments use strict CORS policies.
+
+Characteristics:
+
+- Explicit origin allow-list
+- No wildcard origins
+- Controlled browser access
+
+---
+
+## 5.5 Production Hardening
+
+SupportAI includes additional production security measures.
+
+### Administrative Protection
+
+Administrative endpoints are protected using:
+
+- JWT validation
+- Role enforcement
+- Dependency-based authorization
+
+### File Upload Hardening
+
+Upload validation includes:
+
+- MIME verification
+- Extension verification
+- Size enforcement
+- Filename sanitization
+
+### Error Handling
+
+The platform uses:
+
+- Centralized exception handling
+- Structured logging
+- Request identifiers
+
+These mechanisms improve debugging, auditing, and operational visibility.
+
+---
+
+## 5.6 Security Principles
+
+SupportAI follows the following security principles:
+
+- Least Privilege Access
+- Defense in Depth
+- Secure by Default
+- Input Validation First
+- Explicit Authorization
+- Secure Secret Management
+- Auditability and Traceability
+
+## These principles guide all security-related architectural decisions across the platform.
+
+# 6. Deployment Architecture
+
+SupportAI is deployed using managed cloud services to reduce operational overhead while providing scalability, reliability, and maintainability.
+
+The deployment architecture separates the frontend, backend, vector database, and AI inference services into independently managed components.
+
+---
+
+## 6.1 Deployment Topology
 
 ```mermaid
 graph TB
-    subgraph ClientZone [Client Browser]
-        SPA["React SPA (Vite)"]
+
+    subgraph Users
+        Customer["👤 Customer"]
+        Admin["👨‍💼 Administrator"]
     end
 
-    subgraph CDN [Vercel Edge Network]
-        SPA_Host["Static Content Hosting / CDN"]
+    subgraph Vercel["Vercel Platform"]
+        Frontend["React + TypeScript SPA"]
     end
 
-    subgraph ApplicationZone [Railway PaaS Cloud]
-        API["FastAPI Backend (Docker Container)"]
-        PostgresDB["PostgreSQL Instance"]
+    subgraph Railway["Railway Platform"]
+        API["FastAPI Backend"]
+        Redis["Redis Cache"]
+        Database["Relational Database"]
     end
 
-    subgraph ManagedSaaS [SaaS Providers]
-        Qdrant["Qdrant Cloud (Managed Vector DB)"]
-        Groq["Groq API (LPU Inference Engine)"]
+    subgraph AI["AI Services"]
+        Qdrant["Qdrant Cloud"]
+        Groq["Groq Inference"]
     end
 
-    SPA -->|HTTPS / API Requests| SPA_Host
-    SPA_Host --> SPA
-    SPA -->|REST API over TLS 1.3| API
-    
-    API -->|SQL queries / SQLAlchemy| PostgresDB
-    API -->|REST/gRPC calls| Qdrant
-    API -->|REST HTTPS (Model Inferences)| Groq
+    Customer --> Frontend
+    Admin --> Frontend
+
+    Frontend --> API
+
+    API --> Redis
+    API --> Database
+    API --> Qdrant
+    API --> Groq
 ```
 
 ---
 
-### 6.2 Component Details & Hosting Strategy
+## 6.2 Frontend Deployment
 
-1. **Frontend Hosting (Vercel):**
-   - The React single-page application is compiled via Vite and deployed to Vercel.
-   - Global CDN deployment reduces load times.
-   - Uses Vercel's built-in Edge middleware to route API requests securely.
-2. **Backend Application Server (Railway):**
-   - The FastAPI backend is packaged as a Docker container.
-   - Deployed on Railway with automatic scaling.
-   - Configured with environment-based health checks to handle automatic container failover.
-3. **Transactional Database (Railway Postgres Add-on):**
-   - Railway manages a dedicated PostgreSQL instance.
-   - Automatic nightly backups with point-in-time recovery (PITR).
-   - Configured with connection pooling (using connection scaling limits in FastAPI) to prevent database starvation under spike loads.
-4. **Vector DB Index (Qdrant Cloud):**
-   - Hosted on Qdrant's managed SaaS platform.
-   - Isolated cluster configuration with automated index backups and security patches.
-5. **Inference Execution (Groq Cloud):**
-   - Leverages Groq's API key management.
-   - Outsources GPU scaling, cold starts, and token billing management.
+### Vercel
+
+The customer and administrator interfaces are deployed on Vercel.
+
+Responsibilities:
+
+- Static asset hosting
+- Global CDN distribution
+- TLS termination
+- Frontend deployment automation
+
+Benefits:
+
+- Fast global delivery
+- Simplified deployments
+- Automatic HTTPS
+- GitHub integration
 
 ---
 
-## 7. Design Patterns
+## 6.3 Backend Deployment
 
-To maintain a clean, maintainable, and testable codebase, the FastAPI backend implements four classic enterprise design patterns.
+### Railway
 
-### 7.1 Repository Pattern
+The FastAPI backend is containerized and deployed through Railway.
 
-The Repository Pattern separates the domain model from data-access logic. Instead of calling SQLAlchemy queries directly inside API route handlers, all database operations are encapsulated in Repository classes.
+Responsibilities:
 
-* **Usage:** A `ConversationRepository` manages CRUD operations for conversations, and a `DocumentRepository` handles database insertions for documents.
-* **Benefits:** Handlers remain database-agnostic. Unit tests can mock the repository layers using in-memory arrays without connecting to a live PostgreSQL database.
+- API execution
+- Authentication
+- Chat orchestration
+- Ticket workflows
+- Analytics processing
+- Notification management
+
+Benefits:
+
+- Managed infrastructure
+- Simplified deployment
+- Environment variable management
+- Health monitoring
+
+---
+
+## 6.4 Database Layer
+
+SupportAI uses a relational database for:
+
+- Users
+- Chat Sessions
+- Chat Messages
+- Tickets
+- Ticket Messages
+- Notifications
+- Documents
+
+The database acts as the primary system of record.
+
+---
+
+## 6.5 Redis Layer
+
+Redis provides:
+
+- Temporary caching
+- Session acceleration
+- Performance optimization
+
+Redis is treated as an optimization layer rather than a critical dependency.
+
+If Redis becomes unavailable, the platform continues operating using the primary database and retrieval systems.
+
+---
+
+## 6.6 Vector Database
+
+### Qdrant Cloud
+
+Qdrant stores vector embeddings for semantic retrieval.
+
+Responsibilities:
+
+- Embedding storage
+- Similarity search
+- Metadata filtering
+- Vector indexing
+
+Benefits:
+
+- High-performance retrieval
+- Managed infrastructure
+- Scalability
+- Metadata-aware search
+
+---
+
+## 6.7 AI Inference Layer
+
+### Groq
+
+SupportAI uses Groq-hosted Llama 3.1 8B Instruct models for response generation.
+
+Responsibilities:
+
+- Context-grounded generation
+- Instruction following
+- Conversational response synthesis
+
+Benefits:
+
+- Low latency
+- High throughput
+- Managed inference infrastructure
+
+---
+
+## 6.8 Docker Architecture
+
+SupportAI uses Docker for local development, testing, and deployment consistency.
+
+### Docker Compose
+
+```yaml
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    depends_on:
+      - redis
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+```
+
+### Benefits
+
+- Consistent development environments
+- Simplified onboarding
+- Environment parity
+- Easier deployment automation
+
+---
+
+## 6.9 Deployment Workflow
+
+### Backend Deployment
+
+1. Developer pushes code to GitHub
+2. Railway detects repository changes
+3. Railway builds Docker image
+4. Environment variables are injected
+5. FastAPI service is deployed
+6. Health checks validate deployment
+7. Traffic is routed to the new version
+
+### Frontend Deployment
+
+1. Developer pushes code to GitHub
+2. Vercel detects repository changes
+3. Vite production build executes
+4. Static assets are generated
+5. Assets are deployed globally
+6. CDN cache is refreshed
+
+---
+
+## 6.10 Environment Configuration
+
+Sensitive configuration is managed through environment variables.
+
+Examples include:
+
+- DATABASE_URL
+- JWT_SECRET_KEY
+- GROQ_API_KEY
+- QDRANT_API_KEY
+- REDIS_URL
+
+Environment-specific values are never committed to source control.
+
+---
+
+## 6.11 Deployment Principles
+
+SupportAI deployment follows the following principles:
+
+- Managed infrastructure over self-hosting
+- Separation of concerns
+- Independent scaling of components
+- Secure communication over HTTPS
+- Environment-based configuration
+- Infrastructure simplification for small engineering teams
+
+---
+
+## 6.12 Future Deployment Evolution
+
+Future versions may introduce:
+
+- Kubernetes orchestration
+- Multi-region deployment
+- Dedicated worker infrastructure
+- Distributed caching
+- Multi-tenant deployment architecture
+- Advanced observability platforms
+- Automated disaster recovery
+
+## This deployment model allows SupportAI to evolve without requiring major architectural redesign.
+
+# 7. Design Patterns
+
+SupportAI follows several proven enterprise software design patterns to ensure scalability, maintainability, testability, and clear separation of concerns.
+
+---
+
+## 7.1 Repository Pattern
+
+The Repository Pattern abstracts database access behind dedicated repository classes.
+
+Instead of embedding database queries inside API routes or business logic, all persistence operations are encapsulated within repositories.
+
+### Current Repository Layer
+
+Examples include:
+
+- UserRepository
+- ChatRepository
+- TicketRepository
+- DocumentRepository
+- NotificationRepository
+
+### Benefits
+
+- Separation of concerns
+- Easier testing
+- Reusable data access logic
+- Reduced code duplication
+- Database abstraction
+
+### Example
 
 ```python
-# Conceptual Implementation
-class ConversationRepository:
-    def __init__(self, db_session: Session):
+class TicketRepository:
+
+    def __init__(self, db_session):
         self.db = db_session
 
-    def get_by_id(self, conversation_id: UUID) -> Optional[Conversation]:
-        return self.db.query(Conversation).filter(Conversation.id == conversation_id).first()
+    def get_by_id(self, ticket_id):
+        return (
+            self.db.query(Ticket)
+            .filter(Ticket.id == ticket_id)
+            .first()
+        )
 
-    def create(self, user_id: UUID, title: str) -> Conversation:
-        conversation = Conversation(user_id=user_id, title=title)
-        self.db.add(conversation)
+    def create(self, ticket):
+        self.db.add(ticket)
         self.db.commit()
-        return conversation
+        self.db.refresh(ticket)
+        return ticket
 ```
 
 ---
 
-### 7.2 Service Layer Pattern
+## 7.2 Service Layer Pattern
 
-The Service Layer acts as a transaction boundary and orchestrates business logic. API controllers only handle incoming requests, validate payloads, and call the service layer.
+The Service Layer encapsulates business logic and application workflows.
 
-* **Usage:** The `RAGService` orchestrates document fetching, vector search, RRF execution, prompt assembly, and Groq API calls.
-* **Benefits:** Prevents "Fat Controllers" and keeps business logic reusable. The same `RAGService` can be invoked by a REST API endpoint or a CLI management command.
+API routes remain thin and focus only on:
+
+- Request validation
+- Authentication
+- Authorization
+- Response formatting
+
+Business logic is delegated to services.
+
+### Current Services
+
+Examples include:
+
+- Chat Orchestrator
+- RAG Pipeline
+- Ticket Service
+- Document Service
+- Analytics Service
+- Notification Service
+
+### Benefits
+
+- Reusable business logic
+- Cleaner APIs
+- Easier testing
+- Better maintainability
+
+### Service Flow
 
 ```mermaid
 sequenceDiagram
-    API Controller->>Service Layer: execute_rag_pipeline(query, category)
-    activate Service Layer
-    Service Layer->>Repository Layer: Fetch active metadata
-    Repository Layer-->>Service Layer: Metadata records
-    Service Layer->>Vector Database: Query similarity
-    Vector Database-->>Service Layer: Dense vectors
-    Service Layer->>Service Layer: Merge & Rerank (RRF)
-    Service Layer->>LLM Client: Request inference
-    LLM Client-->>Service Layer: Text answer
-    Service Layer-->>API Controller: Clean data structures
-    deactivate Service Layer
+
+    API->>Service: Execute Business Logic
+
+    Service->>Repository: Fetch Data
+
+    Repository-->>Service: Return Records
+
+    Service->>External Systems: Execute Operations
+
+    External Systems-->>Service: Results
+
+    Service-->>API: Response
 ```
 
 ---
 
-### 7.3 Dependency Injection
+## 7.3 Dependency Injection Pattern
 
-Dependency Injection (DI) passes dependent objects into a class or function rather than letting the class instantiate them internally.
+SupportAI uses FastAPI's dependency injection system.
 
-* **Usage:** FastAPI's `Depends` system injected into route endpoints.
-* **Benefits:** Facilitates testing. During tests, the PostgreSQL session database dependency can be swapped with a mock or SQLite instance, and the security checker dependency can be mocked to simulate admin sessions.
+Dependencies are injected into route handlers instead of being manually instantiated.
+
+Examples include:
+
+- Database sessions
+- Current user context
+- Authorization checks
+- Services
+- Configuration objects
+
+### Benefits
+
+- Improved testability
+- Reduced coupling
+- Easier mocking
+- Better maintainability
+
+### Example
 
 ```python
-# API Route utilizing Dependency Injection
-@router.post("/chat/message", response_model=MessageResponse)
-async def send_message(
-    payload: MessageCreateSchema,
-    rag_service: RAGService = Depends(get_rag_service),
-    current_user: User = Depends(get_current_active_user)
+@router.get("/tickets/{ticket_id}")
+async def get_ticket(
+    ticket_id: str,
+    current_user=Depends(get_current_active_user),
+    db=Depends(get_db)
 ):
-    return await rag_service.process_user_query(payload.conversation_id, payload.content, current_user.id)
+    ...
 ```
 
 ---
 
-### 7.4 Strategy Pattern
+## 7.4 Layered Architecture Pattern
 
-The Strategy Pattern defines a family of algorithms, encapsulates each one, and makes them interchangeable at runtime.
+SupportAI follows a layered architecture that separates responsibilities across the application.
 
-* **Usage:** Swappable retrieval strategies. The system defines a base `RetrievalStrategy` interface with concrete implementations: `VectorRetrievalStrategy`, `BM25RetrievalStrategy`, and `HybridRetrievalStrategy`.
-* **Benefits:** Enables administrators to change the retrieval algorithm via configuration without modifying the core codebase. It also simplifies running A/B tests on different search algorithms.
+### Layers
 
-```python
-from abc import ABC, abstractmethod
+```text
+API Layer
+      ↓
+Service Layer
+      ↓
+Repository Layer
+      ↓
+Database / External Services
+```
 
-class RetrievalStrategy(ABC):
-    @abstractmethod
-    def retrieve(self, query: str, limit: int) -> list[DocumentChunk]:
-        pass
+### Responsibilities
 
-class HybridRetrievalStrategy(RetrievalStrategy):
-    def retrieve(self, query: str, limit: int) -> list[DocumentChunk]:
-        # Implement BM25 + Vector + RRF
-        pass
+| Layer                | Responsibility                            |
+| -------------------- | ----------------------------------------- |
+| API Layer            | HTTP handling, validation, authentication |
+| Service Layer        | Business logic and orchestration          |
+| Repository Layer     | Data access                               |
+| Infrastructure Layer | External systems and databases            |
+
+### Benefits
+
+- Clear separation of concerns
+- Easier maintenance
+- Improved scalability
+- Better testing
+
+---
+
+## 7.5 Orchestrator Pattern
+
+SupportAI uses an Orchestrator Pattern for chat processing.
+
+The Chat Orchestrator coordinates multiple components involved in generating AI responses.
+
+### Responsibilities
+
+- Session management
+- Conversation retrieval
+- RAG execution
+- Prompt construction
+- LLM invocation
+- Response persistence
+
+### Workflow
+
+```text
+Customer Query
+        ↓
+Chat Orchestrator
+        ↓
+RAG Pipeline
+        ↓
+Prompt Builder
+        ↓
+Groq LLM
+        ↓
+Response Storage
+```
+
+### Benefits
+
+- Centralized workflow management
+- Reduced coupling
+- Better extensibility
+- Easier debugging
+
+---
+
+## 7.6 Factory Pattern
+
+SupportAI uses the Factory Pattern for embedding provider management.
+
+The EmbeddingProviderFactory creates embedding providers without exposing implementation details to higher-level services.
+
+### Benefits
+
+- Provider abstraction
+- Future extensibility
+- Easier model replacement
+- Cleaner architecture
+
+### Example
+
+```text
+EmbeddingProviderFactory
+            ↓
+     BGE Provider
+            ↓
+     Embedding Output
 ```
 
 ---
 
-## 8. Future Roadmap
+## 7.7 Pattern Summary
 
-While the initial version focuses on delivering a reliable English-language RAG pipeline, the system's design accommodates the following high-priority roadmap capabilities:
+| Pattern               | Usage                         |
+| --------------------- | ----------------------------- |
+| Repository Pattern    | Database access abstraction   |
+| Service Layer Pattern | Business logic management     |
+| Dependency Injection  | FastAPI dependency management |
+| Layered Architecture  | Separation of concerns        |
+| Orchestrator Pattern  | Chat workflow coordination    |
+| Factory Pattern       | Embedding provider creation   |
+
+---
+
+# 8. Future Roadmap
+
+SupportAI is designed as a long-term AI-powered customer support platform. The current architecture provides a strong foundation for future expansion into enterprise support operations, AI observability, and multi-tenant SaaS deployments.
+
+---
+
+## 8.1 Product Evolution Roadmap
 
 ```mermaid
 timeline
-    title SupportAI System Evolution Roadmap
-    Phase 1 : English RAG Base : Dense & Sparse Hybrid Search : Admin Flagged Queue
-    Phase 2 : Global & Interactive Support : Multi-language Translation : Voice UI Integrations
-    Phase 3 : Agent Operations : Live Human Handoff Gateway : AI-Drafted Agent Responses
-    Phase 4 : SaaS Scaling : Advanced Analytics Dashboards : Multi-Tenant Infrastructure Separation
+    title SupportAI Product Evolution
+
+    Phase 1 : Intelligent Support Platform
+            : Hybrid Search
+            : RAG Pipeline
+            : Ticket Management
+            : AI Quality Center
+
+    Phase 2 : Customer Experience Platform
+            : Notification Center
+            : Customer Ticket Portal
+            : Real-Time Updates
+            : Enhanced Conversation Management
+
+    Phase 3 : Human-Agent Operations
+            : Agent Workspace
+            : Live Human Handoff
+            : Internal Notes
+            : SLA Management
+
+    Phase 4 : AI Observability Platform
+            : Retrieval Analytics
+            : Knowledge Base Impact Analysis
+            : Source Attribution Tracking
+            : Advanced Quality Monitoring
+
+    Phase 5 : Enterprise SaaS Platform
+            : Multi-Tenant Architecture
+            : Team Management
+            : Audit Logs
+            : Usage Billing
+            : Enterprise Integrations
 ```
 
-* **Multi-language Support:** Integration of multilingual embedding models (e.g., `Cohere Multilingual` or `mBERT`) along with machine-translation middleware to allow customers to query documentation and receive responses in their native languages.
-* **Voice Support:** Adding WebRTC voice channels to the frontend, utilizing OpenAI Whisper for speech-to-text input and ElevenLabs or Cartesia for low-latency text-to-speech output.
-* **Live Human Handoff:** Implementing WebSockets to route conversations to live customer support agents via a shared inbox when confidence scores remain low or when requested by the customer.
-* **AI-Drafted Agent Responses:** Equipping agent dashboards with an AI copilot that drafts response suggestions based on historical tickets and private internal wikis.
-* **Advanced Analytics:** Building deep business intelligence dashboards tracking average resolution times, ROI metrics (ticket deflection cost savings), and customer satisfaction trends over time.
-* **Multi-Tenant SaaS Support:** Refactoring the database schema to support logical separation of data using a tenant identifier (`tenant_id`), enabling SupportAI to be sold as a multi-tenant subscription software service.
+---
+
+## 8.2 Customer Experience Roadmap
+
+Future customer-facing improvements include:
+
+### Customer Portal
+
+- View active tickets
+- View ticket history
+- Track resolution progress
+- Receive support updates
+
+### Real-Time Notifications
+
+- Ticket status updates
+- Support replies
+- System announcements
+- Knowledge base updates
+
+### Enhanced Conversations
+
+- Conversation folders
+- Conversation tags
+- Advanced search
+- Conversation export
+
+### Voice Support
+
+- Speech-to-text interactions
+- Text-to-speech responses
+- Voice-based customer support
+
+---
+
+## 8.3 AI Quality Center Roadmap
+
+The AI Quality Center will evolve into a comprehensive observability platform for monitoring answer quality and retrieval effectiveness.
+
+### Retrieval Analytics
+
+Future metrics may include:
+
+- Retrieval Success Rate
+- Average Retrieval Quality
+- Source Utilization
+- Retrieval Coverage
+
+### Knowledge Base Impact Analysis
+
+Future document attribution persistence will enable:
+
+- Most Flagged Documents
+- Most Referenced Documents
+- Document Quality Scoring
+- Knowledge Base Coverage Analysis
+
+### AI Performance Monitoring
+
+- Escalation Trends
+- Resolution Effectiveness
+- Customer Feedback Analysis
+- AI Quality Trend Analysis
+
+---
+
+## 8.4 Human Support Operations
+
+SupportAI will expand beyond AI-only support by introducing human-agent workflows.
+
+### Agent Workspace
+
+Future features include:
+
+- Shared ticket queues
+- Internal comments
+- Agent assignment
+- Collaboration tools
+
+### Live Human Handoff
+
+Customers will be able to:
+
+- Request human assistance
+- Escalate unresolved issues
+- Continue conversations with support agents
+
+### SLA Management
+
+Future enterprise capabilities include:
+
+- Response time tracking
+- Resolution targets
+- Escalation policies
+- SLA compliance reporting
+
+---
+
+## 8.5 Knowledge Base Intelligence
+
+SupportAI aims to continuously improve organizational knowledge.
+
+### Automated Knowledge Discovery
+
+Future capabilities include:
+
+- Knowledge gap identification
+- Recurring issue detection
+- Suggested documentation improvements
+- AI-generated content recommendations
+
+### Content Optimization
+
+- Duplicate content detection
+- Stale document detection
+- Missing coverage identification
+- Documentation health scoring
+
+---
+
+## 8.6 Enterprise SaaS Expansion
+
+SupportAI is architected to support future SaaS commercialization.
+
+### Multi-Tenant Architecture
+
+Future enhancements include:
+
+- Tenant isolation
+- Tenant-specific knowledge bases
+- Tenant-level analytics
+- Tenant-specific branding
+
+### Team Management
+
+Organizations will be able to manage:
+
+- Multiple administrators
+- Support teams
+- Department-level access
+- Custom permissions
+
+### Audit & Compliance
+
+Future enterprise features include:
+
+- Audit trails
+- Activity logs
+- Compliance reporting
+- Security event monitoring
+
+---
+
+## 8.7 Integration Ecosystem
+
+Future versions may integrate with external business systems.
+
+Potential integrations include:
+
+- Slack
+- Microsoft Teams
+- Zendesk
+- Intercom
+- Salesforce
+- HubSpot
+- Jira
+- Email Platforms
+
+---
+
+## 8.8 Long-Term Vision
+
+The long-term vision of SupportAI is to evolve from an AI-powered support assistant into a complete customer support intelligence platform.
+
+The platform will combine:
+
+- AI-powered support
+- Human support operations
+- Knowledge management
+- Quality monitoring
+- Business analytics
+- Enterprise SaaS capabilities
+
+while maintaining the core principles of scalability, reliability, security, and maintainability.
