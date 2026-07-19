@@ -236,7 +236,7 @@ const AdminTicketDetails: React.FC = () => {
                   <label className="block text-sm font-medium text-slate-300">Status</label>
                   <select
                     value={status}
-                    disabled={ticket?.status === TicketStatus.RESOLVED}
+                    disabled={!ticket?.assigned_admin_id || ticket?.status === TicketStatus.RESOLVED}
                     onChange={(e) => {
                       setStatus(e.target.value as TicketStatus);
                       handleStatusChange(e.target.value as TicketStatus);
@@ -262,6 +262,9 @@ const AdminTicketDetails: React.FC = () => {
                       );
                     })}
                   </select>
+                  {!ticket?.assigned_admin_id && (
+                    <p className="mt-2 text-xs text-slate-400">Assign this report to yourself before changing its status.</p>
+                  )}
                   {statusError && (
                     <p className="mt-2 text-sm text-red-400">{statusError}</p>
                   )}

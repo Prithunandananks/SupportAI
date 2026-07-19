@@ -131,6 +131,9 @@ class TicketService:
         return msg
 
     async def change_status(self, db: AsyncSession, ticket: Ticket, new_status: TicketStatus, changed_by: uuid.UUID) -> Ticket:
+        if not ticket.assigned_admin_id:
+            raise HTTPException(status_code=400, detail="Ticket must be assigned before changing status")
+            
         if not self.validate_transition(ticket.status, new_status):
             raise HTTPException(status_code=400, detail=f"Invalid status transition from {ticket.status} to {new_status}")
             
