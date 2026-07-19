@@ -128,6 +128,30 @@ const AdminTicketDetails: React.FC = () => {
                         </p>
                       </div>
                     </div>
+                    
+                    {ticket.category === 'REPORT' && (
+                      <div className="border-t border-slate-800 pt-6">
+                        <h4 className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-2 flex items-center">
+                          <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                          </svg>
+                          Referenced Knowledge Base
+                        </h4>
+                        {ticket.knowledge_sources ? (
+                          ticket.knowledge_sources.length > 0 ? (
+                            <ul className="list-disc pl-5 space-y-1">
+                              {ticket.knowledge_sources.map((source, index) => (
+                                <li key={index} className="text-sm text-slate-300 break-all">{source}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-sm text-slate-400 italic">No specific knowledge base documents were referenced.</p>
+                          )
+                        ) : (
+                          <p className="text-sm text-slate-400 italic">Knowledge source information is unavailable for this report.</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="prose max-w-none text-slate-300">

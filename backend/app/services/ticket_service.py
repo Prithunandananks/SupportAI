@@ -18,6 +18,7 @@ from app.repositories.user_repo import user_repo
 class TicketCreateDB(TicketCreate):
     ticket_number: str
     customer_id: uuid.UUID
+    knowledge_sources: Optional[List[str]] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -51,8 +52,24 @@ class TicketService:
         return new_status in valid_transitions.get(current_status, [])
 
     async def create_ticket(self, db: AsyncSession, ticket_in: TicketCreate, customer_id: uuid.UUID) -> Ticket:
+        knowledge_sources = None
+        if ticket_in.chat_message_id:
+            from app.models.chat import ChatMessage
+            from sqlalchemy import select
+            stmt = select(ChatMessage).where(ChatMessage.id == ticket_in.chat_message_id)
+            result = await db.execute(stmt)
+            chat_msg = result.scalars().first()
+            if chat_msg and chat_msg.sources:
+                # Extract only unique filenames from the JSON source dictionaries
+                knowledge_sources = list({s.get("filename") for s in chat_msg.sources if s.get("filename")})
+
         ticket_number = await self.generate_ticket_number(db)
-        ticket_in_db = TicketCreateDB(**ticket_in.model_dump(), ticket_number=ticket_number, customer_id=customer_id)
+        ticket_in_db = TicketCreateDB(
+            **ticket_in.model_dump(),
+            ticket_number=ticket_number,
+            customer_id=customer_id,
+            knowledge_sources=knowledge_sources
+        )
         ticket = await ticket_repo.create(db, obj_in=ticket_in_db)
         
         # Log history

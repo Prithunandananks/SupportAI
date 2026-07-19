@@ -45,6 +45,7 @@ export interface Ticket {
   chat_message_id?: string;
   report_reason?: string;
   customer_comment?: string;
+  knowledge_sources?: string[];
   created_at: string;
   updated_at: string;
   closed_at?: string;

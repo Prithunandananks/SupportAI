@@ -56,6 +56,7 @@ class TicketResponse(TicketBase):
     chat_message_id: Optional[uuid.UUID] = None
     report_reason: Optional[str] = None
     customer_comment: Optional[str] = None
+    knowledge_sources: Optional[List[str]] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     closed_at: Optional[datetime] = None

@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import String, Text, Enum as SQLEnum, ForeignKey, DateTime
+from sqlalchemy import String, Text, Enum as SQLEnum, ForeignKey, DateTime, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from datetime import datetime, timezone
@@ -51,6 +51,7 @@ class Ticket(Base):
     chat_message_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("chat_messages.id"), index=True, nullable=True)
     report_reason: Mapped[str | None] = mapped_column(String(50), nullable=True)
     customer_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    knowledge_sources: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
