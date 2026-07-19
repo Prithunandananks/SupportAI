@@ -41,7 +41,7 @@ class AdminRepository:
         from app.models.ticket import Ticket, TicketCategory, TicketStatus
         total_reports_stmt = select(func.count(Ticket.id)).where(Ticket.category == TicketCategory.REPORT)
         open_reports_stmt = select(func.count(Ticket.id)).where(Ticket.category == TicketCategory.REPORT, Ticket.status == TicketStatus.OPEN)
-        closed_reports_stmt = select(func.count(Ticket.id)).where(Ticket.category == TicketCategory.REPORT, Ticket.status.in_([TicketStatus.RESOLVED, TicketStatus.CLOSED]))
+        closed_reports_stmt = select(func.count(Ticket.id)).where(Ticket.category == TicketCategory.REPORT, Ticket.status == TicketStatus.RESOLVED)
         total_reports = (await self.session.execute(total_reports_stmt)).scalar() or 0
         open_reports = (await self.session.execute(open_reports_stmt)).scalar() or 0
         closed_reports = (await self.session.execute(closed_reports_stmt)).scalar() or 0

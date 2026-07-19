@@ -3,9 +3,7 @@ import apiClient from '../api/client';
 export const TicketStatus = {
   OPEN: 'OPEN',
   IN_PROGRESS: 'IN_PROGRESS',
-  WAITING_FOR_CUSTOMER: 'WAITING_FOR_CUSTOMER',
   RESOLVED: 'RESOLVED',
-  CLOSED: 'CLOSED',
 } as const;
 export type TicketStatus = typeof TicketStatus[keyof typeof TicketStatus];
 
@@ -66,7 +64,11 @@ export interface TicketDetail extends Ticket {
   history: TicketStatusHistory[];
 }
 
-export type AdminTicketDetail = TicketDetail;
+export interface AdminTicketDetail extends Ticket {
+  messages: TicketMessage[];
+  history: TicketStatusHistory[];
+  assigned_admin_name?: string;
+}
 
 export const ticketService = {
   // Customer Methods
@@ -90,10 +92,7 @@ export const ticketService = {
     return response.data;
   },
   
-  closeTicket: async (id: string) => {
-    const response = await apiClient.patch<Ticket>(`/tickets/${id}/close`);
-    return response.data;
-  },
+
   
   // Admin Methods
   getAllTickets: async (status?: TicketStatus, priority?: TicketPriority, isFlagged?: boolean) => {
@@ -110,8 +109,10 @@ export const ticketService = {
     return response.data;
   },
   
-  assignTicket: async (id: string) => {
-    const response = await apiClient.patch<Ticket>(`/admin/tickets/${id}/assign`);
+  assignTicket: async (id: string, adminId: string) => {
+    const response = await apiClient.patch<Ticket>(`/admin/tickets/${id}/assign`, {
+      assigned_admin_id: adminId
+    });
     return response.data;
   },
   

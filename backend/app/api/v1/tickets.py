@@ -59,15 +59,3 @@ async def add_ticket_message(
         
     return await ticket_service.add_message(db, ticket_id=id, sender_id=current_user.id, msg_in=msg_in)
 
-@router.patch("/{id}/close", response_model=TicketResponse)
-async def close_ticket(
-    id: uuid.UUID,
-    db: AsyncSession = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
-):
-    """Close a ticket."""
-    ticket = await ticket_repo.get(db, id=id)
-    if not ticket or ticket.customer_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Ticket not found")
-        
-    return await ticket_service.close_ticket_by_customer(db, ticket, current_user.id)

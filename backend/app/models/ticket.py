@@ -11,9 +11,7 @@ from app.models.user import User
 class TicketStatus(str, enum.Enum):
     OPEN = "OPEN"
     IN_PROGRESS = "IN_PROGRESS"
-    WAITING_FOR_CUSTOMER = "WAITING_FOR_CUSTOMER"
     RESOLVED = "RESOLVED"
-    CLOSED = "CLOSED"
 
 class TicketPriority(str, enum.Enum):
     LOW = "LOW"
@@ -60,8 +58,15 @@ class Ticket(Base):
     
     customer = relationship("User", foreign_keys=[customer_id], backref="tickets_created")
     assigned_admin = relationship("User", foreign_keys=[assigned_admin_id], backref="tickets_assigned")
-    messages = relationship("TicketMessage", back_populates="ticket", cascade="all, delete-orphan")
-    history = relationship("TicketStatusHistory", back_populates="ticket", cascade="all, delete-orphan")
+    
+    messages: Mapped[list["TicketMessage"]] = relationship("TicketMessage", back_populates="ticket", cascade="all, delete-orphan", order_by="TicketMessage.created_at")
+    history: Mapped[list["TicketStatusHistory"]] = relationship("TicketStatusHistory", back_populates="ticket", cascade="all, delete-orphan", order_by="TicketStatusHistory.created_at")
+
+    @property
+    def assigned_admin_name(self) -> str | None:
+        if self.assigned_admin:
+            return f"{self.assigned_admin.first_name or ''} {self.assigned_admin.last_name or ''}".strip()
+        return None
 
 class TicketMessage(Base):
     __tablename__ = "ticket_messages"

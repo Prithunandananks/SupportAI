@@ -2,11 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { type AdminTicketDetail, ticketService, TicketStatus } from '../../services/ticket.service';
 import type { ChatSessionWithMessagesResponse, ChatMessageResponse } from '../../services/chat.service';
-import { ArrowLeft as ArrowLeftIcon } from 'lucide-react';
+import { ArrowLeft as ArrowLeftIcon, Check as CheckIcon } from 'lucide-react';
 import AdminLayout from '@/components/admin/layout/AdminLayout';
+import { useAuth } from '@/hooks/useAuthCore';
 
 const AdminTicketDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const [ticket, setTicket] = useState<AdminTicketDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [replyMessage, setReplyMessage] = useState('');
@@ -14,6 +16,7 @@ const AdminTicketDetails: React.FC = () => {
   const [chatSession, setChatSession] = useState<ChatSessionWithMessagesResponse | null>(null);
   
   const [status, setStatus] = useState<TicketStatus>(TicketStatus.OPEN);
+  const [statusError, setStatusError] = useState<string | null>(null);
 
   const fetchTicket = async (ticketId: string) => {
     try {
@@ -58,19 +61,23 @@ const AdminTicketDetails: React.FC = () => {
 
   const handleStatusChange = async (newStatus: TicketStatus) => {
     if (!id || newStatus === ticket?.status) return;
+    setStatusError(null);
     try {
       await ticketService.updateTicketStatus(id, newStatus);
       fetchTicket(id);
     } catch (error) {
       console.error('Failed to update status:', error);
+      setStatusError('Invalid status transition. Please follow the correct workflow.');
       setStatus(ticket?.status || TicketStatus.OPEN);
+      
+      setTimeout(() => setStatusError(null), 3000);
     }
   };
   
   const handleAssignToMe = async () => {
-    if (!id) return;
+    if (!id || !user?.id) return;
     try {
-      await ticketService.assignTicket(id);
+      await ticketService.assignTicket(id, user.id);
       await fetchTicket(id);
     } catch (error) {
       console.error('Failed to assign ticket:', error);
@@ -149,7 +156,28 @@ const AdminTicketDetails: React.FC = () => {
             </div>
 
             <div>
-              <h4 className="text-md font-medium text-white mb-4">Conversation</h4>
+              <h4 className="text-md font-medium text-white mb-4">AI Chat History</h4>
+              <div className="space-y-4 mb-8">
+                {chatSession ? chatSession.messages.map((msg) => (
+                  <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-start' : 'justify-end'}`}>
+                    <div className={`max-w-xl rounded-lg px-4 py-3 ${
+                      msg.role === 'user' 
+                        ? 'bg-slate-800 text-slate-200' 
+                        : 'bg-cyan-900/40 border border-cyan-800 text-slate-200'
+                    }`}>
+                      <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                      <div className={`text-xs mt-2 flex justify-between ${msg.role === 'user' ? 'text-slate-400' : 'text-cyan-400'}`}>
+                        <span>{msg.role === 'user' ? 'Customer' : 'AI'}</span>
+                        <span>{new Date(msg.created_at).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                )) : (
+                  <p className="text-sm text-slate-500 italic">No chat history available for this ticket.</p>
+                )}
+              </div>
+
+              <h4 className="text-md font-medium text-white mb-4">Ticket Replies</h4>
               <div className="space-y-4">
                 {ticket.messages.map((msg) => (
                   <div key={msg.id} className={`flex ${msg.sender_id === ticket.customer_id ? 'justify-start' : 'justify-end'}`}>
@@ -208,16 +236,35 @@ const AdminTicketDetails: React.FC = () => {
                   <label className="block text-sm font-medium text-slate-300">Status</label>
                   <select
                     value={status}
+                    disabled={ticket?.status === TicketStatus.RESOLVED}
                     onChange={(e) => {
                       setStatus(e.target.value as TicketStatus);
                       handleStatusChange(e.target.value as TicketStatus);
                     }}
-                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-slate-800 text-white border-slate-700 focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm rounded-md"
+                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-slate-800 text-white border-slate-700 focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {Object.values(TicketStatus).map((s) => (
-                      <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
-                    ))}
+                    {Object.values(TicketStatus).map((s) => {
+                      let isDisabled = false;
+                      const current = ticket?.status;
+                      
+                      if (current === TicketStatus.OPEN && s === TicketStatus.RESOLVED) {
+                        isDisabled = true;
+                      } else if (current === TicketStatus.IN_PROGRESS && s === TicketStatus.OPEN) {
+                        isDisabled = true;
+                      } else if (current === TicketStatus.RESOLVED && s !== TicketStatus.RESOLVED) {
+                        isDisabled = true;
+                      }
+                      
+                      return (
+                        <option key={s} value={s} disabled={isDisabled}>
+                          {s.replace(/_/g, ' ')}
+                        </option>
+                      );
+                    })}
                   </select>
+                  {statusError && (
+                    <p className="mt-2 text-sm text-red-400">{statusError}</p>
+                  )}
                 </div>
                 
                 <div>
@@ -238,7 +285,7 @@ const AdminTicketDetails: React.FC = () => {
                   <label className="block text-sm font-medium text-slate-300">Assignee</label>
                   <div className="mt-1 py-2 text-sm flex items-center justify-between">
                     <span className={ticket.assigned_admin_id ? 'text-white' : 'text-slate-400 italic'}>
-                      {ticket.assigned_admin_id ? 'Assigned' : 'Unassigned'}
+                      {ticket.assigned_admin_id ? (ticket.assigned_admin_name || 'Assigned') : 'Unassigned'}
                     </span>
                     {!ticket.assigned_admin_id && (
                       <button
@@ -247,6 +294,11 @@ const AdminTicketDetails: React.FC = () => {
                       >
                         Assign to me
                       </button>
+                    )}
+                    {ticket.assigned_admin_id === user?.id && (
+                      <span className="text-cyan-400 text-xs font-medium flex items-center">
+                        <CheckIcon size={14} className="mr-1" /> Assigned to you
+                      </span>
                     )}
                   </div>
                 </div>
@@ -275,11 +327,12 @@ const AdminTicketDetails: React.FC = () => {
                             <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
                               <div>
                                 <p className="text-sm text-slate-400">
-                                  {event.event_type.replace(/_/g, ' ')} 
-                                  {event.new_value ? ` to ${event.new_value}` : ''}
+                                  {event.event_type === 'ASSIGNMENT_CHANGED'
+                                    ? `ASSIGNED: ${event.new_value} assigned this report to themselves.`
+                                    : `${event.event_type.replace(/_/g, ' ')} ${event.new_value ? ` to ${event.new_value}` : ''}`}
                                 </p>
                               </div>
-                              <div className="text-right text-sm whitespace-nowrap text-slate-400">
+                              <div className="text-right text-sm whitespace-nowrap text-slate-400 font-mono">
                                 {new Date(event.created_at).toLocaleString()}
                               </div>
                             </div>

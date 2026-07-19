@@ -25,7 +25,7 @@ async def get_quality_analytics(
     open_tickets = (await db.execute(open_tickets_stmt)).scalar() or 0
 
     # Resolved tickets
-    resolved_tickets_stmt = select(func.count(Ticket.id)).where(Ticket.category == TicketCategory.REPORT, Ticket.status.in_([TicketStatus.RESOLVED, TicketStatus.CLOSED]))
+    resolved_tickets_stmt = select(func.count(Ticket.id)).where(Ticket.category == TicketCategory.REPORT, Ticket.status == TicketStatus.RESOLVED)
     resolved_tickets = (await db.execute(resolved_tickets_stmt)).scalar() or 0
 
     # Average Resolution Time

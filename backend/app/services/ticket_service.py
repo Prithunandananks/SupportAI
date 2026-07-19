@@ -44,11 +44,9 @@ class TicketService:
 
     def validate_transition(self, current_status: TicketStatus, new_status: TicketStatus) -> bool:
         valid_transitions = {
-            TicketStatus.OPEN: [TicketStatus.IN_PROGRESS, TicketStatus.CLOSED],
-            TicketStatus.IN_PROGRESS: [TicketStatus.WAITING_FOR_CUSTOMER, TicketStatus.RESOLVED, TicketStatus.CLOSED],
-            TicketStatus.WAITING_FOR_CUSTOMER: [TicketStatus.IN_PROGRESS, TicketStatus.RESOLVED, TicketStatus.CLOSED],
-            TicketStatus.RESOLVED: [TicketStatus.CLOSED, TicketStatus.IN_PROGRESS],
-            TicketStatus.CLOSED: [] # Cannot transition out of closed for now
+            TicketStatus.OPEN: [TicketStatus.IN_PROGRESS],
+            TicketStatus.IN_PROGRESS: [TicketStatus.RESOLVED],
+            TicketStatus.RESOLVED: []
         }
         return new_status in valid_transitions.get(current_status, [])
 
@@ -98,8 +96,8 @@ class TicketService:
         if not ticket:
             raise HTTPException(status_code=404, detail="Ticket not found")
         
-        if ticket.status == TicketStatus.CLOSED:
-            raise HTTPException(status_code=400, detail="Cannot reply to a closed ticket")
+        if ticket.status == TicketStatus.RESOLVED:
+            raise HTTPException(status_code=400, detail="Cannot reply to a resolved ticket")
             
         msg_in_db = TicketMessageCreateDB(**msg_in.model_dump(), ticket_id=ticket_id, sender_id=sender_id)
         msg = await ticket_message_repo.create(db, obj_in=msg_in_db)
@@ -139,11 +137,6 @@ class TicketService:
         old_status = ticket.status
         ticket.status = new_status
         
-        if new_status == TicketStatus.CLOSED:
-            ticket.closed_at = datetime.now(timezone.utc)
-            
-        ticket = await ticket_repo.update(db, db_obj=ticket, obj_in={"status": new_status, "closed_at": ticket.closed_at})
-        
         history = TicketStatusHistoryCreateDB(
             ticket_id=ticket.id,
             event_type=TicketHistoryEvent.STATUS_CHANGED,
@@ -154,75 +147,46 @@ class TicketService:
         await ticket_history_repo.create(db, obj_in=history)
         await db.refresh(ticket)
         
-        title_map = {
-            TicketStatus.WAITING_FOR_CUSTOMER: "Ticket Waiting for Customer",
-            TicketStatus.RESOLVED: "Ticket Resolved",
-            TicketStatus.CLOSED: "Ticket Closed",
-            TicketStatus.IN_PROGRESS: "Ticket In Progress",
-        }
-        nt_type_map = {
-            TicketStatus.WAITING_FOR_CUSTOMER: NotificationType.TICKET_WAITING_CUSTOMER,
-            TicketStatus.RESOLVED: NotificationType.TICKET_RESOLVED,
-            TicketStatus.CLOSED: NotificationType.TICKET_CLOSED,
-            TicketStatus.IN_PROGRESS: NotificationType.TICKET_UPDATED,
-        }
+        title = ""
+        message = ""
+        notification_type = NotificationType.TICKET_UPDATED
         
-        await notification_service.create_notification(
-            db=db,
-            user_id=ticket.customer_id,
-            title=title_map.get(new_status, "Ticket Status Updated"),
-            message=f"Your ticket {ticket.ticket_number} status changed to {new_status.value}.",
-            notification_type=nt_type_map.get(new_status, NotificationType.TICKET_UPDATED),
-            related_ticket_id=ticket.id,
-            metadata_obj={"ticket_number": ticket.ticket_number}
-        )
+        if new_status == TicketStatus.IN_PROGRESS:
+            title = "Review in Progress"
+            message = "We've started reviewing the AI response you reported. Our team is currently investigating the issue. We'll notify you once the review is complete."
+            notification_type = NotificationType.TICKET_UPDATED
+        elif new_status == TicketStatus.RESOLVED:
+            title = "Review Completed"
+            message = "We've completed the review of the AI response you reported. Thank you for helping us improve SupportAI."
+            notification_type = NotificationType.TICKET_CLOSED
+            
+        if title:
+            await notification_service.create_notification(
+                db=db,
+                user_id=ticket.customer_id,
+                title=title,
+                message=message,
+                notification_type=notification_type,
+                related_ticket_id=ticket.id,
+                metadata_obj={"ticket_number": ticket.ticket_number}
+            )
         
         await db.refresh(ticket)
         return ticket
 
-    async def close_ticket_by_customer(self, db: AsyncSession, ticket: Ticket, customer_id: uuid.UUID) -> Ticket:
-        if ticket.status == TicketStatus.CLOSED:
-            return ticket
-            
-        old_status = ticket.status
-        ticket.status = TicketStatus.CLOSED
-        ticket.closed_at = datetime.now(timezone.utc)
-        
-        ticket = await ticket_repo.update(db, db_obj=ticket, obj_in={"status": TicketStatus.CLOSED, "closed_at": ticket.closed_at})
-        
-        history = TicketStatusHistoryCreateDB(
-            ticket_id=ticket.id,
-            event_type=TicketHistoryEvent.CUSTOMER_CLOSED,
-            old_value=old_status.value,
-            new_value=TicketStatus.CLOSED.value,
-            changed_by=customer_id
-        )
-        await ticket_history_repo.create(db, obj_in=history)
-        await db.refresh(ticket)
-        
-        await notification_service.create_notification(
-            db=db,
-            user_id=ticket.customer_id,
-            title="Ticket Closed",
-            message=f"Your ticket {ticket.ticket_number} has been closed.",
-            notification_type=NotificationType.TICKET_CLOSED,
-            related_ticket_id=ticket.id,
-            metadata_obj={"ticket_number": ticket.ticket_number}
-        )
-        
-        await db.refresh(ticket)
-        return ticket
 
     async def assign_ticket(self, db: AsyncSession, ticket: Ticket, admin_id: uuid.UUID, changed_by: uuid.UUID) -> Ticket:
         old_assignee = str(ticket.assigned_admin_id) if ticket.assigned_admin_id else None
         ticket.assigned_admin_id = admin_id
-        ticket = await ticket_repo.update(db, db_obj=ticket, obj_in={"assigned_admin_id": admin_id})
+        
+        admin = await user_repo.get(db, id=admin_id)
+        admin_name = f"{admin.first_name or ''} {admin.last_name or ''}".strip() if admin else "Admin"
         
         history = TicketStatusHistoryCreateDB(
             ticket_id=ticket.id,
             event_type=TicketHistoryEvent.ASSIGNMENT_CHANGED,
             old_value=old_assignee,
-            new_value=str(admin_id),
+            new_value=admin_name,
             changed_by=changed_by
         )
         await ticket_history_repo.create(db, obj_in=history)

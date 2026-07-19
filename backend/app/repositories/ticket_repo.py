@@ -17,7 +17,8 @@ class TicketRepository(BaseRepository[Ticket, dict]):
     async def get_full_details(self, db: AsyncSession, id: uuid.UUID) -> Optional[Ticket]:
         stmt = select(Ticket).options(
             selectinload(Ticket.messages),
-            selectinload(Ticket.history)
+            selectinload(Ticket.history),
+            selectinload(Ticket.assigned_admin)
         ).where(Ticket.id == id)
         result = await db.execute(stmt)
         return result.scalars().first()

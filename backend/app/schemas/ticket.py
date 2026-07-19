@@ -67,4 +67,4 @@ class TicketDetailResponse(TicketResponse):
     history: List[TicketStatusHistoryResponse] = []
     
 class AdminTicketDetailResponse(TicketDetailResponse):
-    pass
+    assigned_admin_name: Optional[str] = None
