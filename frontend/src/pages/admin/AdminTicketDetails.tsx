@@ -11,8 +11,6 @@ const AdminTicketDetails: React.FC = () => {
   const { user } = useAuth();
   const [ticket, setTicket] = useState<AdminTicketDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [replyMessage, setReplyMessage] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [chatSession, setChatSession] = useState<ChatSessionWithMessagesResponse | null>(null);
   
   const [status, setStatus] = useState<TicketStatus>(TicketStatus.OPEN);
@@ -42,22 +40,6 @@ const AdminTicketDetails: React.FC = () => {
       fetchTicket(id);
     }
   }, [id]);
-
-  const handleReply = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!replyMessage.trim() || !id) return;
-    
-    setSubmitting(true);
-    try {
-      await ticketService.adminReplyToTicket(id, replyMessage);
-      setReplyMessage('');
-      await fetchTicket(id);
-    } catch (error) {
-      console.error('Failed to send reply:', error);
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   const handleStatusChange = async (newStatus: TicketStatus) => {
     if (!id || newStatus === ticket?.status) return;
@@ -152,76 +134,6 @@ const AdminTicketDetails: React.FC = () => {
                     <p className="whitespace-pre-wrap">{ticket.description}</p>
                   </div>
                 )}
-              </div>
-            </div>
-
-            <div>
-              <h4 className="text-md font-medium text-white mb-4">AI Chat History</h4>
-              <div className="space-y-4 mb-8">
-                {chatSession ? chatSession.messages.map((msg) => (
-                  <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-start' : 'justify-end'}`}>
-                    <div className={`max-w-xl rounded-lg px-4 py-3 ${
-                      msg.role === 'user' 
-                        ? 'bg-slate-800 text-slate-200' 
-                        : 'bg-cyan-900/40 border border-cyan-800 text-slate-200'
-                    }`}>
-                      <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
-                      <div className={`text-xs mt-2 flex justify-between ${msg.role === 'user' ? 'text-slate-400' : 'text-cyan-400'}`}>
-                        <span>{msg.role === 'user' ? 'Customer' : 'AI'}</span>
-                        <span>{new Date(msg.created_at).toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                )) : (
-                  <p className="text-sm text-slate-500 italic">No chat history available for this ticket.</p>
-                )}
-              </div>
-
-              <h4 className="text-md font-medium text-white mb-4">Ticket Replies</h4>
-              <div className="space-y-4">
-                {ticket.messages.map((msg) => (
-                  <div key={msg.id} className={`flex ${msg.sender_id === ticket.customer_id ? 'justify-start' : 'justify-end'}`}>
-                    <div className={`max-w-xl rounded-lg px-4 py-3 ${
-                      msg.sender_id === ticket.customer_id 
-                        ? 'bg-slate-800 text-slate-200' 
-                        : 'bg-cyan-600 text-white'
-                    }`}>
-                      <p className="whitespace-pre-wrap text-sm">{msg.message}</p>
-                      <div className={`text-xs mt-1 flex justify-between ${msg.sender_id === ticket.customer_id ? 'text-slate-400' : 'text-cyan-200'}`}>
-                        <span>{msg.sender_id === ticket.customer_id ? 'Customer' : 'Agent'}</span>
-                        <span>{new Date(msg.created_at).toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-6 bg-slate-900 border border-slate-800 shadow sm:rounded-lg">
-                <div className="px-4 py-5 sm:p-6">
-                  <form onSubmit={handleReply}>
-                    <div>
-                      <label htmlFor="reply" className="block text-sm font-medium text-slate-300 mb-2">Reply to Customer</label>
-                      <textarea
-                        id="reply"
-                        rows={4}
-                        className="shadow-sm block w-full bg-slate-800 text-white placeholder-slate-500 border border-slate-700 focus:ring-cyan-500 focus:border-cyan-500 caret-cyan-500 sm:text-sm rounded-md p-2"
-                        placeholder="Type your reply to the customer..."
-                        value={replyMessage}
-                        onChange={(e) => setReplyMessage(e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="mt-3 flex justify-end">
-                      <button
-                        type="submit"
-                        disabled={submitting}
-                        className="inline-flex items-center justify-center px-4 py-2 border border-transparent font-medium rounded-md text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 sm:text-sm disabled:opacity-50"
-                      >
-                        {submitting ? 'Sending...' : 'Send Reply'}
-                      </button>
-                    </div>
-                  </form>
-                </div>
               </div>
             </div>
           </div>
