@@ -73,16 +73,30 @@ class ChatRepository:
             await self.session.refresh(message)
         return message
 
-    async def append_message(self, session_id: uuid.UUID, role: str, content: str) -> ChatMessage:
-        message = ChatMessage(session_id=session_id, role=role, content=content)
+    def _deduplicate_sources(self, sources: Optional[list]) -> Optional[list]:
+        if not sources:
+            return sources
+        seen = set()
+        deduped = []
+        for s in sources:
+            fname = s.get("filename")
+            if fname not in seen:
+                seen.add(fname)
+                deduped.append(s)
+        return deduped
+
+    async def append_message(self, session_id: uuid.UUID, role: str, content: str, sources: Optional[list] = None) -> ChatMessage:
+        deduped_sources = self._deduplicate_sources(sources) if role == 'assistant' else None
+        message = ChatMessage(session_id=session_id, role=role, content=content, sources=deduped_sources)
         self.session.add(message)
         await self.session.commit()
         await self.session.refresh(message)
         return message
 
-    async def append_exchange(self, session_id: uuid.UUID, user_message: str, assistant_message: str) -> tuple[uuid.UUID, uuid.UUID]:
+    async def append_exchange(self, session_id: uuid.UUID, user_message: str, assistant_message: str, sources: Optional[list] = None) -> tuple[uuid.UUID, uuid.UUID]:
+        deduped_sources = self._deduplicate_sources(sources)
         u_msg = ChatMessage(session_id=session_id, role="user", content=user_message)
-        a_msg = ChatMessage(session_id=session_id, role="assistant", content=assistant_message)
+        a_msg = ChatMessage(session_id=session_id, role="assistant", content=assistant_message, sources=deduped_sources)
         self.session.add_all([u_msg, a_msg])
         await self.session.commit()
         await self.session.refresh(u_msg)
@@ -97,7 +111,7 @@ class ChatRepository:
             return True
         return False
 
-    async def replace_last_assistant_message(self, session_id: uuid.UUID, content: str) -> Optional[ChatMessage]:
+    async def replace_last_assistant_message(self, session_id: uuid.UUID, content: str, sources: Optional[list] = None) -> Optional[ChatMessage]:
         stmt = (
             select(ChatMessage)
             .where(ChatMessage.session_id == session_id)
@@ -108,6 +122,7 @@ class ChatRepository:
         msg = result.scalars().first()
         if msg and msg.role == 'assistant':
             msg.content = content
+            msg.sources = self._deduplicate_sources(sources)
             await self.session.commit()
             await self.session.refresh(msg)
             return msg

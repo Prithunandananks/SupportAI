@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import String, DateTime, ForeignKey, Text, Enum as SQLEnum
+from sqlalchemy import String, DateTime, ForeignKey, Text, Enum as SQLEnum, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 import enum
@@ -51,6 +51,7 @@ class ChatMessage(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     
     feedback: Mapped[FeedbackEnum | None] = mapped_column(SQLEnum(FeedbackEnum), nullable=True)
+    sources: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
 
     tickets = relationship("Ticket", foreign_keys="[Ticket.chat_message_id]", viewonly=True)
 

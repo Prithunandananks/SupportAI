@@ -49,16 +49,11 @@ class RAGPipeline:
             
             if doc_id not in seen_docs:
                 seen_docs.add(doc_id)
-                # Construct citation
-                filename = payload.get("filename", "unknown")
-                chunk_idx = payload.get("chunk_index", 0)
-                
-                sources.append(
-                    SourceCitation(
-                        filename=filename,
-                        retrieval_score=result.score
-                    )
-                )
+                sources.append({
+                    "filename": payload.get("filename", "unknown"),
+                    "document_id": doc_id,
+                    "chunk_index": payload.get("chunk_index", 0)
+                })
 
         if not contexts:
             return "I couldn't find relevant information in the current knowledge base. Please try rephrasing your question or contact an administrator if you believe the information should exist.", []
@@ -109,7 +104,8 @@ class RAGPipeline:
                 seen_docs.add(doc_id)
                 sources.append({
                     "filename": payload.get("filename", "unknown"),
-                    "retrieval_score": score
+                    "document_id": doc_id,
+                    "chunk_index": payload.get("chunk_index", 0)
                 })
 
         # Calculate confidence

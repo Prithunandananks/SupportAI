@@ -20,7 +20,7 @@ class ChatOrchestrator:
             answer, sources = await self.rag_pipeline.run(question=message, session_id=session_id)
             
             if session_id and self.chat_repo:
-                await self.chat_repo.append_exchange(session_id, message, answer)
+                await self.chat_repo.append_exchange(session_id, message, answer, sources)
                 
             return answer, sources
         except Exception as e:
@@ -56,18 +56,22 @@ class ChatOrchestrator:
                 title_task = asyncio.create_task(llm.generate(prompt=prompt, temperature=0.7))
 
             full_answer = ""
+            final_sources = None
             async for item in self.rag_pipeline.run_stream(question=message, session_id=session_id, override_history=override_history):
-                if isinstance(item, dict) and "content" in item:
-                    full_answer += item["content"]
+                if isinstance(item, dict):
+                    if "content" in item:
+                        full_answer += item["content"]
+                    if "sources" in item:
+                        final_sources = item["sources"]
                 yield item
                 
             if session_id and self.chat_repo:
                 if regenerate:
-                    replaced_msg = await self.chat_repo.replace_last_assistant_message(session_id, full_answer)
+                    replaced_msg = await self.chat_repo.replace_last_assistant_message(session_id, full_answer, final_sources)
                     if replaced_msg:
                         yield {"message_id": str(replaced_msg.id)}
                 else:
-                    u_id, a_id = await self.chat_repo.append_exchange(session_id, message, full_answer)
+                    u_id, a_id = await self.chat_repo.append_exchange(session_id, message, full_answer, final_sources)
                     yield {"user_message_id": str(u_id), "message_id": str(a_id)}
 
             if title_task:

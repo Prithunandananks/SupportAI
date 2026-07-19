@@ -10,6 +10,11 @@ class ChatMessageBase(BaseModel):
 class ChatMessageCreate(ChatMessageBase):
     pass
 
+class ChatSource(BaseModel):
+    filename: str
+    document_id: str
+    chunk_index: int
+
 class ChatMessageResponse(ChatMessageBase):
     id: uuid.UUID
     session_id: uuid.UUID
@@ -17,6 +22,7 @@ class ChatMessageResponse(ChatMessageBase):
     feedback: Optional[str] = None
     flagged: bool = False
     is_support: bool = False
+    sources: Optional[List[ChatSource]] = None
 
     model_config = ConfigDict(from_attributes=True)
 
