@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { type AdminTicketDetail, ticketService, TicketStatus } from '../../services/ticket.service';
+import { authService, type User } from '../../services/auth.service';
 import type { ChatSessionWithMessagesResponse, ChatMessageResponse } from '../../services/chat.service';
 import { ArrowLeft as ArrowLeftIcon } from 'lucide-react';
 import AdminLayout from '@/components/admin/layout/AdminLayout';
@@ -11,15 +12,22 @@ const AdminTicketDetails: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [replyMessage, setReplyMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [internalNote, setInternalNote] = useState('');
+  const [submittingNote, setSubmittingNote] = useState(false);
   const [chatSession, setChatSession] = useState<ChatSessionWithMessagesResponse | null>(null);
   
   const [status, setStatus] = useState<TicketStatus>(TicketStatus.OPEN);
+  const [admins, setAdmins] = useState<User[]>([]);
+  const [selectedAssignee, setSelectedAssignee] = useState<string>('');
 
   const fetchTicket = async (ticketId: string) => {
     try {
       const data = await ticketService.getAdminTicket(ticketId);
       setTicket(data);
       setStatus(data.status);
+      if (data.assigned_admin_id) {
+        setSelectedAssignee(data.assigned_admin_id);
+      }
       
       if (data.conversation_id) {
         import('../../services/chat.service').then(({ chatService }) => {
@@ -32,6 +40,18 @@ const AdminTicketDetails: React.FC = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const fetchAdmins = async () => {
+      try {
+        const adminList = await authService.getAdmins();
+        setAdmins(adminList);
+      } catch (error) {
+        console.error('Failed to fetch admins:', error);
+      }
+    };
+    fetchAdmins();
+  }, []);
 
   useEffect(() => {
     if (id) {
@@ -56,6 +76,22 @@ const AdminTicketDetails: React.FC = () => {
     }
   };
 
+  const handleAddNote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!internalNote.trim() || !id) return;
+    
+    setSubmittingNote(true);
+    try {
+      await ticketService.adminAddInternalNote(id, internalNote);
+      setInternalNote('');
+      await fetchTicket(id);
+    } catch (error) {
+      console.error('Failed to add internal note:', error);
+    } finally {
+      setSubmittingNote(false);
+    }
+  };
+
   const handleStatusChange = async (newStatus: TicketStatus) => {
     if (!id || newStatus === ticket?.status) return;
     try {
@@ -67,18 +103,34 @@ const AdminTicketDetails: React.FC = () => {
     }
   };
   
-  const handleAssignToMe = async () => {
-    if (!id) return;
+  const handleAssign = async () => {
+    if (!id || !selectedAssignee) return;
     try {
-      await ticketService.assignTicket(id);
+      await ticketService.assignTicket(id, selectedAssignee);
       await fetchTicket(id);
     } catch (error) {
       console.error('Failed to assign ticket:', error);
     }
   };
 
+  const handleUnassign = async () => {
+    if (!id) return;
+    try {
+      await ticketService.unassignTicket(id);
+      setSelectedAssignee('');
+      await fetchTicket(id);
+    } catch (error) {
+      console.error('Failed to unassign ticket:', error);
+    }
+  };
+
   if (loading) return <div className="p-8 text-center text-gray-500">Loading...</div>;
   if (!ticket) return <div className="p-8 text-center text-red-500">Ticket not found</div>;
+
+  const timeline = [
+    ...(ticket.messages.map(m => ({ ...m, type: 'message' as const }))),
+    ...(ticket.internal_notes?.map(n => ({ ...n, type: 'internal_note' as const })) || [])
+  ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
   return (
     <AdminLayout title="Flagged Question Details">
@@ -151,21 +203,40 @@ const AdminTicketDetails: React.FC = () => {
             <div>
               <h4 className="text-md font-medium text-white mb-4">Conversation</h4>
               <div className="space-y-4">
-                {ticket.messages.map((msg) => (
-                  <div key={msg.id} className={`flex ${msg.sender_id === ticket.customer_id ? 'justify-start' : 'justify-end'}`}>
-                    <div className={`max-w-xl rounded-lg px-4 py-3 ${
-                      msg.sender_id === ticket.customer_id 
-                        ? 'bg-slate-800 text-slate-200' 
-                        : 'bg-cyan-600 text-white'
-                    }`}>
-                      <p className="whitespace-pre-wrap text-sm">{msg.message}</p>
-                      <div className={`text-xs mt-1 flex justify-between ${msg.sender_id === ticket.customer_id ? 'text-slate-400' : 'text-cyan-200'}`}>
-                        <span>{msg.sender_id === ticket.customer_id ? 'Customer' : 'Agent'}</span>
-                        <span>{new Date(msg.created_at).toLocaleString()}</span>
+                {timeline.map((item) => {
+                  if (item.type === 'message') {
+                    return (
+                      <div key={`msg-${item.id}`} className={`flex ${item.sender_id === ticket.customer_id ? 'justify-start' : 'justify-end'}`}>
+                        <div className={`max-w-xl rounded-lg px-4 py-3 ${
+                          item.sender_id === ticket.customer_id 
+                            ? 'bg-slate-800 text-slate-200' 
+                            : 'bg-cyan-600 text-white'
+                        }`}>
+                          <p className="whitespace-pre-wrap text-sm">{item.message}</p>
+                          <div className={`text-xs mt-1 flex justify-between ${item.sender_id === ticket.customer_id ? 'text-slate-400' : 'text-cyan-200'}`}>
+                            <span>{item.sender_id === ticket.customer_id ? 'Customer' : 'Agent'}</span>
+                            <span>{new Date(item.created_at).toLocaleString()}</span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  } else {
+                    return (
+                      <div key={`note-${item.id}`} className="flex justify-center my-4">
+                        <div className="max-w-2xl w-full rounded-lg px-4 py-3 bg-amber-900/30 border border-amber-700/50">
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-xs font-semibold text-amber-500 uppercase tracking-wider">Internal Note</span>
+                            <span className="text-xs text-amber-600/70">{new Date(item.created_at).toLocaleString()}</span>
+                          </div>
+                          <p className="whitespace-pre-wrap text-sm text-amber-100">{item.content}</p>
+                          <div className="text-xs mt-2 text-amber-600/70">
+                            Author: {admins.find(a => a.id === item.author_id)?.name || item.author_id}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                })}
               </div>
 
               <div className="mt-6 bg-slate-900 border border-slate-800 shadow sm:rounded-lg">
@@ -195,10 +266,80 @@ const AdminTicketDetails: React.FC = () => {
                   </form>
                 </div>
               </div>
+              
+              <div className="mt-6 bg-slate-900 border border-amber-900/50 shadow sm:rounded-lg overflow-hidden">
+                <div className="bg-amber-900/20 px-4 py-3 border-b border-amber-900/50">
+                  <h3 className="text-sm font-medium text-amber-500">Add Internal Note</h3>
+                  <p className="text-xs text-amber-600/70">Only visible to other admins and agents.</p>
+                </div>
+                <div className="px-4 py-5 sm:p-6">
+                  <form onSubmit={handleAddNote}>
+                    <div>
+                      <textarea
+                        rows={3}
+                        className="shadow-sm block w-full bg-slate-800 text-amber-100 placeholder-slate-500 border border-slate-700 focus:ring-amber-500 focus:border-amber-500 caret-amber-500 sm:text-sm rounded-md p-2"
+                        placeholder="Type an internal note..."
+                        value={internalNote}
+                        onChange={(e) => setInternalNote(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="mt-3 flex justify-end">
+                      <button
+                        type="submit"
+                        disabled={submittingNote}
+                        className="inline-flex items-center justify-center px-4 py-2 border border-transparent font-medium rounded-md text-amber-900 bg-amber-500 hover:bg-amber-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 sm:text-sm disabled:opacity-50"
+                      >
+                        {submittingNote ? 'Saving...' : 'Save Note'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
             </div>
           </div>
           
           <div className="lg:col-span-1 space-y-6">
+            <div className="bg-slate-900 border border-slate-800 shadow sm:rounded-lg">
+              <div className="px-4 py-5 sm:px-6 border-b border-slate-800">
+                <h3 className="text-lg leading-6 font-medium text-white">SLA Status</h3>
+              </div>
+              <div className="px-4 py-5 sm:p-6 space-y-4">
+                {ticket.is_breached ? (
+                  <div className="bg-red-900/20 border border-red-500/50 rounded-md p-3 text-center">
+                    <p className="text-red-400 font-bold uppercase tracking-wider text-sm">SLA Breached</p>
+                  </div>
+                ) : ticket.is_overdue ? (
+                  <div className="bg-red-900/20 border border-red-500/50 rounded-md p-3 text-center">
+                    <p className="text-red-400 font-bold uppercase tracking-wider text-sm">Overdue</p>
+                  </div>
+                ) : ticket.is_due_soon ? (
+                  <div className="bg-amber-900/20 border border-amber-500/50 rounded-md p-3 text-center">
+                    <p className="text-amber-400 font-bold uppercase tracking-wider text-sm">Due Soon</p>
+                  </div>
+                ) : ticket.status === 'RESOLVED' || ticket.status === 'CLOSED' ? (
+                  <div className="bg-green-900/20 border border-green-500/50 rounded-md p-3 text-center">
+                    <p className="text-green-400 font-bold uppercase tracking-wider text-sm">Resolved Within SLA</p>
+                  </div>
+                ) : (
+                  <div className="bg-green-900/20 border border-green-500/50 rounded-md p-3 text-center">
+                    <p className="text-green-400 font-bold uppercase tracking-wider text-sm">Within SLA</p>
+                  </div>
+                )}
+                
+                <div className="pt-2 border-t border-slate-700/50">
+                  <div className="flex flex-col text-sm mt-3 mb-2">
+                    <span className="text-slate-400 text-xs uppercase tracking-wider mb-1">First Response Due</span>
+                    <span className="text-white">{ticket.first_response_due ? new Date(ticket.first_response_due).toLocaleString() : 'N/A'}</span>
+                  </div>
+                  <div className="flex flex-col text-sm">
+                    <span className="text-slate-400 text-xs uppercase tracking-wider mb-1">Resolution Due</span>
+                    <span className="text-white">{ticket.resolution_due ? new Date(ticket.resolution_due).toLocaleString() : 'N/A'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="bg-slate-900 border border-slate-800 shadow sm:rounded-lg">
               <div className="px-4 py-5 sm:px-6 border-b border-slate-800">
                 <h3 className="text-lg leading-6 font-medium text-white">Properties</h3>
@@ -236,18 +377,51 @@ const AdminTicketDetails: React.FC = () => {
                 
                 <div>
                   <label className="block text-sm font-medium text-slate-300">Assignee</label>
-                  <div className="mt-1 py-2 text-sm flex items-center justify-between">
-                    <span className={ticket.assigned_admin_id ? 'text-white' : 'text-slate-400 italic'}>
-                      {ticket.assigned_admin_id ? 'Assigned' : 'Unassigned'}
-                    </span>
-                    {!ticket.assigned_admin_id && (
-                      <button
-                        onClick={handleAssignToMe}
-                        className="text-cyan-400 hover:text-cyan-300 text-xs font-medium"
-                      >
-                        Assign to me
-                      </button>
+                  <div className="mt-1 flex flex-col space-y-2">
+                    {ticket.assigned_admin_id ? (
+                      <div className="text-sm text-white">
+                        <span className="block mb-1">
+                          Assigned to: {admins.find(a => a.id === ticket.assigned_admin_id)?.name || ticket.assigned_admin_id}
+                        </span>
+                        {ticket.assigned_at && (
+                          <span className="block text-xs text-slate-400">
+                            Assigned on: {new Date(ticket.assigned_at).toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-slate-400 italic">Unassigned</div>
                     )}
+                    
+                    <div className="flex items-center space-x-2 mt-2">
+                      <select
+                        value={selectedAssignee}
+                        onChange={(e) => setSelectedAssignee(e.target.value)}
+                        className="block w-full pl-3 pr-10 py-1.5 text-sm bg-slate-800 text-white border-slate-700 focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 rounded-md"
+                      >
+                        <option value="">Select an Admin...</option>
+                        {admins.map(admin => (
+                          <option key={admin.id} value={admin.id}>{admin.name}</option>
+                        ))}
+                      </select>
+                      
+                      <button
+                        onClick={handleAssign}
+                        disabled={!selectedAssignee || selectedAssignee === ticket.assigned_admin_id}
+                        className="px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 disabled:opacity-50 whitespace-nowrap"
+                      >
+                        {ticket.assigned_admin_id ? 'Reassign' : 'Assign'}
+                      </button>
+                      
+                      {ticket.assigned_admin_id && (
+                        <button
+                          onClick={handleUnassign}
+                          className="px-3 py-1.5 border border-slate-600 text-xs font-medium rounded-md text-slate-300 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 whitespace-nowrap"
+                        >
+                          Unassign
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

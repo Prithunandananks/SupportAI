@@ -5,31 +5,6 @@ from qdrant_client.http import models
 from app.core.config import settings
 from app.db.qdrant import qdrant_db
 
-@pytest.fixture
-async def admin_token(client: AsyncClient, db_session):
-    # Register user
-    await client.post("/api/v1/auth/register", json={
-        "email": "admin2@example.com",
-        "password": "Password123!",
-        "first_name": "Admin",
-        "last_name": "User"
-    })
-    
-    # Promote to Admin
-    from app.repositories.user_repo import user_repo
-    user = await user_repo.get_by_email(db_session, email="admin2@example.com")
-    if user:
-        user.role = "Admin"
-        db_session.add(user)
-        await db_session.commit()
-    
-    # Login
-    login_res = await client.post("/api/v1/auth/login", data={
-        "username": "admin2@example.com",
-        "password": "Password123!"
-    })
-    return login_res.json()["access_token"]
-
 @pytest.mark.asyncio
 async def test_upload_rollback_on_db_failure(client: AsyncClient, admin_token: str, db_session):
     from app.main import app

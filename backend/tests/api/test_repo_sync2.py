@@ -12,7 +12,7 @@ def test_repo_raw():
         TestingSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=engine)
         
         async with TestingSessionLocal() as session:
-            await session.execute(text("INSERT INTO users (id, email, hashed_password, is_active, role, created_at, updated_at) VALUES ('123', 'a@b.c', 'hash', 1, 'customer', '2023-01-01 00:00:00', '2023-01-01 00:00:00')"))
+            await session.execute(text("INSERT INTO users (id, email, hashed_password, is_active, role, created_at, updated_at, tenant_id) VALUES ('123', 'a@b.c', 'hash', 1, 'customer', '2023-01-01 00:00:00', '2023-01-01 00:00:00', '123e4567-e89b-12d3-a456-426614174000')"))
             await session.commit()
             
             res = await session.execute(text("SELECT email FROM users"))

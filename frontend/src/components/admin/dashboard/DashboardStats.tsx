@@ -1,8 +1,10 @@
 import {
   MessageCircle,
   FileText,
-  AlertTriangle,
   BadgeCheck,
+  UserCheck,
+  Inbox,
+  Users
 } from "lucide-react";
 
 import { useEffect, useState } from "react";
@@ -31,16 +33,53 @@ function DashboardStats() {
         icon={<FileText className="w-7 h-7 md:w-9 md:h-9" />}
       />
 
+
       <StatCard
-        title="Open Reports"
-        value={stats ? stats.open_reports.toString() : "0"}
-        icon={<AlertTriangle className="w-7 h-7 md:w-9 md:h-9" />}
+        title="Unassigned Tickets"
+        value={stats ? stats.unassigned_tickets.toString() : "0"}
+        icon={<Inbox className="w-7 h-7 md:w-9 md:h-9" />}
+      />
+
+      <StatCard
+        title="Assigned Tickets"
+        value={stats ? stats.assigned_tickets.toString() : "0"}
+        icon={<UserCheck className="w-7 h-7 md:w-9 md:h-9" />}
+      />
+
+      <StatCard
+        title="Avg Agent Load"
+        value={stats && stats.average_agent_load !== null ? stats.average_agent_load.toString() : "0"}
+        icon={<Users className="w-7 h-7 md:w-9 md:h-9" />}
       />
 
       <StatCard
         title="Positive Feedback"
         value={stats && stats.positive_feedback !== null ? `${stats.positive_feedback}%` : "No Data"}
         icon={<BadgeCheck className="w-7 h-7 md:w-9 md:h-9" />}
+      />
+
+      <StatCard
+        title="Tickets With Notes"
+        value={stats ? stats.tickets_with_notes.toString() : "0"}
+        icon={<FileText className="w-7 h-7 md:w-9 md:h-9" />}
+      />
+
+      <StatCard
+        title="Avg Notes/Ticket"
+        value={stats && stats.average_notes_per_ticket !== null ? stats.average_notes_per_ticket.toString() : "0"}
+        icon={<MessageCircle className="w-7 h-7 md:w-9 md:h-9" />}
+      />
+
+      <StatCard
+        title="Auto Assigned Tickets"
+        value={stats ? stats.auto_assigned_tickets.toString() : "0"}
+        icon={<UserCheck className="w-7 h-7 md:w-9 md:h-9 text-cyan-500" />}
+      />
+
+      <StatCard
+        title="Manual Assignments"
+        value={stats ? stats.manual_assignments.toString() : "0"}
+        icon={<Users className="w-7 h-7 md:w-9 md:h-9 text-yellow-500" />}
       />
 
     </div>

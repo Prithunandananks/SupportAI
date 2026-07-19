@@ -16,13 +16,18 @@ import Analytics from "../pages/admin/Analytics";
 import CustomerProfile from "../pages/customer/Profile";
 import AdminProfile from "../pages/admin/Profile";
 import CustomerSettings from "../pages/customer/Settings";
-import AdminSettings from "../pages/admin/Settings";
 import NotFound from "../pages/shared/NotFound";
 
 
 import Notifications from "@/pages/customer/Notifications";
 import AdminTicketDetails from "../pages/admin/AdminTicketDetails";
 import AIQuality from "../pages/admin/AIQuality";
+import AdminDocumentDetails from "../pages/admin/AdminDocumentDetails";
+import OrganizationSettings from "../pages/admin/OrganizationSettings";
+import AuditLogs from "../pages/admin/AuditLogs";
+import ApiKeys from "../pages/admin/ApiKeys";
+import Webhooks from "../pages/admin/Webhooks";
+import SecurityOverview from "../pages/admin/SecurityOverview";
 
 function CustomerRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -56,7 +61,13 @@ function AppRoutes() {
       <Route path="/admin/quality" element={<AdminRoute><AIQuality /></AdminRoute>} />
       <Route path="/admin/conversations" element={<AdminRoute><Conversations /></AdminRoute>} />
       <Route path="/admin/analytics" element={<AdminRoute><Analytics /></AdminRoute>} />
+      <Route path="/admin/organization" element={<AdminRoute><OrganizationSettings /></AdminRoute>} />
+      <Route path="/admin/audit-logs" element={<AdminRoute><AuditLogs /></AdminRoute>} />
+      <Route path="/admin/api-keys" element={<AdminRoute><ApiKeys /></AdminRoute>} />
+      <Route path="/admin/webhooks" element={<AdminRoute><Webhooks /></AdminRoute>} />
+      <Route path="/admin/security" element={<AdminRoute><SecurityOverview /></AdminRoute>} />
       <Route path="/admin/flagged/:id" element={<AdminRoute><AdminTicketDetails /></AdminRoute>} />
+      <Route path="/admin/documents/:id" element={<AdminRoute><AdminDocumentDetails /></AdminRoute>} />
       <Route path="/profile" element={<CustomerRoute><CustomerProfile /></CustomerRoute>} />
       <Route path="/notifications" element={<CustomerRoute><Notifications /></CustomerRoute>} />
 
@@ -70,7 +81,7 @@ function AppRoutes() {
       />
       <Route
           path="/admin/settings"
-          element={<AdminRoute><AdminSettings /></AdminRoute>}
+          element={<Navigate to="/admin/organization" replace />}
       />
 
       <Route path="*" element={<NotFound />} />

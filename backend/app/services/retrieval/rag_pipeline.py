@@ -38,30 +38,41 @@ class RAGPipeline:
 
         contexts = []
         sources = []
+        attribution_metadata = []
         seen_docs = set()
 
+        rank = 1
         for result in search_results.points:
             payload = result.payload or {}
             text = payload.get("text", "")
             doc_id = payload.get("document_id", "unknown")
+            chunk_idx = payload.get("chunk_index", 0)
+            score = result.score or 0.0
             
             contexts.append(text)
+            
+            attribution_metadata.append({
+                "document_id": doc_id,
+                "chunk_index": chunk_idx,
+                "retrieval_score": score,
+                "rank": rank
+            })
+            rank += 1
             
             if doc_id not in seen_docs:
                 seen_docs.add(doc_id)
                 # Construct citation
                 filename = payload.get("filename", "unknown")
-                chunk_idx = payload.get("chunk_index", 0)
                 
                 sources.append(
                     SourceCitation(
                         filename=filename,
-                        retrieval_score=result.score
+                        retrieval_score=score
                     )
                 )
 
         if not contexts:
-            return "I couldn't find relevant information in the current knowledge base. Please try rephrasing your question or contact an administrator if you believe the information should exist.", []
+            return "I couldn't find relevant information in the current knowledge base. Please try rephrasing your question or contact an administrator if you believe the information should exist.", [], []
 
         history = []
         if session_id and self.memory_provider:
@@ -75,7 +86,7 @@ class RAGPipeline:
 
         answer = await self.llm.generate(prompt)
 
-        return answer, sources
+        return answer, sources, attribution_metadata
 
     async def run_stream(self, question: str, session_id: Optional[uuid.UUID] = None, override_history: Optional[List] = None):
         """
@@ -92,16 +103,28 @@ class RAGPipeline:
 
         contexts = []
         sources = []
+        attribution_metadata = []
         highest_score = 0.0
         seen_docs = set()
 
+        rank = 1
         for result in search_results.points:
             payload = result.payload or {}
             text = payload.get("text", "")
             doc_id = payload.get("document_id", "unknown")
+            chunk_idx = payload.get("chunk_index", 0)
+            score = result.score or 0.0
             
             contexts.append(text)
-            score = result.score or 0.0
+            
+            attribution_metadata.append({
+                "document_id": doc_id,
+                "chunk_index": chunk_idx,
+                "retrieval_score": score,
+                "rank": rank
+            })
+            rank += 1
+            
             if score > highest_score:
                 highest_score = score
                 
@@ -120,7 +143,7 @@ class RAGPipeline:
         if not contexts:
             yield {"content": "I couldn't find relevant information in the current knowledge base. Please try rephrasing your question or contact an administrator if you believe the information should exist."}
             if sources or confidence is not None:
-                yield {"sources": sources, "confidence": confidence}
+                yield {"sources": sources, "confidence": confidence, "attribution_metadata": attribution_metadata}
             return
 
         prompt = PromptBuilder.build_prompt(
@@ -133,4 +156,4 @@ class RAGPipeline:
             yield {"content": chunk}
             
         if sources:
-            yield {"sources": sources, "confidence": confidence}
+            yield {"sources": sources, "confidence": confidence, "attribution_metadata": attribution_metadata}

@@ -60,3 +60,36 @@ storage/
 test_25mb.pdf
 test_40mb.pdf
 test_50mb.pdf
+
+# Logs
+*.log
+error*.txt
+full_error.txt
+pytest_errors.log
+pytest_traceback.txt
+
+# Coverage
+pytest_coverage*.txt
+
+# Local DB
+*.db
+
+# Scratch
+scratch/
+*_trace.py
+*_traceback.txt
+
+# Temporary scripts
+fix_*.py
+run_test*.py
+script*.py
+append_test.py
+read_cov.py
+
+# Frontend temp scripts
+frontend/create_ui.py
+frontend/fix_ui.py
+frontend/update_imports.py
+
+# Lint outputs
+frontend/lint_*.txt

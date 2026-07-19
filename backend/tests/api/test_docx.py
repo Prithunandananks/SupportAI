@@ -4,30 +4,6 @@ import docx
 from httpx import AsyncClient
 from app.core.config import settings
 
-@pytest.fixture
-async def admin_token(client: AsyncClient, db_session):
-    # Register user
-    await client.post("/api/v1/auth/register", json={
-        "email": "docx_admin@example.com",
-        "password": "Password123!",
-        "first_name": "Docx",
-        "last_name": "Admin"
-    })
-    
-    # Promote to Admin
-    from app.repositories.user_repo import user_repo
-    user = await user_repo.get_by_email(db_session, email="docx_admin@example.com")
-    if user:
-        user.role = "Admin"
-        db_session.add(user)
-        await db_session.commit()
-    
-    # Login
-    login_res = await client.post("/api/v1/auth/login", data={
-        "username": "docx_admin@example.com",
-        "password": "Password123!"
-    })
-    return login_res.json()["access_token"]
 
 def create_valid_docx_bytes() -> bytes:
     doc = docx.Document()
@@ -58,6 +34,8 @@ async def test_upload_valid_docx(client: AsyncClient, admin_token: str):
         headers={"Authorization": f"Bearer {admin_token}"},
         files={"file": ("test_doc.docx", file_content, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")}
     )
+    if response.status_code != 201:
+        print("Upload failed with 403:", response.text)
     assert response.status_code == 201
     data = response.json()
     assert data["filename"] == "test_doc.docx"

@@ -3,6 +3,8 @@ import {
   BadgeCheck,
   ThumbsUp,
   AlertTriangle,
+  Users,
+  FileText
 } from "lucide-react";
 
 import StatCard from "../dashboard/StatCard";
@@ -10,7 +12,7 @@ import StatCard from "../dashboard/StatCard";
 export interface KPIData {
   title: string;
   value: string | number;
-  iconKey: "Chats" | "Confidence" | "Feedback" | "Flagged";
+  iconKey: "Chats" | "Confidence" | "Feedback" | "Flagged" | "Assignment" | "Notes";
   trend?: number;
   trendLabel?: string;
 }
@@ -20,6 +22,8 @@ const iconMap: Record<string, React.ReactNode> = {
   Confidence: <BadgeCheck size={34} />,
   Feedback: <ThumbsUp size={34} />,
   Flagged: <AlertTriangle size={34} />,
+  Assignment: <Users size={34} />,
+  Notes: <FileText size={34} />
 };
 
 interface Props {

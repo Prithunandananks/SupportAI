@@ -62,6 +62,10 @@ app = FastAPI(title="SupportAI", lifespan=lifespan)
 # Setup Rate Limiting
 setup_rate_limiting(app)
 
+# Security Headers
+from app.core.security_headers import SecurityHeadersMiddleware
+app.add_middleware(SecurityHeadersMiddleware)
+
 # CORS Configuration
 app.add_middleware(
     CORSMiddleware,
@@ -74,7 +78,7 @@ app.add_middleware(
 app.include_router(api_router, prefix="/api/v1")
 
 from fastapi.exceptions import RequestValidationError
-from app.core.exceptions import UnsupportedDocumentTypeError
+from app.core.exceptions import UnsupportedDocumentTypeError, TenantContextMissingError
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -90,6 +94,21 @@ async def global_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=500,
         content={"detail": "An unexpected error occurred. Please try again later."}
+    )
+
+@app.exception_handler(TenantContextMissingError)
+async def tenant_context_missing_handler(request: Request, exc: TenantContextMissingError):
+    req_id = getattr(request.state, "request_id", "unknown")
+    logger.error(json.dumps({
+        "event": "tenant_context_missing",
+        "error": "TenantContextMissingError",
+        "message": str(exc),
+        "request_id": req_id,
+        "endpoint": request.url.path,
+    }))
+    return JSONResponse(
+        status_code=403,
+        content={"detail": "Tenant context is missing or invalid. Access forbidden."}
     )
 
 @app.exception_handler(RequestValidationError)

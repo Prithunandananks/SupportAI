@@ -4,15 +4,25 @@ from rank_bm25 import BM25Okapi
 from app.db.qdrant import qdrant_db
 from app.core.config import settings
 from app.core.logger import logger
+from app.db.session import tenant_id_var
+from app.core.exceptions import TenantContextMissingError
 
 class BM25Service:
     def __init__(self):
-        self.corpus = []
-        self.payloads = []
-        self.bm25 = None
+        self.tenant_corpora = {}
+        self.tenant_payloads = {}
+        self.tenant_bm25 = {}
+
+    def _rebuild_tenant_index(self, tenant_id: str):
+        corpus = self.tenant_corpora.get(tenant_id, [])
+        if corpus:
+            self.tenant_bm25[tenant_id] = BM25Okapi(corpus)
 
     def add_chunks(self, chunks: List[Any]):
         """Add chunks to the BM25 index."""
+        current_tenant = str(tenant_id_var.get()) if tenant_id_var.get() else None
+
+        updated_tenants = set()
         for chunk in chunks:
             if hasattr(chunk, "text"):
                 text = chunk.text
@@ -21,12 +31,21 @@ class BM25Service:
                 text = chunk.get("text", "")
                 payload = chunk
                 
+            chunk_tenant = payload.get("tenant_id") or current_tenant
+            if not chunk_tenant:
+                continue
+                
+            if chunk_tenant not in self.tenant_corpora:
+                self.tenant_corpora[chunk_tenant] = []
+                self.tenant_payloads[chunk_tenant] = []
+                
             tokens = text.lower().split()
-            self.corpus.append(tokens)
-            self.payloads.append(payload)
+            self.tenant_corpora[chunk_tenant].append(tokens)
+            self.tenant_payloads[chunk_tenant].append(payload)
+            updated_tenants.add(chunk_tenant)
             
-        if self.corpus:
-            self.bm25 = BM25Okapi(self.corpus)
+        for t in updated_tenants:
+            self._rebuild_tenant_index(t)
 
     async def initialize_from_db(self):
         """Fetch all chunks from persistent storage to hydrate the in-memory BM25 index."""
@@ -43,7 +62,7 @@ class BM25Service:
             raw_payloads = [point.payload for point in points if point.payload]
             if raw_payloads:
                 self.add_chunks(raw_payloads)
-                logger.info(f"Successfully hydrated {len(raw_payloads)} documents into BM25 index.")
+                logger.info(f"Successfully hydrated {len(raw_payloads)} documents into BM25 index across {len(self.tenant_corpora)} tenants.")
             else:
                 logger.info("No existing documents found in Qdrant for BM25 hydration.")
         except Exception as e:
@@ -51,14 +70,23 @@ class BM25Service:
 
     async def search(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
         """Return a ranked list of pseudo-points based on BM25 scores."""
-        if not self.bm25 or not self.corpus:
+        tenant_id = tenant_id_var.get()
+        if not tenant_id:
+            raise TenantContextMissingError("Tenant context required for retrieval")
+            
+        tenant_id_str = str(tenant_id)
+        
+        tenant_bm25 = self.tenant_bm25.get(tenant_id_str)
+        tenant_corpus = self.tenant_corpora.get(tenant_id_str)
+        
+        if not tenant_bm25 or not tenant_corpus:
             return []
             
         tokens = query.lower().split()
         
         # Run blocking BM25 calculation in a separate thread
         import asyncio
-        scores = await asyncio.to_thread(self.bm25.get_scores, tokens)
+        scores = await asyncio.to_thread(tenant_bm25.get_scores, tokens)
         
         top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:limit]
         
@@ -66,7 +94,7 @@ class BM25Service:
         for i in top_indices:
             score = scores[i]
             if score > 0:
-                payload = self.payloads[i]
+                payload = self.tenant_payloads[tenant_id_str][i]
                 # Provide a unique ID for the result struct
                 point_id = str(uuid.uuid4())
                 results.append({

@@ -9,7 +9,11 @@ import asyncio
 # Overwrite config for testing
 from app.core.config import settings
 settings.DATABASE_URL = "sqlite+aiosqlite:///:memory:"
-settings.REDIS_URL = "redis://localhost:6379/15" # won't be connected in mocked tests
+settings.REDIS_URL = None # use memory instead
+
+# Disable rate limiting for tests to prevent 429s across tests
+from app.core.rate_limit import limiter
+limiter.enabled = False
 
 from app.core.security import pwd_context  # noqa: E402
 pwd_context.update(bcrypt__rounds=4)
@@ -43,7 +47,7 @@ async def db_session() -> AsyncGenerator:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         
-    TestingSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    TestingSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, expire_on_commit=False, bind=engine)
     
     async def override_get_db():
         async with TestingSessionLocal() as session:
@@ -65,13 +69,37 @@ async def client() -> AsyncGenerator[AsyncClient, None]:
         yield c
 
 @pytest.fixture
-async def user_token(client: AsyncClient):
-    await client.post("/api/v1/auth/register", json={
+async def user_token(client: AsyncClient, db_session):
+    # Register user
+    res = await client.post("/api/v1/auth/register", json={
         "email": "docuser@example.com",
         "password": "Password123!",
         "first_name": "Doc",
         "last_name": "User"
     })
+    
+    # We must explicitly create the tenant and membership since register might not create it anymore.
+    from app.repositories.user_repo import user_repo
+    from app.models.tenant import Tenant
+    from app.models.tenant_membership import TenantMembership, MembershipRole, MembershipStatus
+    import uuid
+    
+    user = await user_repo.get_by_email(db_session, email="docuser@example.com")
+    if user:
+        tenant = Tenant(name="Test Org", slug=f"org-{uuid.uuid4().hex[:8]}")
+        db_session.add(tenant)
+        await db_session.flush()
+        
+        user.tenant_id = tenant.id
+        membership = TenantMembership(
+            tenant_id=tenant.id,
+            user_id=user.id,
+            role=MembershipRole.SUPPORT_AGENT,
+            status=MembershipStatus.ACTIVE
+        )
+        db_session.add(membership)
+        await db_session.commit()
+
     login_res = await client.post("/api/v1/auth/login", data={
         "username": "docuser@example.com",
         "password": "Password123!"
@@ -88,20 +116,52 @@ async def admin_token(client: AsyncClient, db_session):
         "last_name": "User"
     })
     
-    # Promote to Admin
+    # Promote to Admin and create Membership
     from app.repositories.user_repo import user_repo
+    from app.models.tenant import Tenant
+    from app.models.tenant_membership import TenantMembership, MembershipRole, MembershipStatus
+    import uuid
+    
     user = await user_repo.get_by_email(db_session, email="admin@example.com")
     if user:
         user.role = "Admin"
-        db_session.add(user)
+        
+        # Create Tenant
+        tenant = Tenant(name="Test Organization", slug=f"org-{uuid.uuid4().hex[:8]}")
+        db_session.add(tenant)
+        await db_session.flush()
+        
+        user.tenant_id = tenant.id
+        
+        # Create Membership
+        membership = TenantMembership(
+            tenant_id=tenant.id,
+            user_id=user.id,
+            role=MembershipRole.OWNER,
+            status=MembershipStatus.ACTIVE
+        )
+        db_session.add(membership)
         await db_session.commit()
     
+
     # Login
     login_res = await client.post("/api/v1/auth/login", data={
         "username": "admin@example.com",
         "password": "Password123!"
     })
     return login_res.json()["access_token"]
+
+@pytest.fixture
+async def admin_user(db_session, admin_token):
+    from app.repositories.user_repo import user_repo
+    # Wait, the tests expect admin_user. The easiest way is to fetch it after login, or just let them fetch it.
+    # I'll create it directly.
+    user = await user_repo.get_by_email(db_session, email="admin@example.com")
+    return user
+
+@pytest.fixture
+def admin_token_headers(admin_token):
+    return {"Authorization": f"Bearer {admin_token}"}
 
 async def _mock_stream():
     words = ["This", " is", " a", " mocked", " response."]

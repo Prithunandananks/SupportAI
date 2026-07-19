@@ -87,6 +87,10 @@ async def get_current_user(
         raise credentials_exception
 
     import uuid
+    from app.db.session import tenant_id_var
+    if getattr(token_data, "tenant_id", None):
+        tenant_id_var.set(uuid.UUID(token_data.tenant_id))
+        
     user = await user_repo.get(db, id=uuid.UUID(token_data.sub))
     if not user:
         raise credentials_exception
@@ -101,11 +105,42 @@ async def get_current_active_user(
     return current_user
 
 
+async def get_current_membership(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    from app.db.session import tenant_id_var
+    from app.repositories.tenant_membership_repo import tenant_membership_repo
+    from app.models.tenant_membership import MembershipStatus
+
+    tenant_id = tenant_id_var.get(None)
+    if not tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tenant context in current session"
+        )
+        
+    membership = await tenant_membership_repo.get_by_user_and_tenant(db, current_user.id, tenant_id)
+    
+    if not membership or membership.status != MembershipStatus.ACTIVE:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not an active member of this organization"
+        )
+        
+    return membership
+
+
 def require_role(role: str):
     async def role_dependency(
-        current_user: User = Depends(get_current_active_user),
+        membership = Depends(get_current_membership),
+        current_user: User = Depends(get_current_active_user)
     ) -> User:
-        if current_user.role.lower() != role.lower():
+        allowed = [role.lower()]
+        if role.lower() == "admin":
+            allowed.append("owner")
+            
+        if membership.role.value.lower() not in allowed:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Operation requires {role} role",
@@ -113,3 +148,21 @@ def require_role(role: str):
         return current_user
 
     return role_dependency
+
+def require_permission(permission):
+    async def permission_dependency(
+        membership = Depends(get_current_membership),
+        current_user: User = Depends(get_current_active_user)
+    ):
+        from app.core.rbac import has_permission, Permission
+        # ensure permission is enum
+        perm = permission if isinstance(permission, Permission) else Permission(permission)
+        
+        if not has_permission(membership.role, perm):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Operation requires {perm.value} permission",
+            )
+        return membership
+
+    return permission_dependency

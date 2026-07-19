@@ -154,6 +154,14 @@ function AdminSidebar({
           Analytics
         </NavLink>
 
+        <NavLink
+          to="/admin/organization"
+          className={menuClass}
+        >
+          <ShieldAlert size={20} />
+          Organization
+        </NavLink>
+
       </nav>
 
       <button 

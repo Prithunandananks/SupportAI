@@ -39,6 +39,11 @@ class QdrantDatabase:
                 field_name="uploaded_by",
                 field_schema=rest.PayloadSchemaType.KEYWORD,
             )
+            await self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="tenant_id",
+                field_schema=rest.PayloadSchemaType.KEYWORD,
+            )
         else:
             logger.info(f"Qdrant collection '{self.collection_name}' already exists.")
 

@@ -1,3 +1,4 @@
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 import uuid
 from sqlalchemy import String, Text, Enum as SQLEnum, ForeignKey, DateTime
 from sqlalchemy.dialects.postgresql import UUID
@@ -30,13 +31,20 @@ class TicketCategory(str, enum.Enum):
 class TicketHistoryEvent(str, enum.Enum):
     CREATED = "CREATED"
     ASSIGNMENT_CHANGED = "ASSIGNMENT_CHANGED"
+    AUTO_ASSIGNED = "AUTO_ASSIGNED"
     STATUS_CHANGED = "STATUS_CHANGED"
     PRIORITY_CHANGED = "PRIORITY_CHANGED"
     CUSTOMER_CLOSED = "CUSTOMER_CLOSED"
     ADMIN_CLOSED = "ADMIN_CLOSED"
+    INTERNAL_NOTE_ADDED = "INTERNAL_NOTE_ADDED"
+    SLA_BREACHED = "SLA_BREACHED"
+    FIRST_RESPONSE_RECORDED = "FIRST_RESPONSE_RECORDED"
+    TICKET_RESOLVED_WITHIN_SLA = "TICKET_RESOLVED_WITHIN_SLA"
+    TICKET_RESOLVED_AFTER_SLA = "TICKET_RESOLVED_AFTER_SLA"
 
 class Ticket(Base):
     __tablename__ = "tickets"
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     ticket_number: Mapped[str] = mapped_column(String(20), unique=True, index=True, nullable=False)
@@ -56,15 +64,21 @@ class Ticket(Base):
     
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    assigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    first_response_due: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    resolution_due: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    first_response_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     
     customer = relationship("User", foreign_keys=[customer_id], backref="tickets_created")
     assigned_admin = relationship("User", foreign_keys=[assigned_admin_id], backref="tickets_assigned")
     messages = relationship("TicketMessage", back_populates="ticket", cascade="all, delete-orphan")
+    internal_notes = relationship("TicketInternalNote", back_populates="ticket", cascade="all, delete-orphan")
     history = relationship("TicketStatusHistory", back_populates="ticket", cascade="all, delete-orphan")
 
 class TicketMessage(Base):
     __tablename__ = "ticket_messages"
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     ticket_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tickets.id", ondelete="CASCADE"), index=True, nullable=False)
@@ -78,6 +92,7 @@ class TicketMessage(Base):
 
 class TicketStatusHistory(Base):
     __tablename__ = "ticket_status_history"
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
     
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     ticket_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tickets.id", ondelete="CASCADE"), index=True, nullable=False)
@@ -89,3 +104,18 @@ class TicketStatusHistory(Base):
     
     ticket = relationship("Ticket", back_populates="history")
     changer = relationship("User")
+
+class TicketInternalNote(Base):
+    __tablename__ = "ticket_internal_notes"
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    ticket_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tickets.id", ondelete="CASCADE"), index=True, nullable=False)
+    author_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    
+    ticket = relationship("Ticket", back_populates="internal_notes")
+    author = relationship("User")

@@ -11,6 +11,7 @@ class TokenPayload(BaseModel):
     sub: str | None = None
     role: str | None = None
     type: str | None = None
+    tenant_id: str | None = None
 
 
 class TokenRefreshRequest(BaseModel):

@@ -23,8 +23,9 @@ class UserRepository(BaseRepository[User, UserCreate]):
             hashed_password=get_password_hash(obj_in.password),
             first_name=obj_in.first_name,
             last_name=obj_in.last_name,
-            role="Customer",
+            role="Customer", # Legacy role
             is_active=True,
+            tenant_id=None
         )
         db.add(db_obj)
         await db.commit()

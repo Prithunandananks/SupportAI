@@ -57,6 +57,11 @@ export const authService = {
     return mapUser(response.data);
   },
 
+  async getAdmins(): Promise<User[]> {
+    const response = await apiClient.get<RawUser[]>("/users/admins");
+    return response.data.map(mapUser);
+  },
+
   logout(): void {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");

@@ -23,6 +23,7 @@ from app.schemas.chat_session import (
     ChatSessionUpdate
 )
 from app.models.user import User
+from app.core.rate_limit import limiter
 from app.models.chat import FeedbackEnum
 from app.models.ticket import Ticket, TicketCategory, TicketStatus
 from app.repositories.ticket_repo import ticket_repo
@@ -48,6 +49,7 @@ def get_chat_orchestrator(
 
 
 @router.post("", response_model=ChatResponse, summary="Send a message to the AI assistant")
+@limiter.limit("60/minute")
 async def chat_endpoint(
     request: Request,
     chat_req: ChatRequest,
@@ -67,6 +69,7 @@ async def chat_endpoint(
     return ChatResponse(answer=answer, sources=sources)
 
 @router.post("/stream", summary="Send a message to the AI assistant and stream the response")
+@limiter.limit("60/minute")
 async def chat_stream_endpoint(
     request: Request,
     chat_req: ChatRequest,

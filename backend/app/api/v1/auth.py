@@ -36,6 +36,7 @@ import json
 @router.post(
     "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
 )
+@limiter.limit("5/minute")
 async def register(request: Request, user_in: UserCreate, db: AsyncSession = Depends(deps.get_db)) -> Any:
     user = await user_repo.get_by_email(db, email=user_in.email)
     req_id = getattr(request.state, "request_id", "unknown")
@@ -60,6 +61,7 @@ async def register(request: Request, user_in: UserCreate, db: AsyncSession = Dep
 
 
 @router.post("/login", response_model=Token)
+@limiter.limit("5/minute")
 async def login(
     request: Request,
     db: AsyncSession = Depends(deps.get_db),
@@ -93,8 +95,8 @@ async def login(
     }))
     
     return {
-        "access_token": create_access_token(user.id, user.role),
-        "refresh_token": create_refresh_token(user.id, user.role),
+        "access_token": create_access_token(user.id, user.role, user.tenant_id),
+        "refresh_token": create_refresh_token(user.id, user.role, user.tenant_id),
         "token_type": "bearer",
     }
 
@@ -126,7 +128,7 @@ async def refresh_token(
         raise HTTPException(status_code=401, detail="User not found or inactive")
 
     return {
-        "access_token": create_access_token(user.id, user.role),
+        "access_token": create_access_token(user.id, user.role, user.tenant_id),
         "refresh_token": request.refresh_token,
         "token_type": "bearer",
     }
@@ -211,3 +213,36 @@ async def reset_password(
     await db.commit()
     
     return {"message": "Password has been successfully reset."}
+
+class TenantSwitchRequest(BaseModel):
+    tenant_id: str
+
+@router.post("/switch-tenant", response_model=Token)
+async def switch_tenant(
+    request: TenantSwitchRequest,
+    current_user = Depends(deps.get_current_active_user),
+    db: AsyncSession = Depends(deps.get_db)
+) -> Any:
+    import uuid
+    from app.repositories.tenant_membership_repo import tenant_membership_repo
+    from app.models.tenant_membership import MembershipStatus
+    
+    try:
+        tenant_uuid = uuid.UUID(request.tenant_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid tenant ID")
+
+    membership = await tenant_membership_repo.get_by_user_and_tenant(db, current_user.id, tenant_uuid)
+    
+    if not membership or membership.status != MembershipStatus.ACTIVE:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not an active member of this organization"
+        )
+        
+    return {
+        "access_token": create_access_token(current_user.id, current_user.role, tenant_uuid),
+        "refresh_token": create_refresh_token(current_user.id, current_user.role, tenant_uuid),
+        "token_type": "bearer",
+    }
+

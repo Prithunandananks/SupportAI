@@ -49,6 +49,7 @@ export interface Ticket {
   customer_comment?: string;
   created_at: string;
   updated_at: string;
+  assigned_at?: string;
   closed_at?: string;
 }
 
@@ -61,12 +62,34 @@ export interface TicketStatusHistory {
   created_at: string;
 }
 
+export interface TicketInternalNote {
+  id: string;
+  ticket_id: string;
+  author_id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface TicketDetail extends Ticket {
   messages: TicketMessage[];
   history: TicketStatusHistory[];
 }
 
-export type AdminTicketDetail = TicketDetail;
+export interface AdminTicketResponse extends Ticket {
+  first_response_due?: string;
+  resolution_due?: string;
+  first_response_at?: string;
+  is_breached: boolean;
+  is_overdue: boolean;
+  is_due_soon: boolean;
+}
+
+export interface AdminTicketDetail extends AdminTicketResponse {
+  messages: TicketMessage[];
+  history: TicketStatusHistory[];
+  internal_notes: TicketInternalNote[];
+}
 
 export const ticketService = {
   // Customer Methods
@@ -101,7 +124,7 @@ export const ticketService = {
     if (status) params.append('status', status);
     if (priority) params.append('priority', priority);
     if (isFlagged !== undefined) params.append('is_flagged', isFlagged.toString());
-    const response = await apiClient.get<Ticket[]>(`/admin/tickets?${params.toString()}`);
+    const response = await apiClient.get<AdminTicketResponse[]>(`/admin/tickets?${params.toString()}`);
     return response.data;
   },
   
@@ -110,18 +133,40 @@ export const ticketService = {
     return response.data;
   },
   
-  assignTicket: async (id: string) => {
-    const response = await apiClient.patch<Ticket>(`/admin/tickets/${id}/assign`);
+  assignTicket: async (id: string, assigneeId?: string) => {
+    const response = await apiClient.patch<AdminTicketResponse>(`/admin/tickets/${id}/assign`, {
+      assignee_id: assigneeId
+    });
+    return response.data;
+  },
+  
+  unassignTicket: async (id: string) => {
+    const response = await apiClient.patch<AdminTicketResponse>(`/admin/tickets/${id}/unassign`);
+    return response.data;
+  },
+  
+  getAssignedToMe: async () => {
+    const response = await apiClient.get<AdminTicketResponse[]>('/admin/tickets/assigned/me');
+    return response.data;
+  },
+  
+  getUnassigned: async () => {
+    const response = await apiClient.get<AdminTicketResponse[]>('/admin/tickets/unassigned');
     return response.data;
   },
   
   updateTicketStatus: async (id: string, status: TicketStatus) => {
-    const response = await apiClient.patch<Ticket>(`/admin/tickets/${id}/status`, { status });
+    const response = await apiClient.patch<AdminTicketResponse>(`/admin/tickets/${id}/status`, { status });
     return response.data;
   },
   
   adminReplyToTicket: async (id: string, message: string) => {
     const response = await apiClient.post<TicketMessage>(`/admin/tickets/${id}/messages`, { message });
+    return response.data;
+  },
+  
+  adminAddInternalNote: async (id: string, content: string) => {
+    const response = await apiClient.post<TicketInternalNote>(`/admin/tickets/${id}/notes`, { content });
     return response.data;
   }
 };
